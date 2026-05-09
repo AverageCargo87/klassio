@@ -3,12 +3,34 @@
 > Источники:
 > - `PROJECT.md` — core value, locked decisions, anti-scope, invariants.
 > - `REQUIREMENTS.md` — 21 v1 requirements с ID и acceptance criteria.
+> - `COSTS.md` — unit-экономика, fixed/variable rollout по фазам, tracking фактов.
 > - `.planning/intel/SYNTHESIS.md` — synthesis обзор от ingest pipeline.
 >
 > v1 success metric — один полный 45-минутный урок проходит end-to-end без вмешательства разработчика (ребёнок открывает ссылку → ЛК → урок → запись в ЛК).
 >
 > Granularity: **fine** (8–12 фаз). Текущий план: **12 фаз**.
 > Дата: 2026-05-09.
+
+---
+
+## Cost rollout по фазам (краткая шкала; полные оценки и tracking — в [COSTS.md](COSTS.md))
+
+| Phase | Δ Fixed/мес | Δ Variable/lesson | Кумулятив fixed/мес | Кумулятив variable/lesson |
+|---|---|---|---|---|
+| 1 | +1 850 ₽ (Vercel Pro + домен + Supabase Free) | 0 | 1 850 ₽ | 0 ₽ |
+| 2 | 0 | 0 | 1 850 ₽ | 0 ₽ |
+| 3 | 0 | 0 | 1 850 ₽ | 0 ₽ |
+| 4 | +800 ₽ (Hetzner) | +3 ₽ (gpt-4o-mini) | 2 650 ₽ | 3 ₽ |
+| 5 | 0 | +2 ₽ (сцены, чуть больше токенов) | 2 650 ₽ | 5 ₽ |
+| 6 | **+8 900 ₽ (11labs Pro)** ⚠️ | **+135 ₽ (TTS)** | 11 550 ₽ | 140 ₽ |
+| 7 | 0 | 0 | 11 550 ₽ | 140 ₽ |
+| 8 | 0 | +40–80 ₽ (gpt-4o Pedagogical) | 11 550 ₽ | 180–220 ₽ |
+| 9 | 0 (one-time дизайн ~5–15k ₽) | 0 | 11 550 ₽ | 180–220 ₽ |
+| 10 | +450 ₽ (R2) | +25 ₽ (Whisper если нужен) | 12 000 ₽ | 205–245 ₽ |
+| 11 | 0 | 0 | 12 000 ₽ | 205–245 ₽ |
+| 12 | 0 | 0 | **12 000 ₽** | **205–245 ₽** |
+
+**Цели VISION:** fixed < 15 000 ₽/мес, variable < 200 ₽/lesson. Phase 6 — главный watermark; Phase 8 опасно близко к верхней границе variable. Перед Phase 6 верифицировать тариф 11labs (Pro vs Business).
 
 ---
 
