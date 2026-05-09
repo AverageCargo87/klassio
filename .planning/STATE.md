@@ -1,3 +1,17 @@
+---
+gsd_state_version: 1.0
+milestone: v2.5
+milestone_name: milestone
+status: unknown
+last_updated: "2026-05-09T18:42:59.628Z"
+progress:
+  total_phases: 12
+  completed_phases: 0
+  total_plans: 6
+  completed_plans: 0
+  percent: 0
+---
+
 # Klassio — STATE
 
 > Project memory. Где мы сейчас, что уже решено, что блокирует.
@@ -22,14 +36,15 @@
 ## Current Position
 
 - **Current phase**: Phase 1 — ЛК — оболочка, авторизация, список уроков.
-- **Current plan**: TBD (CONTEXT.md создан, plans ещё нет — вызов `/gsd-plan-phase 1` ожидается).
-- **Status**: CONTEXT.md залочен (4/4 areas обсуждены), готовы к планированию.
-- **Progress (overall v1)**: `[░░░░░░░░░░░░░░░░░░░░] 0/12 phases complete`.
-- **Resume file**: `.planning/phases/01-account-shell/01-CONTEXT.md`
+- **Current plan**: 6 plans в 6 wave-ах созданы и провалидированы. Готовы к execute.
+- **Status**: **Ready to execute** (PLAN.md ×6 + RESEARCH.md + VALIDATION.md залочены, checker passed на revision 1).
+- **Progress (overall v1)**: `[░░░░░░░░░░░░░░░░░░░░] 0/12 phases complete · 0/6 plans complete`.
+- **Resume file**: `.planning/phases/01-account-shell/01-01-PLAN.md` (Wave 1).
 
 ### Recent transitions
 
-- **2026-05-09 (#3 — discuss-phase 1)**: Phase 1 CONTEXT.md создан (interactive mode, 4 areas: Auth, Foundation tech, Visual, URL/routing). 18 implementation decisions залочены (D-01..D-18). **Auth-модель Phase 1 значительно изменилась** vs initial roadmap: с «personal token-in-URL для ребёнка» на «email magic link для родителя + child uses parent session». ACC-01 и INV-01 в REQUIREMENTS.md обновлены под новую модель. Stack picks: NextAuth.js v5, Drizzle ORM, shadcn/ui. Visual design выносится в Claude Design (Anthropic SaaS) — Phase 1 implementation не блокируется на дизайне. Готовы к `/gsd-plan-phase 1`.
+- **2026-05-09 (#4 — plan-phase 1)**: Phase 1 разобрана на **6 PLAN.md в 6 волнах** (Wave 1 scaffold → Wave 6 E2E + production deploy). Research проведён (NextAuth v5 split-config, Drizzle pooler/direct, Tailwind v4 quirks, A1 silent-drop рекомендация). VALIDATION.md создан (vitest + Playwright). Plan checker нашёл 3 BLOCKER + 1 WARNING + 2 INFO на iteration 1 — все исправлены revision'ом (frontmatter completeness, schema test robustness, comment accuracy). Coverage: ACC-01 (6 plans), ACC-02 (4), INV-01 (4) — все 100%. **Wave 2 и Wave 6 — `autonomous: false`** (требуют human-in-loop для external account provisioning + production deploy + RU email deliverability check).
+- **2026-05-09 (#3 — discuss-phase 1)**: Phase 1 CONTEXT.md создан (interactive mode, 4 areas: Auth, Foundation tech, Visual, URL/routing). 18 implementation decisions залочены (D-01..D-18). **Auth-модель Phase 1 значительно изменилась** vs initial roadmap: с «personal token-in-URL для ребёнка» на «email magic link для родителя + child uses parent session». ACC-01 и INV-01 в REQUIREMENTS.md обновлены под новую модель. Stack picks: NextAuth.js v5, Drizzle ORM, shadcn/ui. Visual design выносится в Claude Design (Anthropic SaaS) — Phase 1 implementation не блокируется на дизайне.
 - **2026-05-09 (#2 — costs)**: Создан COSTS.md с unit-экономикой (target variable < 200 ₽/lesson, fixed ~12k ₽/мес, break-even 15 уроков/мес). Phase 6 — главный watermark по расходам.
 - **2026-05-09 (#1 — ingest)**: Ingest pipeline завершён, intel synthesis готов (3 docs, 18 requirements, 18 constraints, 8 de-facto decisions, 0 conflicts). Юзер залочил v1 scope и granularity (fine). PROJECT.md, REQUIREMENTS.md, ROADMAP.md, STATE.md созданы.
 
@@ -98,8 +113,10 @@
 
 ### Active todos
 
-- Запустить `/gsd-plan-phase 1` для разбора Phase 1 на планы (CONTEXT.md готов).
-- (Опционально) формализовать какое-либо из 8 locked decisions как ADR через `/gsd-add-decision` — синтез предлагает рассматривать DEC-deploy-architecture, DEC-llm-architecture-tier и DEC-voice-provider-mvp как кандидатов на формальные ADRs.
+- Запустить `/gsd-execute-phase 1` для исполнения 6 планов wave-by-wave.
+- Wave 2 потребует human-in-loop: создать Vercel + Supabase + Resend аккаунты, выбрать Vercel Hobby vs Pro, разрешить A1 conflict (CONTEXT.md D-02 silent-drop update).
+- Wave 6 потребует human-in-loop: production deploy на Vercel + manual RU email deliverability test (mail.ru / yandex.ru / gmail.com).
+- (Опционально) формализовать какое-либо из 8 locked decisions как ADR через `/gsd-add-decision`.
 - (Параллельно) ты ведёшь визуальный дизайн ЛК в Claude Design (https://claude.com/design); как появятся макеты — переносим tokens (цвета, типографика) в `tailwind.config` Klassio.
 
 ### Active blockers
@@ -110,8 +127,8 @@
 
 ## Session Continuity
 
-- **Last session**: 2026-05-09 — ingest + planning files generation. Завершено успешно.
-- **Next session entry point**: `/gsd-plan-phase 1` — разобрать Phase 1 на планы.
+- **Last session**: 2026-05-09 — Phase 1 planning завершено (6 plans, checker passed после revision 1).
+- **Next session entry point**: `/gsd-execute-phase 1` — исполнить 6 планов wave-by-wave (с двумя human-in-loop checkpoints).
 - **What new Claude Code session needs to read first** (порядок):
   1. `PROJECT.md` — core value, locked decisions, anti-scope, invariants.
   2. `STATE.md` (этот файл) — где мы сейчас, что блокирует.
@@ -120,3 +137,5 @@
   5. (По необходимости) `.planning/intel/constraints.md` — для специфических технических ограничений.
   6. (По необходимости) `BOARD-STATUS.md` и `.planning/intel/context.md` — для grаблищ прошлых сессий и сетевой саги.
 - **Что НЕ нужно перечитывать каждую сессию**: VISION.md (core отжата в PROJECT.md), BOARD-STACK.md (контракты в `.planning/intel/constraints.md`).
+
+**Planned Phase:** 01 (ЛК — оболочка, авторизация, список уроков) — 6 plans — 2026-05-09T18:42:59.621Z
