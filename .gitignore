@@ -6,3 +6,31 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Planning codebase snapshots (GSD internal)
+.planning/codebase
+
+# Next.js
+.next/
+out/
+build/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Env
+.env*.local
+.env
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Test artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Drizzle
+drizzle/meta/_journal.json.bak
