@@ -28,11 +28,11 @@
 | Сервис | Когда нужен (фаза) | Цена/мес | План | Заметка / альтернативы |
 |---|---|---|---|---|
 | Domain `.ru` или `.com` | Phase 1 | ~50 ₽ (~600 ₽/год) | reg.ru / nic.ru | Один раз в год, не subscription |
-| Vercel | Phase 1 | $20 ≈ 1 800 ₽ | Pro | Free тоже работает для v1 (10–20 уроков/день), но без commercial use → нужен Pro для платного продукта |
+| Vercel | Phase 1 | 0 → $20 ≈ 1 800 ₽ | **Hobby сейчас → Pro перед Phase 4** | Hobby для Phase 1–3 dev/testing (0 ₽). Upgrade to Pro перед первым beta-юзером (Phase 4 prod-deploy). Решение зафиксировано 2026-05-09, plan 01-02. |
 | Cloudflare | Phase 4 | 0 | Free | Free тарифа достаточно для v1 |
 | Hetzner Frankfurt VPS | Phase 4 | €8 ≈ 800 ₽ | CX22 (2 vCPU, 4 GB RAM) | Любой нероссийский VPS подойдёт; нужен только для backend-прокси |
 | 11labs Conversational AI | Phase 6 | **$99 ≈ 8 900 ₽** | Pro (требуется Custom LLM endpoint) | ⚠️ **Открытый вопрос:** подтвердить, что Custom LLM endpoint включён в Pro. Если только в Business ($1320/мес) — экономика ломается. |
-| Database | Phase 1 | 0–$25 | Supabase Free → Pro | Free хватит до ~50 пользователей; Pro $25 при росте |
+| Database | Phase 1 | 0–$25 | **Neon Free** (переключились с Supabase — plan 01-02) | Free хватит до ~50 пользователей; Neon Pro при росте. Нeon eu-central-1 Frankfurt, Postgres 17.8. |
 | Object storage (записи) | Phase 10 | ~$1–5 ≈ 100–450 ₽ | Cloudflare R2 (10 GB free) | Цена растёт с количеством записей; см. variable секцию |
 | Email (auth-ссылки) | Phase 1 | 0 | Resend Free (3 000/мес) | Postmark $15 как fallback при росте |
 
@@ -41,7 +41,7 @@
 | Стадия | Fixed/мес | Что включено |
 |---|---|---|
 | Pre-Phase 1 | 0 | Только разовые: домен (~50 ₽/мес амортизированно) + OpenAI deposit |
-| После Phase 1 (только ЛК) | ~1 850 ₽ | Domain + Vercel Pro + Supabase Free + Resend Free |
+| После Phase 1 (только ЛК) | ~0 ₽ (текущий) / ~1 850 ₽ (после Phase 4 апгрейда) | Vercel Hobby + Neon Free + Resend Free (домен ещё не куплен); перед Phase 4: + Vercel Pro $20 + домен |
 | После Phase 4 (доска в проде) | ~2 650 ₽ | + Hetzner + Cloudflare Free |
 | После Phase 6 (с голосом) | **~11 550 ₽** | + 11labs Pro (резкий скачок) |
 | После Phase 10 (с записями) | ~12 000 ₽ | + R2 storage |
@@ -103,7 +103,7 @@
 
 | # | Phase | Новые fixed | Новые variable | Кумулятив fixed/мес | Кумулятив variable/lesson |
 |---|---|---|---|---|---|
-| 1 | ЛК + auth | Domain, Vercel Pro, Supabase Free | — | ~1 850 ₽ | 0 ₽ |
+| 1 | ЛК + auth | Neon Free, Resend Free (Vercel Hobby — no cost; домен ещё не куплен) | — | ~0 ₽ (Hobby) → ~1 850 ₽ перед Phase 4 (Pro + домен) | 0 ₽ |
 | 2 | Расписание + admin | — | — | ~1 850 ₽ | 0 ₽ |
 | 3 | Lesson page shell | — | — | ~1 850 ₽ | 0 ₽ |
 | 4 | Deploy + порт доски | Hetzner, Cloudflare Free | gpt-4o-mini для доски | ~2 650 ₽ | ~3 ₽ |
@@ -141,7 +141,7 @@
 2. **Размер записи урока** — 50 MB оценка. Может быть 100–200 MB если хранить аудио + видео экрана + транскрипт. **Resolve в Phase 10.**
 3. **Whisper STT vs 11labs встроенный транскрипт** — попытаться выжать транскрипт из 11labs Conversational AI бесплатно. Если нет — Whisper $25/lesson. **Resolve в Phase 6/10.**
 4. **GigaChat / YandexGPT для Pedagogical LLM** — российские LLM в 5–10× дешевле gpt-4o, но слабее в function calling. Тесты надо делать. **Не блокер v1**, но потенциал v2 для снижения variable cost на ~30 ₽/lesson.
-5. **Vercel Pro $20 vs Free** — Pro нужен для commercial use (платный продукт). Технически Free тоже работает, но это нарушение ToS. **Закладываем Pro.**
+5. **Vercel Pro $20 vs Hobby** — **RESOLVED (2026-05-09, plan 01-02)**: Hobby для Phase 1–3 dev/testing (0 ₽). Upgrade to Pro ($20/мес) перед Phase 4 первым beta-юзером. ToS соблюдается: Hobby = personal non-commercial use (только разработчик). Pro нужен с момента коммерческого использования. TODO добавлено в STATE.md Active todos.
 6. **Курс рубля к доллару** — все импортные сервисы привязаны к $. При сильном падении рубля fixed costs растут пропорционально. **Risk hedge:** считать unit-экономику с запасом 30%.
 
 ---
@@ -153,6 +153,8 @@
 | Дата | Событие | Сумма | Категория | Заметка |
 |---|---|---|---|---|
 | 2026-05-09 | COSTS.md создан | — | — | Базовые оценки, факта пока нет |
+| 2026-05-09 | Vercel plan choice (Phase 1) | 0 ₽/мес | fixed | Hobby для dev/testing фаз 1–3. Upgrade to Pro перед первым beta-юзером (Phase 4). TODO добавлено в STATE.md. |
+| 2026-05-09 | DB provider: Supabase Free → Neon Free | 0 ₽/мес | fixed | Neon eu-central-1 Frankfurt, Postgres 17.8. Переключились из-за $40 долга на Supabase аккаунте пользователя. Код Postgres-агностичен — меняется только URL в .env.local. 0 ₽/мо fixed cost сохранён. |
 | | | | | |
 
 **Подсказка для будущих сессий:** при добавлении строки фиксируй (а) точную сумму в исходной валюте, (б) курс конвертации на дату, (в) категорию (fixed/variable/one-time). Так через 6 месяцев можно будет посчитать реальный CAC, LTV и unit-экономику без археологии.

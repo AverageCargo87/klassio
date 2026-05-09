@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: unknown
-last_updated: "2026-05-09T19:05:00Z"
+status: executing
+last_updated: "2026-05-09T20:30:00Z"
 progress:
   total_phases: 12
   completed_phases: 0
   total_plans: 6
-  completed_plans: 1
+  completed_plans: 2
   percent: 17
 ---
 
@@ -127,13 +127,9 @@ Plan: 2 of 6
 ### Active todos
 
 - ✅ Plan 01-01 Bootstrap — complete (3 tasks, 5 tests passing).
-- **NEXT: Plan 01-02** — human-in-loop required before execution:
-  1. Create Supabase project → get DATABASE_URL (pooler 6543) + DATABASE_URL_DIRECT (direct 5432)
-  2. Create Resend account → get AUTH_RESEND_KEY
-  3. Generate AUTH_SECRET via `npx auth secret`
-  4. Fill `.env.local` with all 4 required vars
-  5. Then run executor for Plan 01-02 (Drizzle schema + migrations)
-- Wave 2 потребует human-in-loop: создать Vercel + Supabase + Resend аккаунты, выбрать Vercel Hobby vs Pro, разрешить A1 conflict (CONTEXT.md D-02 silent-drop update).
+- ✅ Plan 01-02 Account provisioning — complete (Neon + Resend + AUTH_SECRET provisioned; A1 silent-drop resolved; Vercel Hobby decision recorded).
+- **NEXT: Plan 01-03** — Drizzle schema push to live Neon DB + seed admin user. `autonomous: true` — no human-in-loop needed. DATABASE_URL and DATABASE_URL_DIRECT verified working.
+- **Phase 4 prerequisite:** Перед Phase 4 (production deploy) апгрейднуть Vercel **Hobby → Pro** ($20/мо). Hobby ToS запрещает commercial use — как только первый beta-юзер откроет URL, нужен Pro. Решение зафиксировано в плане 01-02 SUMMARY и COSTS.md § 7 Tracking.
 - Wave 6 потребует human-in-loop: production deploy на Vercel + manual RU email deliverability test (mail.ru / yandex.ru / gmail.com).
 - (Опционально) формализовать какое-либо из 8 locked decisions как ADR через `/gsd-add-decision`.
 - (Параллельно) ты ведёшь визуальный дизайн ЛК в Claude Design (https://claude.com/design); как появятся макеты — переносим tokens (цвета, типографика) в `tailwind.config` Klassio.

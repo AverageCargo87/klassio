@@ -14,7 +14,7 @@ Phase 1 строит **минимальный личный кабинет (ЛК)
 **В скоупе:**
 - Email magic link auth (NextAuth.js v5 + Resend)
 - Email whitelist в БД (анти-рандом для MVP)
-- Базовая модель данных (User, Lesson) через Drizzle ORM на Supabase Postgres
+- Базовая модель данных (User, Lesson) через Drizzle ORM на Neon Postgres
 - Routes: `/login`, `/lessons`, `/no-access`, `/api/auth/*`
 - Auto-redirect с `/` на `/lessons` (если залогинен) или `/login` (если нет)
 - shadcn/ui + Tailwind v4 как foundation для UI
@@ -37,7 +37,13 @@ Phase 1 строит **минимальный личный кабинет (ЛК)
 ### Auth model
 
 - **D-01 — Email magic link auth (passwordless).** Родитель вводит email на `/login` → получает ссылку для входа на email → клик в email → залогинен. Никаких форм пароль/повторный пароль/captcha.
-- **D-02 — Email whitelist в БД для анти-рандом.** Только email из таблицы `allowed_emails` (или эквивалент в `users.allowed=true`) может запросить magic link. Чужой email → запрос принимается формой, но письмо НЕ отправляется (чтобы не давать информацию о существующих юзерах) И сразу redirect на `/no-access`. Admin вручную добавляет email в whitelist через seed-скрипт / прямой SQL.
+- **D-02 — Email whitelist в БД для анти-рандом (resolved 2026-05-09, plan 01-02).** Только email из таблицы `allowed_emails` может запросить magic link. UX поведение для не-whitelisted email: **silent drop** (security best practice).
+  - Whitelisted email: signIn callback returns true → NextAuth генерирует token → Resend отправляет письмо → user видит на `/login?sent=1` баннер «Если ваш email в нашем списке, мы отправили ссылку. Проверьте почту.»
+  - Non-whitelisted email: signIn callback returns false → NextAuth НЕ отправляет письмо → user редиректится на ТУ ЖЕ страницу `/login?sent=1` с тем же баннером (НЕ на `/no-access`).
+  - Rationale: разные ответы для whitelisted vs non-whitelisted leak whitelist content via timing/redirect difference (user enumeration attack — OWASP ASVS V3.2). Single response = attacker не может определить, существует ли email в системе.
+  - `/no-access` остаётся как landing для просроченных/невалидных magic link click'ов (где attacker уже имеет token и пытается его использовать после expiry — там разница ответов уже не важна, наоборот, user должен понять что link expired).
+  - Admin вручную добавляет email через seed-скрипт / прямой SQL (полный admin UI — Phase 2 / ACC-04).
+  - **Note:** This resolves research assumption A1. Original CONTEXT D-02 wording said "redirect на /no-access" for non-whitelisted; the security-best-practice silent drop is a refinement, not a contradiction (D-02 rationale "не давать информацию о существующих юзерах" is preserved more strongly).
 - **D-03 — Один родитель = один ребёнок в v1.** Для упрощения. Имя/возраст ребёнка — поля в профиле родителя (или отдельная таблица `children` с FK на `users`, но в v1 жёстко 1:1). Multi-child — v2.
 - **D-04 — Persistence: httpOnly secure cookie, expiry 1 год.** После клика magic link сервер ставит cookie. Повторно логиниться не нужно.
 - **D-05 — Multi-device permissive.** Cookie работает на любом устройстве, где она установлена. Никаких device-bound токенов. Реалистично: один родительский комп — но не блокируем перенос.
@@ -48,7 +54,7 @@ Phase 1 строит **минимальный личный кабинет (ЛК)
 ### Foundation tech picks
 
 - **D-09 — NextAuth.js v5 (Auth.js) для auth.** Стандарт в Next.js, magic link через Resend adapter, OAuth providers будут готовы для v2.
-- **D-10 — Drizzle ORM для Supabase Postgres.** Лёгкий (~2 KB), edge-compatible, быстрый cold start на Vercel, TypeScript types из схемы. Сейчас дефолт в Next.js экосистеме.
+- **D-10 — Drizzle ORM для Postgres-as-a-service (Neon в Phase 1).** Лёгкий (~2 KB), edge-compatible, быстрый cold start на Vercel, TypeScript types из схемы. Сейчас дефолт в Next.js экосистеме. **Deviation note (2026-05-09, plan 01-02):** изначально планировался Supabase, переключились на **Neon** (eu-central-1 Frankfurt, Postgres 17.8) из-за внешнего ограничения у пользователя ($40 долг на Supabase аккаунте). Код Postgres-агностичен: меняется только URL в `.env.local`. Если в будущем понадобится PgBouncer-specific фича или RLS — можно вернуться к Supabase или мигрировать на любой managed Postgres.
 - **D-11 — shadcn/ui + Tailwind v4 как foundation.** Copy-paste компоненты в `components/ui/`, ты владеешь кодом, легко перекрашивать под Claude Design output.
 
 ### Visual design pipeline
@@ -72,9 +78,9 @@ Phase 1 строит **минимальный личный кабинет (ЛК)
 
 ### Cost rollout (для трекинга, см. COSTS.md)
 
-- **Phase 1 fixed cost:** ~1 850 ₽/мес (Vercel Pro $20 + Supabase Free + Resend Free + домен амортизированно).
+- **Phase 1 fixed cost (current):** ~0 ₽/мес (Vercel Hobby + Neon Free + Resend Free, домен ещё не куплен). Перед Phase 4: апгрейд Vercel Pro = +$20/мо.
 - **Phase 1 variable cost:** 0 ₽/lesson (нет API-вызовов в Phase 1 за пределами auth — Resend free до 3000 emails/мес).
-- **Открытый вопрос:** Vercel Pro vs Free? Pro нужен для commercial use по ToS, но MVP-тестирование можно на Free. Resolve в имплементации.
+- **Vercel plan (resolved 2026-05-09, plan 01-02):** Hobby (free) для Phase 1 dev/testing. Upgrade to Pro $20/мес перед Phase 4 prod-deploy / первым beta-юзером. См. STATE.md Active todos.
 
 ### Claude's Discretion
 
@@ -105,7 +111,7 @@ Phase 1 строит **минимальный личный кабинет (ЛК)
 - `.planning/REQUIREMENTS.md` — 21 v1 requirement с acceptance criteria. ⚠️ **ACC-01 и INV-01 будут обновлены в этом же коммите** под parent-as-user model — читать обновлённую версию.
 - `.planning/ROADMAP.md` — Phase 1 detail section (lines ~56–67), success criteria, dependencies.
 - `.planning/STATE.md` — current project position, recent transitions, locked decisions reference.
-- `.planning/COSTS.md` — Phase 1 cost rollout (rounded ~1 850 ₽/мес fixed); раздел 7 для tracking фактических списаний.
+- `.planning/COSTS.md` — Phase 1 cost rollout (current: ~0 ₽/мес — Vercel Hobby + Neon Free; ~1 850 ₽/мес перед Phase 4 при апгрейде на Pro); раздел 7 для tracking фактических списаний.
 
 ### Tech stack constraints (что нельзя нарушать)
 - `.planning/intel/constraints.md` — все 18 constraints. Особое внимание для Phase 1:
@@ -122,7 +128,7 @@ Phase 1 строит **минимальный личный кабинет (ЛК)
 ### Внешние документации (по мере имплементации)
 - NextAuth.js v5 docs — https://authjs.dev (magic link flow, Resend adapter, callback config, middleware-based session protection)
 - Drizzle ORM docs — https://orm.drizzle.team (schema definition, migrations, query builder)
-- Supabase docs — https://supabase.com/docs (Postgres connection string, Drizzle adapter, RLS политики если применяем)
+- Neon docs — https://neon.tech/docs (Postgres connection strings — pooled vs direct, Drizzle integration, autosuspend behaviour for free tier)
 - shadcn/ui docs — https://ui.shadcn.com (component installation, theme customization для Tailwind v4)
 - Resend docs — https://resend.com/docs (магические письма, free tier 3000/мес)
 - Claude Design — https://support.claude.com/en/articles/14604416-getting-started-with-claude-design (для understanding workflow визуального дизайна)
@@ -144,7 +150,7 @@ Phase 1 строит **минимальный личный кабинет (ЛК)
 - **`'use client'` директивы** — только где реально нужно (минимум).
 
 ### Integration points (новые в Phase 1)
-- `lib/db.ts` — Drizzle client + Supabase connection (новый)
+- `lib/db.ts` — Drizzle client + Neon connection (новый)
 - `lib/db/schema.ts` — таблицы `users`, `lessons`, `allowed_emails` (новый)
 - `lib/auth.ts` — NextAuth config + Resend adapter + whitelist callback (новый)
 - `app/api/auth/[...nextauth]/route.ts` — NextAuth handler (новый)
@@ -169,7 +175,7 @@ Phase 1 строит **минимальный личный кабинет (ЛК)
 
 - **Visual язык**: «Claude Design» эстетика, но конкретное оформление приходит от пользователя через Claude Design tool. До этого — нейтральные shadcn defaults.
 - **Anti-rando философия**: «не давать information attacker'у» — все auth-ошибки сводятся к одному `/no-access` с нейтральным текстом, без раскрытия причин (просрочен токен / нет в whitelist / отозван — все одно сообщение).
-- **Free-first deploy**: Vercel subdomain, Supabase Free, Resend Free — стартуем без financial commitment. Реальный домен и Supabase Pro — когда продукт начнёт показывать тракшн.
+- **Free-first deploy**: Vercel subdomain (Hobby), Neon Free, Resend Free — стартуем без financial commitment. Реальный домен и Vercel Pro — когда продукт начнёт показывать тракшн (перед Phase 4).
 - **Будущая совместимость с Claude Design workflow**: design tokens и компоненты должны быть легко перекрашиваемы (CSS variables через Tailwind v4 theme tokens — стандартный подход).
 
 </specifics>
@@ -191,7 +197,7 @@ Phase 1 строит **минимальный личный кабинет (ЛК)
 - **Self-service signup** — публичная форма «запросить доступ» вместо email whitelist (после прохождения waitlist period)
 - **Per-lesson links** — отдельные просрочиваемые ссылки на конкретные уроки (если ребёнок открывает не с маминого компа)
 - **Account recovery** — что делать если родитель потерял доступ к email
-- **Vercel Pro vs Free** — формальное решение когда переходим, основываясь на usage метриках
+- **Vercel Pro timing** — resolved (2026-05-09, plan 01-02): Hobby → Pro перед Phase 4 при первом beta-юзере. Если Phase 4 откладывается — пересмотреть usage метрики на тот момент.
 
 ### Reviewed Todos (not folded)
 Нет — todo system пуст.
