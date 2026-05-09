@@ -155,6 +155,7 @@
 | 2026-05-09 | COSTS.md создан | — | — | Базовые оценки, факта пока нет |
 | 2026-05-09 | Vercel plan choice (Phase 1) | 0 ₽/мес | fixed | Hobby для dev/testing фаз 1–3. Upgrade to Pro перед первым beta-юзером (Phase 4). TODO добавлено в STATE.md. |
 | 2026-05-09 | DB provider: Supabase Free → Neon Free | 0 ₽/мес | fixed | Neon eu-central-1 Frankfurt, Postgres 17.8. Переключились из-за $40 долга на Supabase аккаунте пользователя. Код Postgres-агностичен — меняется только URL в .env.local. 0 ₽/мо fixed cost сохранён. |
+| 2026-05-10 | Phase 1 implementation complete (Plans 01–06). Production deploy DEFERRED to user manual action. | 0 ₽/мес | fixed | Fixed cost validated: 0 ₽/мес (Vercel Hobby + Neon Free + Resend Free). Total Phase 1 dev time: ~6 hours autonomous + ~30 min user (account provisioning). Production URL: PENDING — see `.planning/MANUAL-ACTIONS.md` Phase 1 Wave 6 Task 3. |
 | | | | | |
 
 **Подсказка для будущих сессий:** при добавлении строки фиксируй (а) точную сумму в исходной валюте, (б) курс конвертации на дату, (в) категорию (fixed/variable/one-time). Так через 6 месяцев можно будет посчитать реальный CAC, LTV и unit-экономику без археологии.

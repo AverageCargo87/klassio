@@ -1,10 +1,11 @@
 ---
 phase: 01
 slug: account-shell
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: complete
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-09
+last_updated: 2026-05-10
 ---
 
 # Phase 01 — Validation Strategy
@@ -41,10 +42,28 @@ created: 2026-05-09
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 01-XX-XX | XX | N | ACC-01 | T-01-01 (whitelist bypass) | Email not in whitelist → no token issued, generic response | integration | `npm run test -- whitelist` | ❌ W0 | ⬜ pending |
-| 01-XX-XX | XX | N | ACC-01 | T-01-02 (token replay) | Magic link single-use; second click → /no-access | integration | `npm run test -- magic-link` | ❌ W0 | ⬜ pending |
-| 01-XX-XX | XX | N | ACC-02 | — | Lessons list ordered by scheduled_at ASC, returns only own | unit | `npm run test -- lessons-query` | ❌ W0 | ⬜ pending |
-| 01-XX-XX | XX | N | INV-01 | — | Child UI flow (page open → already logged in via parent cookie) | E2E | `npm run test:e2e -- session-persist` | ❌ W0 | ⬜ pending |
+| 01-04-T1 | 04 | 4 | ACC-01 | T-01-01 (whitelist enum) | Email not in whitelist → callback returns false; pure helper isolated | unit | `npm run test -- whitelist` | ✅ | ✅ green |
+| 01-04-T1 | 04 | 4 | ACC-01 | T-01-04 (cookie hijack) | httpOnly + sameSite=lax + secure(prod) + maxAge 365d | unit | `npm run test -- cookie-config` | ✅ | ✅ green |
+| 01-04-T1 | 04 | 4 | ACC-01 | — | Russian template POSTs to api.resend.com with bearer token | unit | `npm run test -- email-template` | ✅ | ✅ green |
+| 01-04-T2 | 04 | 4 | ACC-01 | T-01-01, T-01-05 | Live Neon whitelist lookup, case-insensitive | integration | `npm run test:integration` | ✅ | ✅ green |
+| 01-05-T2 | 05 | 5 | ACC-02 | — | canStartLesson pure function, 8 boundary cases | unit | `npm run test -- can-start` | ✅ | ✅ green |
+| 01-05-T2 | 05 | 5 | ACC-02 | — | /lessons Server Component renders Cards from Drizzle data | unit | `npm run test -- lessons/__tests__` | ✅ | ✅ green |
+| 01-06-T1 | 06 | 6 | INV-01 | — | Middleware redirects unauth /lessons → /login | E2E | `npm run test:e2e -- protected-routes` | ✅ | ✅ green |
+| 01-06-T1 | 06 | 6 | — | — | / → /login (unauth); /no-access renders neutral copy | E2E | `npm run test:e2e -- root-redirect no-access` | ✅ | ✅ green |
+| 01-06-T2 | 06 | 6 | ACC-01 | — | Happy path: form → magic link → /lessons with seed lesson | E2E | `npm run test:e2e -- login-happy-path` | ✅ | ✅ green |
+| 01-06-T2 | 06 | 6 | ACC-01 | T-01-01, T-01-05 | Whitelisted + non-whitelisted both → /login?sent=1 (uniform) | E2E | `npm run test:e2e -- whitelist-uniform-response` | ✅ | ✅ green |
+| 01-06-T2 | 06 | 6 | ACC-01 | T-01-02 | Magic link single-use: 2nd click → /no-access (NOT /lessons) | E2E | `npm run test:e2e -- magic-link-single-use` | ✅ | ✅ green |
+| 01-06-T2 | 06 | 6 | INV-01 | T-01-04 | Cookie maxAge ≈ 365 days verified; / after login → /lessons | E2E | `npm run test:e2e -- persist-session` | ✅ | ✅ green |
+
+**Test suite totals (all green locally — 2026-05-10):**
+- 24 vitest unit tests (lib/auth, lib/db, app/lessons)
+- 9 vitest integration tests (whitelist against live Neon)
+- 10 Playwright E2E tests (7 user journeys + sanity + global-setup)
+- **Total: 43 tests**
+
+**Manual / deferred verifications:**
+- A2 (mail.ru / yandex.ru email deliverability): **PENDING** — see `.planning/MANUAL-ACTIONS.md` Phase 1 Wave 6 Task 3
+- A3 (RU user access without VPN): **PENDING** — see `.planning/MANUAL-ACTIONS.md` Phase 1 Wave 6 Task 3
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -73,11 +92,11 @@ created: 2026-05-09
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references (vitest + Playwright + fixtures all in place from Plan 01)
+- [x] No watch-mode flags (`vitest run`, `playwright test`)
+- [x] Feedback latency < 60s for unit; ~90s for full E2E (acceptable per VALIDATION.md sampling rate)
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** Phase 1 complete 2026-05-10

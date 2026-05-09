@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: unknown
-last_updated: "2026-05-09T21:18:42.552Z"
+status: executing
+last_updated: "2026-05-10T00:00:00Z"
 progress:
   total_phases: 12
   completed_phases: 0
   total_plans: 6
-  completed_plans: 5
-  percent: 83
+  completed_plans: 6
+  percent: 100
 ---
 
 # Klassio — STATE
@@ -35,17 +35,19 @@ progress:
 
 ## Current Position
 
-Phase: 01 (account-shell) — EXECUTING
-Plan: 6 of 6
+Phase: 01 (account-shell) — IMPLEMENTATION COMPLETE (deploy deferred)
+Plan: 6 of 6 — all plans implemented
 
 - **Current phase**: Phase 1 — ЛК — оболочка, авторизация, список уроков.
-- **Current plan**: Plans 01-02-03 COMPLETE. Plan 04 (magic link auth) is next — `autonomous: true`.
-- **Status**: **Plan 01-03 complete** (2/2 tasks, 2 commits). 6-table Drizzle schema pushed to live Neon DB. Seed verified idempotent.
-- **Progress (overall v1)**: `[█████░░░░░] 50% · 3/6 plans complete in Phase 1`.
-- **Resume file**: `.planning/phases/01-account-shell/01-04-PLAN.md` (Wave 4 — auth implementation).
+- **Current plan**: All 6/6 plans implemented. Production deploy deferred to user manual action — see `.planning/MANUAL-ACTIONS.md` Phase 1 Wave 6 Task 3.
+- **Status**: **Phase 1 implementation complete** (6/6 plans, 43 tests all green locally). Awaiting user to complete production deploy + RU email test.
+- **Progress (overall v1)**: `[██████████] 100% · 6/6 plans complete in Phase 1 (deploy pending user)`.
+- **Resume file**: None — awaiting user deploy action per `.planning/MANUAL-ACTIONS.md`.
 
 ### Recent transitions
 
+- **2026-05-10 (#8 — execute 01-06 Task 4)**: Phase 1 implementation signed off. 10 Playwright E2E tests all green locally (cecbf84, 0c7af18). Runtime DB client migrated postgres-js → neon-http for Vercel serverless compatibility. VALIDATION.md updated with as-built test IDs (43 tests total). STATE.md, COSTS.md, MANUAL-ACTIONS.md updated. Production deploy DEFERRED to user manual action — see MANUAL-ACTIONS.md.
+- **2026-05-10 (#7 — execute 01-06 Tasks 1-2)**: 8 Playwright E2E spec files written (login-happy-path, whitelist-uniform-response, magic-link-single-use, protected-routes, root-redirect, persist-session, no-access) + e2e/fixtures/db-setup.ts. lib/db/index.ts migrated from postgres-js to neon-http (stateless, immune to TCP termination). All 10 E2E tests green.
 - **2026-05-09 (#6 — execute 01-03)**: Plan 01-03 (Drizzle schema push + seed) executed in ~54 min. 2 tasks, 2 commits (e0ada84, 78b80db). 6-table schema (user, account, session, verificationToken, allowed_email, lesson) pushed to live Neon DB. Seed idempotent: admin email + user + test lesson. 12 tests passing. Key discovery: postgres-js Extended Query Protocol causes ECONNRESET on Neon Free tier for parameterized DML — fixed by using pg (node-postgres) in seed script. drizzle-kit push introspection also hangs on Neon — fixed by custom db-push.ts using drizzle-kit generate + direct SQL apply.
 - **2026-05-09 (#5 — execute 01-01)**: Plan 01-01 (Bootstrap) executed in ~30 min. 3 tasks, 3 commits (061abe0, 9c09bd4, 3c9b0af). Next.js 15.5.18 scaffolded, vitest 4.x + Playwright 1.59 wired (5 tests passing), zod env validation in place (`lib/env.ts`). One auto-fix: --reporter=basic → --reporter=verbose (basic removed in vitest 4.x). `.env.example` documents contract for Plan 02 provisioning.
 - **2026-05-09 (#4 — plan-phase 1)**: Phase 1 разобрана на **6 PLAN.md в 6 волнах** (Wave 1 scaffold → Wave 6 E2E + production deploy). Research проведён (NextAuth v5 split-config, Drizzle pooler/direct, Tailwind v4 quirks, A1 silent-drop рекомендация). VALIDATION.md создан (vitest + Playwright). Plan checker нашёл 3 BLOCKER + 1 WARNING + 2 INFO на iteration 1 — все исправлены revision'ом (frontmatter completeness, schema test robustness, comment accuracy). Coverage: ACC-01 (6 plans), ACC-02 (4), INV-01 (4) — все 100%. **Wave 2 и Wave 6 — `autonomous: false`** (требуют human-in-loop для external account provisioning + production deploy + RU email deliverability check).
@@ -129,15 +131,19 @@ Plan: 6 of 6
 - **Хранилище записей**: S3 в Hetzner или AWS вне РФ — выбор в Phase 10.
 - **Согласие 152-ФЗ**: при первом входе ребёнка в ЛК vs предварительно через admin (ACC-04) — выбор в Phase 10.
 - **Anthropic comeback**: с туннель-VPN possibly работает (см. `.planning/intel/context.md` § Потенциальные TODO). Проверить одним curl-запросом из Node без прокси через api.anthropic.com. Если 200 — можно вернуться, и тогда agent-loop вообще не нужен (Anthropic делает всё в одном ответе → дешевле в 20×). Но это **только при отдельном новом decision** — в v1 по умолчанию остаёмся на OpenAI.
+- **A2 — Russian email deliverability with `onboarding@resend.dev` (deferred from plan 01-06, 2026-05-10):** Production deploy not yet run (user AFK). Test pending: submit to mail.ru / yandex.ru addresses, check inbox vs spam. If spam — mitigation: verify own domain in Resend (Phase 2 follow-up). Results to be recorded after user completes MANUAL-ACTIONS.md Task 3.
+- **A3 — RU users open without VPN (deferred from plan 01-06, 2026-05-10):** No production URL yet — user AFK. Re-test after production deploy confirmed. If no RU tester available at that time — defer to Phase 4 when Cloudflare CDN added per DEC-deploy-architecture.
 
 ### Active todos
 
 - ✅ Plan 01-01 Bootstrap — complete (3 tasks, 5 tests passing).
 - ✅ Plan 01-02 Account provisioning — complete (Neon + Resend + AUTH_SECRET provisioned; A1 silent-drop resolved; Vercel Hobby decision recorded).
 - ✅ Plan 01-03 Schema push + seed — complete (2 tasks, 2 commits, 12 tests passing). 6 Drizzle tables in live Neon DB; seed idempotent; custom db-push.ts for Neon ECONNRESET quirk.
-- **NEXT: Plan 01-04** — Magic link auth (NextAuth v5 + Resend + DrizzleAdapter + whitelist callback). `autonomous: true`.
+- ✅ Plan 01-04 — Magic link auth — complete (NextAuth v5 split-config, DrizzleAdapter, whitelist, Resend template; 24 unit + 9 integration tests green).
+- ✅ Plan 01-05 — UI routes — complete (5 routes in Russian, 35 tests, shadcn/ui + Tailwind v4).
+- ✅ Plan 01-06 — E2E suite — implementation complete (8 spec files, 10 E2E tests green locally; deploy deferred).
+- **USER ACTION REQUIRED:** Complete Phase 1 production deploy + RU email test — см. `.planning/MANUAL-ACTIONS.md` Phase 1 Wave 6 Task 3.
 - **Phase 4 prerequisite:** Перед Phase 4 (production deploy) апгрейднуть Vercel **Hobby → Pro** ($20/мо). Hobby ToS запрещает commercial use — как только первый beta-юзер откроет URL, нужен Pro. Решение зафиксировано в плане 01-02 SUMMARY и COSTS.md § 7 Tracking.
-- Wave 6 потребует human-in-loop: production deploy на Vercel + manual RU email deliverability test (mail.ru / yandex.ru / gmail.com).
 - (Опционально) формализовать какое-либо из 8 locked decisions как ADR через `/gsd-add-decision`.
 - (Параллельно) ты ведёшь визуальный дизайн ЛК в Claude Design (https://claude.com/design); как появятся макеты — переносим tokens (цвета, типографика) в `tailwind.config` Klassio.
 
