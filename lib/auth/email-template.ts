@@ -1,7 +1,13 @@
 // Source: RESEARCH § Code Example 5 (custom Russian email template).
 // Used by Resend provider in auth.ts via { sendVerificationRequest: ... }.
 // No React Email dependency needed — pure string template (simpler, fewer deps).
+//
+// Pattern A (E2E test support, Plan 06): When AUTH_RESEND_OVERRIDE_FILE env var is set
+// (only set in E2E test context), write the magic link URL to the specified file instead of
+// (or in addition to) calling Resend. Tests read this file to get the URL.
+// Guard: only active when NODE_ENV === 'test' to prevent production leakage.
 import type { EmailConfig } from 'next-auth/providers/email'
+import { writeFileSync } from 'fs'
 
 type Params = {
   identifier: string
@@ -16,6 +22,18 @@ type Params = {
 export async function sendVerificationRequest(params: Params): Promise<void> {
   const { identifier: email, url, provider } = params
   const { host } = new URL(url)
+
+  // Pattern A: E2E test intercept — write magic link URL to file instead of sending email.
+  // Only active when AUTH_RESEND_OVERRIDE_FILE env var is explicitly set (opt-in guard).
+  // This env var is set by playwright.config.ts webServer.env for E2E runs only.
+  // Production deployments (Vercel, etc.) never set this var → no production leakage.
+  // Additional safety: Next.js does not load .env.local in production builds,
+  // and AUTH_RESEND_OVERRIDE_FILE is never present in Vercel env var configuration.
+  if (process.env.AUTH_RESEND_OVERRIDE_FILE) {
+    // Write "email|url" so tests can read both identifier and URL from a single file
+    writeFileSync(process.env.AUTH_RESEND_OVERRIDE_FILE, `${email}|${url}`, 'utf-8')
+    return // Skip Resend call when E2E file override is configured
+  }
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',

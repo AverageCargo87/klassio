@@ -41,6 +41,16 @@ export const authConfigOptions = {
       if (isProtected && !isLoggedIn) return false // → /login
       return true
     },
+    // session() populates session.user.id from JWT token.sub (user's DB id).
+    // Required: app/lessons/page.tsx uses session.user.id to query lessons.
+    // Auth.js v5 default session callback does NOT include id; token.sub = user.id.
+    // Safe for edge runtime — no DB access, just token data.
+    session: ({ session, token }: { session: any; token: any }) => {
+      if (session.user && token.sub) {
+        session.user.id = token.sub
+      }
+      return session
+    },
   },
   providers: [], // Resend provider is attached in auth.ts (the node-only file)
 } satisfies NextAuthConfig
