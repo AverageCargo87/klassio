@@ -63,7 +63,14 @@
   3. В ЛК виден список запланированных уроков с датой/временем/темой; ближайший урок сверху; пустая state — если уроков нет.
   4. Истёкший/невалидный токен → понятная страница «ссылка недействительна».
   5. От ребёнка не требуется ничего, кроме перехода по ссылке (zero-install, INV-01 закладывается здесь как фундамент).
-**Plans**: TBD
+**Plans**: 6 plans
+Plans:
+- [ ] 01-01-PLAN.md — Project scaffold (Next.js 15 + pinned deps), test infra (vitest + Playwright), env scaffolding with zod
+- [ ] 01-02-PLAN.md — [HUMAN] Provision Supabase + Resend + Vercel; resolve A1 (silent-drop UX) + Vercel plan decision
+- [ ] 01-03-PLAN.md — Drizzle schema (6 tables) + [BLOCKING] schema push + idempotent seed
+- [ ] 01-04-PLAN.md — NextAuth v5 split config + Resend provider + whitelist callback + middleware
+- [ ] 01-05-PLAN.md — UI pages (/, /login, /lessons, /no-access, /lesson/[id] placeholder) + shadcn + Tailwind v4
+- [ ] 01-06-PLAN.md — E2E suite (Playwright) + production deploy + RU email deliverability check
 **UI hint**: yes
 
 ---
@@ -279,7 +286,7 @@ Cross-cutting invariants (INV-01, INV-02) attached to the phase where their firs
 
 | Phase | Plans Complete | Status | Completed |
 |---|---|---|---|
-| 1. ЛК — оболочка, авторизация по ссылке, список уроков | 0/0 | Not started | - |
+| 1. ЛК — оболочка, авторизация по ссылке, список уроков | 0/6 | Plans created | - |
 | 2. Расписание уроков + admin путь для заведения | 0/0 | Not started | - |
 | 3. Lesson page shell — три-панельный layout + event bus | 0/0 | Not started | - |
 | 4. Production deploy + порт прототипа доски в Klassio | 0/0 | Not started | - |
