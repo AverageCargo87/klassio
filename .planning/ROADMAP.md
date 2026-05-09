@@ -65,7 +65,7 @@
   5. От ребёнка не требуется ничего, кроме перехода по ссылке (zero-install, INV-01 закладывается здесь как фундамент).
 **Plans**: 6 plans
 Plans:
-- [ ] 01-01-PLAN.md — Project scaffold (Next.js 15 + pinned deps), test infra (vitest + Playwright), env scaffolding with zod
+- [x] 01-01-PLAN.md — Project scaffold (Next.js 15 + pinned deps), test infra (vitest + Playwright), env scaffolding with zod — COMPLETE (3 tasks, 3 commits: 061abe0, 9c09bd4, 3c9b0af)
 - [ ] 01-02-PLAN.md — [HUMAN] Provision Supabase + Resend + Vercel; resolve A1 (silent-drop UX) + Vercel plan decision
 - [ ] 01-03-PLAN.md — Drizzle schema (6 tables) + [BLOCKING] schema push + idempotent seed
 - [ ] 01-04-PLAN.md — NextAuth v5 split config + Resend provider + whitelist callback + middleware

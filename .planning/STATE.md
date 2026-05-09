@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-09T18:42:59.628Z"
+last_updated: "2026-05-09T19:05:00Z"
 progress:
   total_phases: 12
   completed_phases: 0
   total_plans: 6
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 17
 ---
 
 # Klassio — STATE
@@ -35,14 +35,18 @@ progress:
 
 ## Current Position
 
+Phase: 01 (account-shell) — EXECUTING
+Plan: 2 of 6
+
 - **Current phase**: Phase 1 — ЛК — оболочка, авторизация, список уроков.
-- **Current plan**: 6 plans в 6 wave-ах созданы и провалидированы. Готовы к execute.
-- **Status**: **Ready to execute** (PLAN.md ×6 + RESEARCH.md + VALIDATION.md залочены, checker passed на revision 1).
-- **Progress (overall v1)**: `[░░░░░░░░░░░░░░░░░░░░] 0/12 phases complete · 0/6 plans complete`.
-- **Resume file**: `.planning/phases/01-account-shell/01-01-PLAN.md` (Wave 1).
+- **Current plan**: Plan 01 COMPLETE. Plan 02 (account provisioning) is next — requires human-in-loop (external accounts: Supabase, Resend, Vercel).
+- **Status**: **Plan 01-01 complete** (3/3 tasks, 3 commits). Wave 2 requires human-in-loop.
+- **Progress (overall v1)**: `[█░░░░░░░░░░░░░░░░░░░] 0/12 phases complete · 1/6 plans complete`.
+- **Resume file**: `.planning/phases/01-account-shell/01-02-PLAN.md` (Wave 2 — autonomous: false).
 
 ### Recent transitions
 
+- **2026-05-09 (#5 — execute 01-01)**: Plan 01-01 (Bootstrap) executed in ~30 min. 3 tasks, 3 commits (061abe0, 9c09bd4, 3c9b0af). Next.js 15.5.18 scaffolded, vitest 4.x + Playwright 1.59 wired (5 tests passing), zod env validation in place (`lib/env.ts`). One auto-fix: --reporter=basic → --reporter=verbose (basic removed in vitest 4.x). `.env.example` documents contract for Plan 02 provisioning.
 - **2026-05-09 (#4 — plan-phase 1)**: Phase 1 разобрана на **6 PLAN.md в 6 волнах** (Wave 1 scaffold → Wave 6 E2E + production deploy). Research проведён (NextAuth v5 split-config, Drizzle pooler/direct, Tailwind v4 quirks, A1 silent-drop рекомендация). VALIDATION.md создан (vitest + Playwright). Plan checker нашёл 3 BLOCKER + 1 WARNING + 2 INFO на iteration 1 — все исправлены revision'ом (frontmatter completeness, schema test robustness, comment accuracy). Coverage: ACC-01 (6 plans), ACC-02 (4), INV-01 (4) — все 100%. **Wave 2 и Wave 6 — `autonomous: false`** (требуют human-in-loop для external account provisioning + production deploy + RU email deliverability check).
 - **2026-05-09 (#3 — discuss-phase 1)**: Phase 1 CONTEXT.md создан (interactive mode, 4 areas: Auth, Foundation tech, Visual, URL/routing). 18 implementation decisions залочены (D-01..D-18). **Auth-модель Phase 1 значительно изменилась** vs initial roadmap: с «personal token-in-URL для ребёнка» на «email magic link для родителя + child uses parent session». ACC-01 и INV-01 в REQUIREMENTS.md обновлены под новую модель. Stack picks: NextAuth.js v5, Drizzle ORM, shadcn/ui. Visual design выносится в Claude Design (Anthropic SaaS) — Phase 1 implementation не блокируется на дизайне.
 - **2026-05-09 (#2 — costs)**: Создан COSTS.md с unit-экономикой (target variable < 200 ₽/lesson, fixed ~12k ₽/мес, break-even 15 уроков/мес). Phase 6 — главный watermark по расходам.
@@ -57,6 +61,8 @@ progress:
 | Метрика | Значение | Дата |
 |---|---|---|
 | Phases complete | 0 / 12 | 2026-05-09 |
+| Plans complete (Phase 1) | 1 / 6 | 2026-05-09 |
+| Requirements addressed (plan 01-01) | ACC-01, ACC-02, INV-01 (scaffold) | 2026-05-09 |
 | Requirements implemented | 0 / 21 | 2026-05-09 |
 | v1 success metric verified | ❌ | — |
 | Cost per 45-min lesson (Pedagogical + Realtime + 11labs) | TBD (watermark в Phase 8) | — |
@@ -103,6 +109,13 @@ progress:
 4. **Юзер не должен ставить ничего** (INV-01 в Phase 1, foundational).
 5. **Ощущение живого учителя у доски** (BRD-03 в Phase 11).
 
+### Plan 01-01 decisions (executor — 2026-05-09)
+
+- **vitest 4.x reporter**: `--reporter=verbose` (not `--reporter=basic` — removed in vitest 4.x; `minimal` also works)
+- **env test isolation**: `vi.resetModules()` before each test (not dynamic import with query string — more reliable)
+- **dual DATABASE_URL**: established in envSchema now, even before DB code in Plan 03 — env validation must come first
+- **vitest.config.ts exclude**: `tests/fixtures.ts` excluded explicitly — it's fixture data, not a test file
+
 ### Open questions / decisions to revisit
 
 - **Pedagogical LLM модель**: GPT-4o зафиксирован по умолчанию. Если экономика на gpt-4.1 или gpt-5 окажется лучше — пересмотреть в Phase 8.
@@ -113,7 +126,13 @@ progress:
 
 ### Active todos
 
-- Запустить `/gsd-execute-phase 1` для исполнения 6 планов wave-by-wave.
+- ✅ Plan 01-01 Bootstrap — complete (3 tasks, 5 tests passing).
+- **NEXT: Plan 01-02** — human-in-loop required before execution:
+  1. Create Supabase project → get DATABASE_URL (pooler 6543) + DATABASE_URL_DIRECT (direct 5432)
+  2. Create Resend account → get AUTH_RESEND_KEY
+  3. Generate AUTH_SECRET via `npx auth secret`
+  4. Fill `.env.local` with all 4 required vars
+  5. Then run executor for Plan 01-02 (Drizzle schema + migrations)
 - Wave 2 потребует human-in-loop: создать Vercel + Supabase + Resend аккаунты, выбрать Vercel Hobby vs Pro, разрешить A1 conflict (CONTEXT.md D-02 silent-drop update).
 - Wave 6 потребует human-in-loop: production deploy на Vercel + manual RU email deliverability test (mail.ru / yandex.ru / gmail.com).
 - (Опционально) формализовать какое-либо из 8 locked decisions как ADR через `/gsd-add-decision`.
@@ -127,8 +146,8 @@ progress:
 
 ## Session Continuity
 
-- **Last session**: 2026-05-09 — Phase 1 planning завершено (6 plans, checker passed после revision 1).
-- **Next session entry point**: `/gsd-execute-phase 1` — исполнить 6 планов wave-by-wave (с двумя human-in-loop checkpoints).
+- **Last session**: 2026-05-09 — Plan 01-01 executed (Bootstrap scaffold — 3 tasks, 5 tests passing).
+- **Next session entry point**: Plan 01-02 (account provisioning checkpoint) — requires human-in-loop. Create Supabase, Resend, Vercel accounts first, then fill `.env.local`.
 - **What new Claude Code session needs to read first** (порядок):
   1. `PROJECT.md` — core value, locked decisions, anti-scope, invariants.
   2. `STATE.md` (этот файл) — где мы сейчас, что блокирует.
