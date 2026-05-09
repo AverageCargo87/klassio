@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: executing
-last_updated: "2026-05-09T20:30:00Z"
+status: unknown
+last_updated: "2026-05-09T19:46:16.218Z"
 progress:
   total_phases: 12
   completed_phases: 0
   total_plans: 6
   completed_plans: 2
-  percent: 17
+  percent: 33
 ---
 
 # Klassio — STATE
@@ -36,7 +36,7 @@ progress:
 ## Current Position
 
 Phase: 01 (account-shell) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 
 - **Current phase**: Phase 1 — ЛК — оболочка, авторизация, список уроков.
 - **Current plan**: Plan 01 COMPLETE. Plan 02 (account provisioning) is next — requires human-in-loop (external accounts: Supabase, Resend, Vercel).
@@ -70,6 +70,7 @@ Plan: 2 of 6
 | Production deploy live | ❌ (Phase 4) | — |
 
 ---
+| Phase 01 P02 | 30min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
