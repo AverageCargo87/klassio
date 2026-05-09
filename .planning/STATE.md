@@ -21,14 +21,17 @@
 
 ## Current Position
 
-- **Current phase**: Phase 1 — ЛК — оболочка, авторизация по ссылке, список уроков.
-- **Current plan**: TBD (фаза ещё не разобрана на планы — вызов `/gsd-plan-phase 1` ожидается).
-- **Status**: Roadmap создан, фазы не запущены.
+- **Current phase**: Phase 1 — ЛК — оболочка, авторизация, список уроков.
+- **Current plan**: TBD (CONTEXT.md создан, plans ещё нет — вызов `/gsd-plan-phase 1` ожидается).
+- **Status**: CONTEXT.md залочен (4/4 areas обсуждены), готовы к планированию.
 - **Progress (overall v1)**: `[░░░░░░░░░░░░░░░░░░░░] 0/12 phases complete`.
+- **Resume file**: `.planning/phases/01-account-shell/01-CONTEXT.md`
 
 ### Recent transitions
 
-- **2026-05-09**: Ingest pipeline завершён, intel synthesis готов (3 docs, 18 requirements, 18 constraints, 8 de-facto decisions, 0 conflicts). Юзер залочил v1 scope и granularity (fine). PROJECT.md, REQUIREMENTS.md, ROADMAP.md, STATE.md созданы. Готовы к запуску Phase 1 через `/gsd-plan-phase 1`.
+- **2026-05-09 (#3 — discuss-phase 1)**: Phase 1 CONTEXT.md создан (interactive mode, 4 areas: Auth, Foundation tech, Visual, URL/routing). 18 implementation decisions залочены (D-01..D-18). **Auth-модель Phase 1 значительно изменилась** vs initial roadmap: с «personal token-in-URL для ребёнка» на «email magic link для родителя + child uses parent session». ACC-01 и INV-01 в REQUIREMENTS.md обновлены под новую модель. Stack picks: NextAuth.js v5, Drizzle ORM, shadcn/ui. Visual design выносится в Claude Design (Anthropic SaaS) — Phase 1 implementation не блокируется на дизайне. Готовы к `/gsd-plan-phase 1`.
+- **2026-05-09 (#2 — costs)**: Создан COSTS.md с unit-экономикой (target variable < 200 ₽/lesson, fixed ~12k ₽/мес, break-even 15 уроков/мес). Phase 6 — главный watermark по расходам.
+- **2026-05-09 (#1 — ingest)**: Ingest pipeline завершён, intel synthesis готов (3 docs, 18 requirements, 18 constraints, 8 de-facto decisions, 0 conflicts). Юзер залочил v1 scope и granularity (fine). PROJECT.md, REQUIREMENTS.md, ROADMAP.md, STATE.md созданы.
 
 ---
 
@@ -95,8 +98,9 @@
 
 ### Active todos
 
-- Запустить `/gsd-plan-phase 1` для разбора Phase 1 на планы.
+- Запустить `/gsd-plan-phase 1` для разбора Phase 1 на планы (CONTEXT.md готов).
 - (Опционально) формализовать какое-либо из 8 locked decisions как ADR через `/gsd-add-decision` — синтез предлагает рассматривать DEC-deploy-architecture, DEC-llm-architecture-tier и DEC-voice-provider-mvp как кандидатов на формальные ADRs.
+- (Параллельно) ты ведёшь визуальный дизайн ЛК в Claude Design (https://claude.com/design); как появятся макеты — переносим tokens (цвета, типографика) в `tailwind.config` Klassio.
 
 ### Active blockers
 
