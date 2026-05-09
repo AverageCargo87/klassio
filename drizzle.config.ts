@@ -1,8 +1,13 @@
 // Source: RESEARCH § Code Example 3 + Pitfall 3 (DATABASE_URL_DIRECT, NOT pooler).
 // drizzle-kit migrations create/alter schema — long-running, requires prepared statements.
 // Neon/PgBouncer transaction pooler does NOT support this; must use direct connection.
-import 'dotenv/config'
+import { config } from 'dotenv'
 import { defineConfig } from 'drizzle-kit'
+
+// Load .env.local first (Next.js convention), then fall back to .env
+// This ensures drizzle-kit picks up DATABASE_URL_DIRECT in local dev
+config({ path: '.env.local' })
+config() // also load .env if it exists (CI/CD may use .env)
 
 export default defineConfig({
   out: './drizzle',
