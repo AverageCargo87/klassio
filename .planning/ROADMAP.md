@@ -36,7 +36,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: ЛК — оболочка, авторизация по ссылке, список уроков** — Ребёнок попадает в свой ЛК по личной ссылке и видит список своих уроков.
+- [x] **Phase 1: ЛК — оболочка, авторизация по ссылке, список уроков** — Ребёнок попадает в свой ЛК по личной ссылке и видит список своих уроков. (Implementation complete 2026-05-10; deploy deferred — see MANUAL-ACTIONS.md)
 - [ ] **Phase 2: Расписание уроков + admin путь для заведения** — Ребёнок видит расписание; разработчик может вручную завести тестового ребёнка и тестовый урок.
 - [ ] **Phase 3: Lesson page shell — три-панельный layout + event bus** — Существует страница урока с пустыми панелями (доска / голос / тренажёр) и общая event-шина между ними.
 - [ ] **Phase 4: Production deploy + порт прототипа доски в Klassio** — Доска tldraw + OpenAI работает в Klassio в проде на Vercel + Cloudflare; РФ-юзер открывает без VPN.
@@ -66,11 +66,11 @@
 **Plans**: 6 plans
 Plans:
 - [x] 01-01-PLAN.md — Project scaffold (Next.js 15 + pinned deps), test infra (vitest + Playwright), env scaffolding with zod — COMPLETE (3 tasks, 3 commits: 061abe0, 9c09bd4, 3c9b0af)
-- [ ] 01-02-PLAN.md — [HUMAN] Provision Supabase + Resend + Vercel; resolve A1 (silent-drop UX) + Vercel plan decision
-- [ ] 01-03-PLAN.md — Drizzle schema (6 tables) + [BLOCKING] schema push + idempotent seed
-- [ ] 01-04-PLAN.md — NextAuth v5 split config + Resend provider + whitelist callback + middleware
-- [ ] 01-05-PLAN.md — UI pages (/, /login, /lessons, /no-access, /lesson/[id] placeholder) + shadcn + Tailwind v4
-- [ ] 01-06-PLAN.md — E2E suite (Playwright) + production deploy + RU email deliverability check
+- [x] 01-02-PLAN.md — [HUMAN] Provision Supabase + Resend + Vercel; resolve A1 (silent-drop UX) + Vercel plan decision — COMPLETE (user provisioned Neon + Resend + AUTH_SECRET; A1 silent-drop resolved; Vercel Hobby decision)
+- [x] 01-03-PLAN.md — Drizzle schema (6 tables) + [BLOCKING] schema push + idempotent seed — COMPLETE (2 tasks, 2 commits; 6-table schema live on Neon; seed idempotent)
+- [x] 01-04-PLAN.md — NextAuth v5 split config + Resend provider + whitelist callback + middleware — COMPLETE (2 tasks; 24 unit + 9 integration tests green)
+- [x] 01-05-PLAN.md — UI pages (/, /login, /lessons, /no-access, /lesson/[id] placeholder) + shadcn + Tailwind v4 — COMPLETE (3 tasks; 5 routes in Russian; 35 tests green)
+- [x] 01-06-PLAN.md — E2E suite (Playwright) + production deploy + RU email deliverability check — IMPLEMENTATION COMPLETE (10 E2E tests green locally; deploy DEFERRED to user — see MANUAL-ACTIONS.md)
 **UI hint**: yes
 
 ---
