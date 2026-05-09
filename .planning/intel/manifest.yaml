@@ -1,0 +1,14 @@
+# gsd-ingest-docs manifest
+# Generated 2026-05-09 because root-level docs don't match standard discovery conventions
+# (no docs/adr/, no ADR-*.md prefixes — these were authored before adopting GSD)
+
+docs:
+  - path: VISION.md
+    type: PRD
+    # Product vision: target audience, customer journey, principles, what-we-don't-do, glossary
+  - path: BOARD-STACK.md
+    type: SPEC
+    # Technical integration contract for the board component (one of three system pillars)
+  - path: BOARD-STATUS.md
+    type: DOC
+    # Snapshot of prototype state on 2026-05-09 — runbook, troubleshooting, history

@@ -1,0 +1,34 @@
+{
+  "source_path": "C:\\Users\\krato\\ClaudeVibecoding\\ClaudeDesktop\\Klassio\\BOARD-STACK.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "AI-учитель математики — технический стек",
+  "summary": "Technical specification for an animated AI math-teaching board component: stack versions, /api/draw SSE contract, 9 LLM tools, executor behavior, and integration contract.",
+  "scope": [
+    "AI math-teacher board",
+    "Next.js App Router frontend",
+    "tldraw v3 canvas",
+    "/api/draw SSE endpoint",
+    "OpenAI function calling",
+    "9 drawing tools (draw_text, draw_rectangle, draw_line, draw_circle, draw_arrow, highlight_region, wait, say, finish)",
+    "client-side executor",
+    "agent loop",
+    "proxy/instrumentation for RU dev",
+    "Vercel deployment"
+  ],
+  "cross_refs": [
+    "app/api/draw/route.ts",
+    "lib/tools.ts",
+    "lib/executor.ts",
+    "instrumentation.ts",
+    "next.config.ts",
+    "app/page.tsx",
+    "app/layout.tsx",
+    "app/globals.css",
+    ".env.local"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

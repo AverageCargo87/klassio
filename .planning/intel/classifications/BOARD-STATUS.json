@@ -1,0 +1,37 @@
+{
+  "source_path": "C:\\Users\\krato\\ClaudeVibecoding\\ClaudeDesktop\\Klassio\\BOARD-STATUS.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Контекст сессии — AI-учитель песочница",
+  "summary": "Session context snapshot for an AI math-teacher prototype using tldraw, Next.js, and OpenAI, capturing stack, architecture, network workarounds, and known gotchas.",
+  "scope": [
+    "AI math teacher prototype",
+    "tldraw v3 canvas integration",
+    "Next.js 15 App Router",
+    "OpenAI Chat Completions streaming with tool calling",
+    "agent loop and tool_choice",
+    "instrumentation.ts proxy/tunnel handling",
+    "VPN proxy vs tunnel mode",
+    "Anthropic vs OpenAI network routing in RU",
+    "webpack/undici configuration",
+    "production deployment on Vercel"
+  ],
+  "cross_refs": [
+    "app/layout.tsx",
+    "app/page.tsx",
+    "app/globals.css",
+    "app/api/draw/route.ts",
+    "lib/tools.ts",
+    "lib/executor.ts",
+    "instrumentation.ts",
+    "next.config.ts",
+    ".env.local",
+    ".env.local.example",
+    "README.md",
+    "~/package-lock.json"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

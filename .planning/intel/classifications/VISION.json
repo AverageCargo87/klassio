@@ -1,0 +1,31 @@
+{
+  "source_path": "C:\\Users\\krato\\ClaudeVibecoding\\ClaudeDesktop\\Klassio\\VISION.md",
+  "type": "PRD",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "AI-учитель — продуктовое видение",
+  "summary": "Продуктовое видение AI-репетитора математики для 5 класса с голосовым агентом, HTML-тренажёром и интерактивной доской, продаваемого через Авито под видом обычного репетитора.",
+  "scope": [
+    "AI-репетитор математики",
+    "целевая аудитория 5 класс",
+    "клиентский путь через Telegram-бота",
+    "HTML-урок",
+    "голосовой агент 11labs",
+    "интерактивная доска tldraw",
+    "2D-аватар Lottie",
+    "двухуровневая LLM (Pedagogical + Realtime)",
+    "архитектура развёртывания (Vercel + Hetzner + Cloudflare)",
+    "безопасность для детей",
+    "ограничения доступа к LLM API из РФ",
+    "сцены/макросы/примитивы tool calls",
+    "долгосрочная дорожная карта"
+  ],
+  "cross_refs": [
+    "BOARD-STACK.md",
+    "BOARD-STATUS.md",
+    "tldraw-test/"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}
