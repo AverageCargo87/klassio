@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-09T19:46:16.218Z"
+last_updated: "2026-05-09T20:46:13.115Z"
 progress:
   total_phases: 12
   completed_phases: 0
   total_plans: 6
-  completed_plans: 2
-  percent: 33
+  completed_plans: 3
+  percent: 50
 ---
 
 # Klassio — STATE
@@ -36,16 +36,17 @@ progress:
 ## Current Position
 
 Phase: 01 (account-shell) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 
 - **Current phase**: Phase 1 — ЛК — оболочка, авторизация, список уроков.
-- **Current plan**: Plan 01 COMPLETE. Plan 02 (account provisioning) is next — requires human-in-loop (external accounts: Supabase, Resend, Vercel).
-- **Status**: **Plan 01-01 complete** (3/3 tasks, 3 commits). Wave 2 requires human-in-loop.
-- **Progress (overall v1)**: `[█░░░░░░░░░░░░░░░░░░░] 0/12 phases complete · 1/6 plans complete`.
-- **Resume file**: `.planning/phases/01-account-shell/01-02-PLAN.md` (Wave 2 — autonomous: false).
+- **Current plan**: Plans 01-02-03 COMPLETE. Plan 04 (magic link auth) is next — `autonomous: true`.
+- **Status**: **Plan 01-03 complete** (2/2 tasks, 2 commits). 6-table Drizzle schema pushed to live Neon DB. Seed verified idempotent.
+- **Progress (overall v1)**: `[█████░░░░░] 50% · 3/6 plans complete in Phase 1`.
+- **Resume file**: `.planning/phases/01-account-shell/01-04-PLAN.md` (Wave 4 — auth implementation).
 
 ### Recent transitions
 
+- **2026-05-09 (#6 — execute 01-03)**: Plan 01-03 (Drizzle schema push + seed) executed in ~54 min. 2 tasks, 2 commits (e0ada84, 78b80db). 6-table schema (user, account, session, verificationToken, allowed_email, lesson) pushed to live Neon DB. Seed idempotent: admin email + user + test lesson. 12 tests passing. Key discovery: postgres-js Extended Query Protocol causes ECONNRESET on Neon Free tier for parameterized DML — fixed by using pg (node-postgres) in seed script. drizzle-kit push introspection also hangs on Neon — fixed by custom db-push.ts using drizzle-kit generate + direct SQL apply.
 - **2026-05-09 (#5 — execute 01-01)**: Plan 01-01 (Bootstrap) executed in ~30 min. 3 tasks, 3 commits (061abe0, 9c09bd4, 3c9b0af). Next.js 15.5.18 scaffolded, vitest 4.x + Playwright 1.59 wired (5 tests passing), zod env validation in place (`lib/env.ts`). One auto-fix: --reporter=basic → --reporter=verbose (basic removed in vitest 4.x). `.env.example` documents contract for Plan 02 provisioning.
 - **2026-05-09 (#4 — plan-phase 1)**: Phase 1 разобрана на **6 PLAN.md в 6 волнах** (Wave 1 scaffold → Wave 6 E2E + production deploy). Research проведён (NextAuth v5 split-config, Drizzle pooler/direct, Tailwind v4 quirks, A1 silent-drop рекомендация). VALIDATION.md создан (vitest + Playwright). Plan checker нашёл 3 BLOCKER + 1 WARNING + 2 INFO на iteration 1 — все исправлены revision'ом (frontmatter completeness, schema test robustness, comment accuracy). Coverage: ACC-01 (6 plans), ACC-02 (4), INV-01 (4) — все 100%. **Wave 2 и Wave 6 — `autonomous: false`** (требуют human-in-loop для external account provisioning + production deploy + RU email deliverability check).
 - **2026-05-09 (#3 — discuss-phase 1)**: Phase 1 CONTEXT.md создан (interactive mode, 4 areas: Auth, Foundation tech, Visual, URL/routing). 18 implementation decisions залочены (D-01..D-18). **Auth-модель Phase 1 значительно изменилась** vs initial roadmap: с «personal token-in-URL для ребёнка» на «email magic link для родителя + child uses parent session». ACC-01 и INV-01 в REQUIREMENTS.md обновлены под новую модель. Stack picks: NextAuth.js v5, Drizzle ORM, shadcn/ui. Visual design выносится в Claude Design (Anthropic SaaS) — Phase 1 implementation не блокируется на дизайне.
@@ -61,8 +62,9 @@ Plan: 3 of 6
 | Метрика | Значение | Дата |
 |---|---|---|
 | Phases complete | 0 / 12 | 2026-05-09 |
-| Plans complete (Phase 1) | 1 / 6 | 2026-05-09 |
+| Plans complete (Phase 1) | 3 / 6 | 2026-05-09 |
 | Requirements addressed (plan 01-01) | ACC-01, ACC-02, INV-01 (scaffold) | 2026-05-09 |
+| Requirements implemented (plan 01-03) | ACC-01 (schema), ACC-02 (schema) | 2026-05-09 |
 | Requirements implemented | 0 / 21 | 2026-05-09 |
 | v1 success metric verified | ❌ | — |
 | Cost per 45-min lesson (Pedagogical + Realtime + 11labs) | TBD (watermark в Phase 8) | — |
@@ -71,6 +73,7 @@ Plan: 3 of 6
 
 ---
 | Phase 01 P02 | 30min | 3 tasks | 4 files |
+| Phase 01 P03 | 54min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -129,7 +132,8 @@ Plan: 3 of 6
 
 - ✅ Plan 01-01 Bootstrap — complete (3 tasks, 5 tests passing).
 - ✅ Plan 01-02 Account provisioning — complete (Neon + Resend + AUTH_SECRET provisioned; A1 silent-drop resolved; Vercel Hobby decision recorded).
-- **NEXT: Plan 01-03** — Drizzle schema push to live Neon DB + seed admin user. `autonomous: true` — no human-in-loop needed. DATABASE_URL and DATABASE_URL_DIRECT verified working.
+- ✅ Plan 01-03 Schema push + seed — complete (2 tasks, 2 commits, 12 tests passing). 6 Drizzle tables in live Neon DB; seed idempotent; custom db-push.ts for Neon ECONNRESET quirk.
+- **NEXT: Plan 01-04** — Magic link auth (NextAuth v5 + Resend + DrizzleAdapter + whitelist callback). `autonomous: true`.
 - **Phase 4 prerequisite:** Перед Phase 4 (production deploy) апгрейднуть Vercel **Hobby → Pro** ($20/мо). Hobby ToS запрещает commercial use — как только первый beta-юзер откроет URL, нужен Pro. Решение зафиксировано в плане 01-02 SUMMARY и COSTS.md § 7 Tracking.
 - Wave 6 потребует human-in-loop: production deploy на Vercel + manual RU email deliverability test (mail.ru / yandex.ru / gmail.com).
 - (Опционально) формализовать какое-либо из 8 locked decisions как ADR через `/gsd-add-decision`.
@@ -143,8 +147,8 @@ Plan: 3 of 6
 
 ## Session Continuity
 
-- **Last session**: 2026-05-09 — Plan 01-01 executed (Bootstrap scaffold — 3 tasks, 5 tests passing).
-- **Next session entry point**: Plan 01-02 (account provisioning checkpoint) — requires human-in-loop. Create Supabase, Resend, Vercel accounts first, then fill `.env.local`.
+- **Last session**: 2026-05-09 — Plan 01-03 executed (Drizzle schema push + seed — 2 tasks, 12 tests passing, live Neon DB verified).
+- **Next session entry point**: Plan 01-04 (magic link auth — NextAuth v5 + Resend + DrizzleAdapter). `autonomous: true`.
 - **What new Claude Code session needs to read first** (порядок):
   1. `PROJECT.md` — core value, locked decisions, anti-scope, invariants.
   2. `STATE.md` (этот файл) — где мы сейчас, что блокирует.
