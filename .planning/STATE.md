@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-09T21:05:33.485Z"
+last_updated: "2026-05-09T21:18:42.552Z"
 progress:
   total_phases: 12
   completed_phases: 0
   total_plans: 6
-  completed_plans: 4
-  percent: 67
+  completed_plans: 5
+  percent: 83
 ---
 
 # Klassio — STATE
@@ -36,7 +36,7 @@ progress:
 ## Current Position
 
 Phase: 01 (account-shell) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 
 - **Current phase**: Phase 1 — ЛК — оболочка, авторизация, список уроков.
 - **Current plan**: Plans 01-02-03 COMPLETE. Plan 04 (magic link auth) is next — `autonomous: true`.
@@ -75,6 +75,7 @@ Plan: 5 of 6
 | Phase 01 P02 | 30min | 3 tasks | 4 files |
 | Phase 01 P03 | 54min | 2 tasks | 11 files |
 | Phase 01-account-shell P01-04 | 12min | 2 tasks | 13 files |
+| Phase 01-account-shell P05 | 7 | 3 tasks | 18 files |
 
 ## Accumulated Context
 
