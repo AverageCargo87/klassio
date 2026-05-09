@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --reporter=basic",
+    "test": "vitest run --reporter=verbose",
     "test:watch": "vitest",
     "test:e2e": "playwright test --project=chromium",
     "db:generate": "drizzle-kit generate",
