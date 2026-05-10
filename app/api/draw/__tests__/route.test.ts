@@ -213,10 +213,14 @@ describe('POST /api/draw', () => {
 
 describe('POST /api/draw — scene expansion (Phase 5)', () => {
   beforeAll(async () => {
-    // Ensure scene files are imported so the registry is populated
+    // Ensure scene files are imported so the registry is populated (Wave 1)
     await import('@/lib/board/scenes/explain-column-addition')
     await import('@/lib/board/scenes/explain-fraction-simplification')
     await import('@/lib/board/scenes/explain-percent-calculation')
+    // Wave 2 scenes
+    await import('@/lib/board/scenes/explain-long-division')
+    await import('@/lib/board/scenes/explain-multiplication-grid')
+    await import('@/lib/board/scenes/explain-arithmetic-mean')
   })
 
   beforeEach(() => {
@@ -286,6 +290,32 @@ describe('POST /api/draw — scene expansion (Phase 5)', () => {
     // Done event has scene_used
     const doneEvent = events.find((e) => e.type === 'done')
     expect(doneEvent?.scene_used).toBe('explain_percent_calculation')
+
+    delete process.env.OPENAI_API_KEY
+  })
+
+  it('Wave-2 scene explain_long_division is expanded: client receives primitive tool_use events', async () => {
+    _streamFactory = () => makeToolCallStream('explain_long_division', '{"dividend":156,"divisor":4}')
+
+    const res = await POST(makeRequest({ prompt: 'объясни деление 156 на 4', lessonId: 'uuid-1' }))
+    expect(res.status).toBe(200)
+
+    const events = await readSSEEvents(res)
+    const toolUseEvents = events.filter((e) => e.type === 'tool_use')
+
+    // Scene must be expanded — no raw scene name forwarded to client
+    const sceneForwardEvents = toolUseEvents.filter((e) => e.name === 'explain_long_division')
+    expect(sceneForwardEvents).toHaveLength(0)
+
+    // At least one primitive event was emitted from the expanded scene
+    const primitiveNames = ['say', 'draw_text', 'draw_line', 'wait', 'highlight_region', 'draw_rectangle', 'draw_circle', 'draw_arrow']
+    const primitiveEvents = toolUseEvents.filter((e) => primitiveNames.includes(e.name as string))
+    expect(primitiveEvents.length).toBeGreaterThanOrEqual(1)
+
+    // Done event has scene_used set to the long division scene name
+    const doneEvent = events.find((e) => e.type === 'done')
+    expect(doneEvent).toBeDefined()
+    expect(doneEvent?.scene_used).toBe('explain_long_division')
 
     delete process.env.OPENAI_API_KEY
   })

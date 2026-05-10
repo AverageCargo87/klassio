@@ -22,8 +22,7 @@ import { lessons } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { allBoardTools, isSceneName, getScene } from '@/lib/board'
 
-// Phase 5: Side-effect imports to register Wave-1 scenes in the registry.
-// Wave 2 scenes will be imported here in plan 05-02.
+// Phase 5 Wave 1: Side-effect imports to register scenes in the registry.
 import '@/lib/board/scenes/explain-column-addition'
 import '@/lib/board/scenes/explain-column-subtraction'
 import '@/lib/board/scenes/explain-fraction-addition'
@@ -32,6 +31,15 @@ import '@/lib/board/scenes/explain-fraction-comparison'
 import '@/lib/board/scenes/explain-fraction-simplification'
 import '@/lib/board/scenes/explain-decimal-addition'
 import '@/lib/board/scenes/explain-percent-calculation'
+
+// Phase 5 Wave 2 (Plan 05-02): 7 remaining scenes — all 15 now registered.
+import '@/lib/board/scenes/explain-multiplication-grid'
+import '@/lib/board/scenes/explain-long-division'
+import '@/lib/board/scenes/explain-decimal-multiplication'
+import '@/lib/board/scenes/explain-rectangle-area'
+import '@/lib/board/scenes/explain-rectangle-perimeter'
+import '@/lib/board/scenes/explain-simple-equation'
+import '@/lib/board/scenes/explain-arithmetic-mean'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
