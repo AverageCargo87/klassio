@@ -1,17 +1,18 @@
 'use client'
 // LessonShell: client component wrapping LessonBusProvider + 3-panel adaptive layout.
 // Receives only serializable props from the server component (strings, not Dates).
-// Per D-01..D-05: CSS Grid on desktop (lg:), Flexbox stack on tablet (md:),
-//   mobile prompt for < md (D-03, D-17).
+// Layout strategy (D-01..D-05):
+//   - Desktop (lg: ≥1024px): 2-column CSS Grid (1fr 24rem), right col sub-grid (12rem 1fr)
+//   - Tablet (md: 768-1023px): single-column flex (board 60vh, voice 15vh, trainer 25vh)
+//   - Mobile (<md): prompt shown, lesson layout hidden
+// Single render of each panel — no duplicates. Layout driven by Tailwind responsive classes.
 // Per D-12: "Завершить урок" button with AlertDialog confirm.
-// Per quality constraint #7: uses shadcn AlertDialog.
 // T-03-03-06: lessonId is UUID (not sequential), topic is user-facing data — acceptable disclosure.
 import { useTransition } from 'react'
 import { LessonBusProvider } from '@/lib/lesson-bus'
 import { BoardPanel } from '@/components/panels/board-panel'
 import { VoicePanel } from '@/components/panels/voice-panel'
 import { TrainerPanel } from '@/components/panels/trainer-panel'
-import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -50,7 +51,9 @@ export function LessonShell({ lessonId, topic }: LessonShellProps) {
             Klassio лучше работает на планшете или ноутбуке. Пожалуйста, открой урок с устройства побольше.
           </p>
           <a href="/lessons">
-            <Button variant="outline" size="sm">← Вернуться в расписание</Button>
+            <span className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-[min(var(--radius-md),12px)] border border-border bg-background px-2.5 text-[0.8rem] font-medium transition-all outline-none">
+              ← Вернуться в расписание
+            </span>
           </a>
         </div>
       </div>
@@ -84,38 +87,33 @@ export function LessonShell({ lessonId, topic }: LessonShellProps) {
           </AlertDialog>
         </header>
 
-        {/* Tablet (md to lg): vertical stack — D-02 */}
-        <div className="flex-1 flex flex-col gap-2 p-2 lg:hidden overflow-auto">
-          <div className="h-[60vh] min-h-0">
-            <BoardPanel />
-          </div>
-          <div className="h-[15vh] min-h-0">
-            <VoicePanel />
-          </div>
-          <div className="h-[25vh] min-h-0">
-            <TrainerPanel />
-          </div>
-        </div>
-
-        {/* Desktop (lg: ≥1024px): CSS Grid 2-column — D-01, D-15 */}
-        <div
-          className="hidden lg:grid flex-1 gap-2 p-2 overflow-hidden"
-          style={{ gridTemplateColumns: '1fr 24rem' }}
+        {/* Responsive panel container:
+            - Tablet (md to lg): flex-col stack (board 60vh, voice 15vh, trainer 25vh)
+            - Desktop (lg: ≥1024px): CSS Grid 2-column (1fr 24rem)
+            Panels rendered ONCE — layout driven by parent container classes.
+        */}
+        <div className="flex-1 overflow-hidden p-2 gap-2 flex flex-col lg:grid"
+          style={{
+            // Desktop: 2 columns (board | right-col)
+            gridTemplateColumns: '1fr 24rem',
+            // Desktop: right column gets sub-grid (applied inline via --grid-* vars not possible here;
+            // right col is separate div below)
+          }}
         >
-          {/* Board: full height left column */}
-          <div className="min-h-0">
+          {/* Board: tall on tablet (60vh), fills height on desktop */}
+          <div className="min-h-0 h-[60vh] lg:h-full">
             <BoardPanel />
           </div>
 
-          {/* Right column: voice top (12rem fixed) + trainer fills rest — D-15 */}
+          {/* Right column: voice (15vh tablet / 12rem desktop) + trainer (fills rest) */}
           <div
-            className="grid min-h-0 gap-2"
-            style={{ gridTemplateRows: '12rem 1fr' }}
+            className="flex flex-col gap-2 min-h-0"
+            style={{ gridTemplateRows: '12rem 1fr', display: 'flex' }}
           >
-            <div className="min-h-0">
+            <div className="min-h-0 h-[15vh] lg:h-48 shrink-0">
               <VoicePanel />
             </div>
-            <div className="min-h-0">
+            <div className="min-h-0 flex-1 h-[25vh] lg:h-auto">
               <TrainerPanel />
             </div>
           </div>
