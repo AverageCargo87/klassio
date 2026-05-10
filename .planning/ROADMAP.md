@@ -87,8 +87,8 @@ Plans:
 **Plans**: 3 plans
 Plans:
 - [x] 02-01-PLAN.md — Schema migration (3 nullable lesson columns) + 4 admin CLI scripts (create-user, create-lesson, list-users, list-lessons) — COMPLETE (2 tasks, 2 commits: 1add440, 9c001a2; 43 tests green; ACC-04 met)
-- [ ] 02-02-PLAN.md — Schedule UI refactor: week grouping, smart-relative dates, collapsible past-lessons section
-- [ ] 02-03-PLAN.md — Admin guide docs + Playwright E2E for schedule grouping
+- [x] 02-02-PLAN.md — Schedule UI refactor: week grouping, smart-relative dates, collapsible past-lessons section
+- [x] 02-03-PLAN.md — Admin guide docs + Playwright E2E for schedule grouping
 **UI hint**: yes
 
 ---
@@ -103,7 +103,11 @@ Plans:
   3. Существует общая event-шина (React context / pub-sub синглтон) с типизированными событиями. Каждая панель может публиковать и слушать события.
   4. Тестовое событие (например, кнопка «Тест ивента» в одной панели) триггерит видимое изменение в другой панели — доказательство, что шина работает.
   5. После урока кнопка «Завершить урок» возвращает ребёнка в ЛК.
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 03-01-PLAN.md — Schema migration (actual_start_at + actual_end_at nullable timestamps on lesson table)
+- [ ] 03-02-PLAN.md — Event bus core: lib/lesson-bus/ (events.ts, bus.ts, provider.tsx, hooks.ts) + 10 Vitest tests
+- [ ] 03-03-PLAN.md — Lesson page server component + 3 panel placeholders + LessonShell + E2E spec
 **UI hint**: yes
 
 ---
@@ -292,7 +296,7 @@ Cross-cutting invariants (INV-01, INV-02) attached to the phase where their firs
 |---|---|---|---|
 | 1. ЛК — оболочка, авторизация по ссылке, список уроков | 0/6 | Plans created | - |
 | 2. Расписание уроков + admin путь для заведения | 0/3 | Plans created | - |
-| 3. Lesson page shell — три-панельный layout + event bus | 0/0 | Not started | - |
+| 3. Lesson page shell — три-панельный layout + event bus | 0/3 | Plans created | - |
 | 4. Production deploy + порт прототипа доски в Klassio | 0/0 | Not started | - |
 | 5. Сцены — методические `explain_*` tools | 0/0 | Not started | - |
 | 6. Голос — 11labs Conversational AI через Hetzner WS-прокси | 0/0 | Not started | - |
