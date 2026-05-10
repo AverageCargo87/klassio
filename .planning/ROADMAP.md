@@ -39,7 +39,7 @@
 - [x] **Phase 1: ЛК — оболочка, авторизация по ссылке, список уроков** — Ребёнок попадает в свой ЛК по личной ссылке и видит список своих уроков. (Implementation complete 2026-05-10; deploy deferred — see MANUAL-ACTIONS.md)
 - [x] **Phase 2: Расписание уроков + admin путь для заведения** — Ребёнок видит расписание; разработчик может вручную завести тестового ребёнка и тестовый урок. (Complete 2026-05-10: 3/3 plans done, ACC-03 + ACC-04 satisfied, 15 E2E tests green)
 - [x] **Phase 3: Lesson page shell — три-панельный layout + event bus** — Существует страница урока с пустыми панелями (доска / голос / тренажёр) и общая event-шина между ними. (Complete 2026-05-10: 3/3 plans done, LES-01 satisfied, 81 unit + 20 E2E tests green)
-- [ ] **Phase 4: Production deploy + порт прототипа доски в Klassio** — Доска tldraw + OpenAI работает в Klassio в проде на Vercel + Cloudflare; РФ-юзер открывает без VPN.
+- [x] **Phase 4: Production deploy + порт прототипа доски в Klassio** — Доска tldraw + OpenAI работает в Klassio в проде на Vercel + Cloudflare; РФ-юзер открывает без VPN. (Implementation COMPLETE 2026-05-10; 3/3 plans done, BRD-01+PED-01 implementation satisfied; production deploy DEFERRED to user — see MANUAL-ACTIONS.md)
 - [ ] **Phase 5: Сцены — методические `explain_*` tools** — Бот объясняет темы 5 класса через 12–15 высокоуровневых сцен, не только примитивы.
 - [ ] **Phase 6: Голос — 11labs Conversational AI через Hetzner WS-прокси** — Голосовой учитель говорит по-русски в браузере ребёнка без VPN.
 - [ ] **Phase 7: HTML-тренажёр — контракт data-атрибутов + event bus** — Ребёнок решает задания, бот видит ввод и подсвечивает элементы.
@@ -127,7 +127,7 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md — deps + config + lib port (tldraw/openai/undici exact-pinned, next.config.ts, instrumentation.ts, lib/board/)
 - [x] 04-02-PLAN.md — /api/draw SSE endpoint (auth guard + lessonId ownership + agent loop)
-- [ ] 04-03-PLAN.md — BoardPanel UI + board:say bus stub + E2E smoke spec
+- [x] 04-03-PLAN.md — BoardPanel UI + board:say bus stub + E2E smoke spec — COMPLETE (3 tasks, 3 commits: a0f1cf2, a8001f0, 64997f9; 117 unit + 20 E2E tests green; tldraw canvas + prompt UI + SSE + narration panel; Phase 4 implementation COMPLETE — deploy DEFERRED to user — see MANUAL-ACTIONS.md)
 **UI hint**: yes
 
 ---

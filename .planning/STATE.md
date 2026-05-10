@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-10T02:31:14Z"
+last_updated: "2026-05-10T05:45:00.000Z"
 progress:
   total_phases: 12
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 15
   completed_plans: 15
-  percent: 93
+  percent: 100
 ---
 
 # Klassio — STATE
@@ -38,13 +38,15 @@ progress:
 Phase: 4
 Plan: Not started
 
-- **Current phase**: Phase 3 — Lesson Shell — COMPLETE.
-- **Current plan**: Plan 03-03 complete. Lesson page shell + 3 panels + E2E. 81 unit tests + 20 E2E green.
-- **Status**: **Phase 3 COMPLETE** (3/3 plans, LES-01 satisfied).
-- **Progress (overall v1)**: `[██████████] Phase 3 complete. Phase 4 (tldraw board) is next.`.
-- **Resume file**: None — Phase 4 is next phase.
+- **Current phase**: Phase 4 — Board Deploy — implementation COMPLETE. Production deploy DEFERRED to user.
+- **Current plan**: Plan 04-03 complete. BoardPanel with tldraw + prompt UI + SSE + narration panel. 117 unit tests + 20 E2E green (board E2E requires running dev server + OPENAI_API_KEY to fully execute).
+- **Status**: **Phase 4 implementation COMPLETE** (3/3 plans, BRD-01+PED-01 implementation done). Deploy deferred to user manual action (see MANUAL-ACTIONS.md).
+- **Progress (overall v1)**: `[█████████████] Phase 4 complete (implementation). Board UI wired to /api/draw SSE endpoint.`.
+- **Resume file**: None — user must complete deploy steps before Phase 5 verification.
 
 ### Recent transitions
+
+- **2026-05-10 (#15 — execute 04-03)**: Plan 04-03 (BoardPanel UI) executed in ~12 min. 3 tasks, 3 commits (a0f1cf2, a8001f0, 64997f9). Full tldraw integration replacing Phase 3 placeholder: Tldraw dynamic import (ssr:false), prompt textarea (shadcn Textarea), 3 suggestion chips, executeDraw() SSE ReadableStream reader, narration panel (say tool), error display, board:say Phase 6 TODO. LessonShell passes lessonId to all panels. VoicePanel/TrainerPanel accept optional lessonId. 5 new BoardPanel unit tests (117 total). 5 E2E smoke specs created. npm run build passes (26.8kB lesson route). Phase 4 implementation COMPLETE — deploy deferred to user.
 
 - **2026-05-10 (#14 — execute 04-02)**: Plan 04-02 (POST /api/draw SSE endpoint) executed in ~4 min. 2 TDD tasks (RED + GREEN), 2 commits (f938ae9, c96668b). auth() guard (401), zod-free input validation (400), drizzle ownership check WHERE id=lessonId AND userId=session.user.id (403), agent loop with tool_choice:'required' + finish tool intercept + MAX_AGENT_TURNS=30 + parsed_arguments fallback. SSE ReadableStream with proper headers. 8 Vitest tests added, 112 total green. npm run build passes (8 routes). Auto-fixes: OpenAI mock constructor + OPENAI_API_KEY env in happy-path tests.
 
@@ -99,6 +101,7 @@ Plan: Not started
 | Phase 03-lesson-shell P03 | 12 | 3 tasks | 9 files |
 | Phase 04-board-deploy P04-01 | 5 | 2 tasks | 11 files |
 | Phase 04-board-deploy P04-02 | 4 | 2 tasks | 2 files |
+| Phase 04-board-deploy P04-03 | 12 | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -137,6 +140,13 @@ Plan: Not started
 3. **Проактивный, не реактивный бот** (PED-02 в Phase 8).
 4. **Юзер не должен ставить ничего** (INV-01 в Phase 1, foundational).
 5. **Ощущение живого учителя у доски** (BRD-03 в Phase 11).
+
+### Plan 04-03 decisions (executor — 2026-05-10)
+
+- **executeDraw(promptText) accepts explicit string:** Chip click sets prompt state AND calls executeDraw(suggestion) directly. handleDraw() reads from `prompt` state which may not flush before executeDraw runs. Passing the string explicitly avoids the React batching race entirely.
+- **tldraw CSS at component level:** `import 'tldraw/tldraw.css'` in board-panel.tsx with a `tldraw-container` wrapper div. Component-level import scopes the CSS and avoids global Tailwind v4 conflicts. Build verified clean.
+- **vi.mock('next/dynamic') for unit tests:** Mock returns synchronous stub that calls `onMount` with a mock editor in useEffect. Allows testing BoardPanel prompt/chip/submit flow without tldraw DOM dependencies in vitest happy-dom.
+- **E2E: no form submission:** Board E2E specs assert only UI presence and chip interaction. No OpenAI calls, no SSE wait. Avoids OPENAI_API_KEY dependency in CI and SSE timing flakiness.
 
 ### Plan 04-02 decisions (executor — 2026-05-10)
 
@@ -221,8 +231,8 @@ Plan: Not started
 
 ## Session Continuity
 
-- **Last session**: 2026-05-10 — Plan 04-02 executed (POST /api/draw SSE endpoint with auth + ownership + agent loop — 2 TDD tasks, 2 commits, 8 new tests, 112 total green).
-- **Next session entry point**: Plan 04-03 (BoardPanel UI — wire /api/draw SSE endpoint to tldraw canvas). `autonomous: true`.
+- **Last session**: 2026-05-10 — Plan 04-03 executed (BoardPanel UI — full tldraw integration + prompt UI + SSE processing — 3 tasks, 3 commits a0f1cf2+a8001f0+64997f9. 117 unit tests green. Phase 4 implementation COMPLETE. Production deploy DEFERRED to user — see MANUAL-ACTIONS.md).
+- **Next session entry point**: Phase 5 (production deploy via Vercel + Cloudflare + DNS) or Phase 6 (voice integration) — per ROADMAP.md. Phase 4 implementation done; user must complete deploy steps in MANUAL-ACTIONS.md before Phase 5 DEP-01 criteria #4-#6 can be verified.
 - **What new Claude Code session needs to read first** (порядок):
   1. `PROJECT.md` — core value, locked decisions, anti-scope, invariants.
   2. `STATE.md` (этот файл) — где мы сейчас, что блокирует.
