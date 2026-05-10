@@ -97,7 +97,10 @@ export function BoardPanel({ lessonId }: BoardPanelProps) {
       setRunning(true)
       setError(null)
       setCalls([])
-      setNarrations([])
+      // Show immediate "Бот думает..." narration so user sees activity
+      // while LLM call is in flight. Replaced by real narrations as soon
+      // as first SSE event arrives (or by 'started' confirmation event).
+      setNarrations([{ text: 'Бот думает…', spokenAt: Date.now() }])
       setHasShapes(true)
 
       try {
@@ -135,6 +138,12 @@ export function BoardPanel({ lessonId }: BoardPanelProps) {
               continue
             }
 
+            if (evt.type === 'started') {
+              // Server confirmed connection — replace placeholder narration
+              setNarrations([{ text: 'Учитель готовит объяснение…', spokenAt: Date.now() }])
+              continue
+            }
+
             if (evt.type === 'tool_use') {
               const name = String(evt.name)
               const input = (evt.input ?? {}) as Record<string, unknown>
@@ -142,7 +151,13 @@ export function BoardPanel({ lessonId }: BoardPanelProps) {
               if (name === 'say') {
                 const text = typeof input.text === 'string' ? input.text : ''
                 if (text) {
-                  setNarrations((prev) => [...prev, { text, spokenAt: Date.now() }])
+                  // First real `say` replaces the "thinking" placeholder
+                  setNarrations((prev) => {
+                    const isPlaceholder =
+                      prev.length === 1 &&
+                      (prev[0].text === 'Бот думает…' || prev[0].text === 'Учитель готовит объяснение…')
+                    return isPlaceholder ? [{ text, spokenAt: Date.now() }] : [...prev, { text, spokenAt: Date.now() }]
+                  })
                   // TODO Phase 6: emit board:say event when SSE includes 'say' tool
                   //   _bus.emit('board:say', { text, timestamp: Date.now() })
                 }

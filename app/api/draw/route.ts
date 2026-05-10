@@ -224,6 +224,22 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // First-byte flush — force Vercel/Cloudflare to start streaming
+      // the response immediately. Without this, intermediate proxies may
+      // buffer the response body until LLM completes (~2-4s), delaying
+      // time-to-first-shape on the client.
+      // SSE comment lines (starting with `:`) are ignored by EventSource
+      // parsers but force HTTP body bytes to flow.
+      try {
+        controller.enqueue(encoder.encode(`: connected\n\n`))
+      } catch {
+        // ignore
+      }
+
+      // Notify client that we've started — gives instant feedback even
+      // before the LLM responds. Client can show "Бот думает..." indicator.
+      send({ type: 'started' })
+
       // Agent loop.
       // OpenAI ChatCompletion stops after tool_calls and waits for tool_result.
       // Our tools are "fire and forget" (drawing on canvas, no useful return value),
