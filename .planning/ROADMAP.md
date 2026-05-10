@@ -175,7 +175,10 @@ Plans:
   4. Тренажёр принимает команды от бота: `highlight(element_id)`, `show_hint(task_id, level)`, `goto_task(task_id)` — каждая команда видимо меняет состояние UI.
   5. Поддерживаются 3 типа заданий: `numeric-input` (ввод числа), `single-choice` (выбор варианта), `matching` (сопоставление).
   6. Ручная QA: тестовый ребёнок вводит ответ → событие появляется в event bus → бот реагирует репликой через 11labs (даже простой заглушкой «вижу твой ответ» — полноценная реакция в Phase 8).
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md — Bus events (7 variants) + TrainerConfig schema + useTrainerIdle + 3 task-type components
+- [ ] 07-02-PLAN.md — TrainerPanel rewrite + config loader + sample configs + admin CLI flag + E2E
 **UI hint**: yes
 
 ---
@@ -307,7 +310,7 @@ Cross-cutting invariants (INV-01, INV-02) attached to the phase where their firs
 | 4. Production deploy + порт прототипа доски в Klassio | 0/0 | Not started | - |
 | 5. Сцены — методические `explain_*` tools | 2/2 | Complete | 2026-05-10 |
 | 6. Голос — 11labs Conversational AI через Hetzner WS-прокси | 0/0 | Not started | - |
-| 7. HTML-тренажёр — контракт data-атрибутов + event bus | 0/0 | Not started | - |
+| 7. HTML-тренажёр — контракт data-атрибутов + event bus | 0/2 | Plans created | - |
 | 8. Двухуровневая LLM + проактивные триггеры | 0/0 | Not started | - |
 | 9. 2D Lottie аватар учителя | 0/0 | Not started | - |
 | 10. Запись урока + транскрипт + модерация + 152-ФЗ | 0/0 | Not started | - |
