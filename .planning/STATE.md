@@ -3,20 +3,20 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
 status: phase_6_in_progress
-last_updated: "2026-05-10T23:30:00Z"
+last_updated: "2026-05-10T22:14:00Z"
 progress:
   total_phases: 12
   completed_phases: 7
   active_phase: 6
   blocked_phases: 4   # 8, 10, 11, 12 (Phase 6 unblocked, others depend)
-  total_plans: 20
-  completed_plans: 20
-  percent: 62
+  total_plans: 21
+  completed_plans: 21
+  percent: 63
 production_url: "https://klassio-one.vercel.app"
 deploy_status:
   phase_1: "DEPLOYED ✓ — auth flow end-to-end works (Resend magic link → /lessons). Known UX bug: client-side exception on form submit (email still sent, non-blocking)."
   phase_4: "DEPLOYED ✓ — board renders explanations correctly. Camera auto-fit fix applied (a36f87d). First-byte SSE flush + 'Бот думает…' indicator (15a7bd6). Speed and animation tweaks deferred per user."
-  phase_6: "BASELINE COMPLETE (2026-05-10 evening) — agent работает в 11labs Test Agent. Final config: GPT-4.1 mini (mini, не nano — nano не справлялся с арифметикой), Multilingual v2 TTS, Nataly voice, Authentication ON, Allowlist klassio-one.vercel.app+localhost:3000. System prompt fixed: gender-neutral для ребёнка (no '(а)' brackets), про себя в женском роде, math accuracy rule (chain-of-thought проверка перед похвалой), self-correction rule. Test results: арифметика честная (73, 79, 34), goly живой, женский, реакция на 'стоп!' работает. Agent ID: agent_7701kr9c2v7eev3tabzv4f2b0e8b. API key — в .env.local (см. MANUAL-ACTIONS.md), pending ротация после первого prod deploy. Open: latency ~3s (можно срезать через Eagerness=High или Turbo v2.5), audio crackling on first connect (network/jitter, лечится Hetzner WS proxy в Phase 6.5). Ready for plan 06-01 — Klassio frontend integration."
+  phase_6: "PLAN 06-01 COMPLETE (2026-05-10) — server foundation shipped: @elevenlabs/react@^1.6.0 installed, lib/elevenlabs/{types,get-signed-url}.ts, POST /api/voice/signed-url with auth+ownership+env-guard+502-wrap, 21 unit tests green. Baseline agent (config in .planning/PHASE-6-SETUP-2026-05-10.md) ready for VoicePanel integration in plan 06-02."
 ---
 
 # Klassio — STATE
@@ -64,6 +64,8 @@ deploy_status:
 - **Resume file для следующей сессии после /clear**: `.planning/PHASE-6-SETUP-2026-05-10.md` (главный) + `.planning/STATE.md` (этот файл) + `.planning/MANUAL-ACTIONS.md`.
 
 ### Recent transitions
+
+- **2026-05-10 (#24 — execute 06-01)**: Plan 06-01 (Voice server foundation) executed in ~7 min. 2 TDD tasks, 4 commits (e549d39 RED test, 492f175 GREEN feat, 40e1868 RED test, b12631e GREEN feat). @elevenlabs/react@^1.6.0 installed (transitive @elevenlabs/client@1.7.0, livekit-client). lib/elevenlabs/types.ts: ConversationMode/ConversationStatus/VoiceErrorKind unions. lib/elevenlabs/get-signed-url.ts: fetch+throw REST wrapper around 11labs get-signed-url endpoint (`xi-api-key` header, `cache: 'no-store'`, missing-field guard). app/api/voice/signed-url/route.ts: 5-step handler (auth → validate → ownership → env-guard → upstream-call wrapped in 502), returns `{signedUrl, topic}` on 200, all 6 Russian error messages match draw route conventions. 21 unit tests passing (7 lib + 14 route) covering VOI-01-A..H + 502 + order invariant (auth before body parse). Full suite 322/322 (+21 new). tsc clean. npm run build lists /api/voice/signed-url. No deviations — plan executed exactly as specified. VOI-01 satisfied. Plan 06-02 (VoicePanel + E2E) unblocked.
 
 - **2026-05-10 (#23 — Phase 6 baseline COMPLETE)**: Agent в 11labs полностью настроен и протестирован в Test Agent UI. Iterative tuning session: (1) Custom LLM endpoint работает; (2) GPT-4.1 Nano галлюцинировал на арифметике (подтвердил ребёнку «70» вместо 73 для 25+48) → upgrade на GPT-4.1 mini; (3) v3 Conversational Alpha TTS глючил на русском (повторы абзацев, «инопланетный язык») → downgrade на Multilingual v2 stable, audio tags `[warmly]` убраны из промпта (v2 их не парсит); (4) gender-neutral fix для ребёнка — убраны формы со скобками `(а)` через запрет в промпте. Final test transcript: 73 + 79 + 34 honestly verified, реакция на «стоп!» работает, gender-neutral works. Identifiers получены: Agent ID `agent_7701kr9c2v7eev3tabzv4f2b0e8b`, API key создан с restricted permissions (ElevenAgents=Write, Voices=Read, History=Read), положен в `.env.local`. Файлы обновлены: `.planning/PHASE-6-SETUP-2026-05-10.md` (final config + System Prompt), `.env.example` (env var docs), `MANUAL-ACTIONS.md` (step Vercel env + ротация key), `STATE.md` (этот). Готовы к `/gsd-plan-phase 06-voice`.
 
@@ -141,6 +143,7 @@ deploy_status:
 | Phase 05-scenes P05-02 | 6 | 3 tasks | 16 files |
 | Phase 07-trainer P07-02 | 10 | 3 tasks | 14 files |
 | Phase 09-avatar P09-01 | 5 | 3 tasks | 11 files |
+| Phase 06-voice P06-01 | 7 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -179,6 +182,16 @@ deploy_status:
 3. **Проактивный, не реактивный бот** (PED-02 в Phase 8).
 4. **Юзер не должен ставить ничего** (INV-01 в Phase 1, foundational).
 5. **Ощущение живого учителя у доски** (BRD-03 в Phase 11).
+
+### Plan 06-01 decisions (executor — 2026-05-10)
+
+- **Caret range ^1.6.0 for @elevenlabs/react**: 3-day-old release; minor patches expected — caret matches resend/pg/drizzle pinning style. Tldraw/openai/next/next-auth are pinned-exact because minor bumps broke builds; 11labs has no such history yet.
+- **Did NOT extend lib/env.ts with ELEVENLABS_***: kept it per-request guarded inside the handler (`process.env.X || 500 'Voice service не настроен'`). Matches OPENAI_API_KEY pattern from draw route — zod is reserved for boot-time env + content schemas, NOT route handler input.
+- **Did NOT add 'connected' to voice:state union (Option B)**: RESEARCH § Open Q3 recommended no-modify. onConnect maps to bus.emit('voice:state', {state: 'idle'}) until first onModeChange fires. Avoids touching lib/avatar/state-machine.ts (Phase 9 territory).
+- **Topic returned in response body (defense-in-depth)**: `{signedUrl, topic}` — VoicePanel uses server-authoritative topic for firstMessage override, NOT request body. Resolves RESEARCH § Open Q4.
+- **VoiceErrorKind is a flat string union, not a discriminated payload**: matches lib/lesson-bus/events.ts VoiceStatePayload shape — no `type` discriminator needed because consumers switch on the string for 5 Russian error messages (RESEARCH § Pitfall 1).
+- **Auth before body parse — load-bearing order**: tested via unit test (request with malformed JSON + auth() returning null asserts 401 not 400). Prevents malformed-body DOS bypassing auth.
+- **vi.hoisted + vi.stubGlobal for fetch mock**: first such test in repo. Vitest 4.x hoisting requires `vi.hoisted(() => {const fetchMock = vi.fn(); return {fetchMock}})` before `vi.stubGlobal('fetch', fetchMock)`. Reset via `fetchMock.mockReset()` in `beforeEach`. Pattern to reuse for future HTTP-wrapping libs.
 
 ### Plan 09-01 decisions (executor — 2026-05-10)
 
@@ -281,6 +294,7 @@ deploy_status:
 
 ### Active todos
 
+- ✅ Plan 06-01 Voice server foundation — complete (2 TDD tasks, 4 commits, 21 new tests passing). @elevenlabs/react@^1.6.0 + lib/elevenlabs/{types,get-signed-url}.ts + POST /api/voice/signed-url. VOI-01 satisfied. Plan 06-02 (VoicePanel UI + E2E) unblocked.
 - ✅ Plan 09-01 Avatar SHELL — complete (3 tasks, 301 tests passing). 6-state emoji avatar with CSS animations, state machine, VoicePanel rewrite, window.__lessonBus, 3 E2E specs. VOI-02 satisfied.
 - ✅ Plan 01-01 Bootstrap — complete (3 tasks, 5 tests passing).
 - ✅ Plan 01-02 Account provisioning — complete (Neon + Resend + AUTH_SECRET provisioned; A1 silent-drop resolved; Vercel Hobby decision recorded).
@@ -306,8 +320,8 @@ deploy_status:
 
 ## Session Continuity
 
-- **Last session**: 2026-05-10 — Plan 09-01 executed (Avatar SHELL — 6-state emoji avatar, CSS animations, state machine, VoicePanel rewrite, window.__lessonBus, 3 E2E specs — 3 commits (eed102f, e7e7002, b8cbca4). 301 unit tests green. npm run build clean. VOI-02 satisfied. Phase 9 complete.
-- **Next session entry point**: Phase 10 (Recording/playback) OR Phase 6 (Voice integration — 11labs Conversational AI; real voice:state events will wire to avatar automatically).
+- **Last session**: 2026-05-10 — Plan 06-01 executed (Voice server foundation — @elevenlabs/react@^1.6.0 install, lib/elevenlabs/{types,get-signed-url}.ts, POST /api/voice/signed-url with auth+ownership+env-guard+502-wrap — 4 commits (e549d39 RED, 492f175 GREEN, 40e1868 RED, b12631e GREEN). 322 unit tests green (+21 new). tsc + build clean. VOI-01 satisfied.
+- **Next session entry point**: Plan 06-02 (VoicePanel rewrite + E2E — VoicePanel ↔ useConversation SDK hook ↔ window.__lessonBus voice:state events).
 - **What new Claude Code session needs to read first** (порядок):
   1. `PROJECT.md` — core value, locked decisions, anti-scope, invariants.
   2. `STATE.md` (этот файл) — где мы сейчас, что блокирует.

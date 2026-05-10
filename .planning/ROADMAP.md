@@ -162,7 +162,7 @@ Plans:
   6. Custom LLM endpoint 11labs использует наш OPENAI_API_KEY с моделью GPT-4.1 mini (Nano downgraded after арифметические галлюцинации; cost ~150 ₽/мес для 6 уроков).
 **Plans**: 2 plans
 Plans:
-- [ ] 06-01-PLAN.md — SDK install + lib/elevenlabs/ (types + getSignedUrl) + POST /api/voice/signed-url + unit tests (Wave 1, autonomous, VOI-01-A..H)
+- [x] 06-01-PLAN.md — SDK install + lib/elevenlabs/ (types + getSignedUrl) + POST /api/voice/signed-url + unit tests (Wave 1, autonomous, VOI-01-A..H) ✅ 2026-05-10 (21 tests green, see 06-01-SUMMARY.md)
 - [ ] 06-02-PLAN.md — VoicePanel rewrite + LessonShell topic prop + component tests + E2E (bus-driven avatar + bundle-leak scan) + manual smoke note for Open Q1 allowlist (Wave 2, autonomous, VOI-01-I..T)
 **UI hint**: yes
 
