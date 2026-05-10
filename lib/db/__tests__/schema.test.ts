@@ -54,6 +54,23 @@ describe('lib/db/schema', () => {
     expect(schema.lessons.createdAt).toBeDefined()
   })
 
+  it('lessons table has Phase 2 nullable columns (D-11, D-13)', () => {
+    // These 3 columns were added in Phase 2, Plan 01
+    expect(schema.lessons.recordingUrl).toBeDefined()
+    expect(schema.lessons.transcriptUrl).toBeDefined()
+    expect(schema.lessons.htmlTrainerPath).toBeDefined()
+  })
+
+  it('lessons table topic column exists (Phase 1 regression guard)', () => {
+    // topic was added in Phase 1 as TEXT NOT NULL — must not be removed or changed
+    expect(schema.lessons.topic).toBeDefined()
+  })
+
+  it('lessonStatusEnum still has all 4 values (Phase 2 regression guard)', () => {
+    const values = (schema.lessonStatusEnum as unknown as { enumValues: readonly string[] }).enumValues
+    expect(values).toEqual(['scheduled', 'in_progress', 'completed', 'cancelled'])
+  })
+
   it('lessonStatusEnum has 4 values', () => {
     // pgEnum exposes its values via the .enumValues property in drizzle-orm
     const values = (schema.lessonStatusEnum as unknown as { enumValues: readonly string[] }).enumValues

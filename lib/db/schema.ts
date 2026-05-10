@@ -98,6 +98,10 @@ export const lessons = pgTable(
     topic: text('topic').notNull(),
     durationMin: integer('duration_min').notNull().default(45),
     htmlTemplateUrl: text('html_template_url'), // placeholder for Phase 7 HTML trainer
+    // === Phase 2 extensions (D-11, D-13) — all nullable; populated by later phases ===
+    recordingUrl: text('recording_url'),         // Phase 10 will populate
+    transcriptUrl: text('transcript_url'),       // Phase 10 will populate
+    htmlTrainerPath: text('html_trainer_path'),  // Phase 7 will populate
     status: lessonStatusEnum('status').notNull().default('scheduled'),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   },
