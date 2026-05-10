@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
 status: phase_6_in_progress
-last_updated: "2026-05-10T20:30:00Z"
+last_updated: "2026-05-10T23:30:00Z"
 progress:
   total_phases: 12
   completed_phases: 7
@@ -16,7 +16,7 @@ production_url: "https://klassio-one.vercel.app"
 deploy_status:
   phase_1: "DEPLOYED ✓ — auth flow end-to-end works (Resend magic link → /lessons). Known UX bug: client-side exception on form submit (email still sent, non-blocking)."
   phase_4: "DEPLOYED ✓ — board renders explanations correctly. Camera auto-fit fix applied (a36f87d). First-byte SSE flush + 'Бот думает…' indicator (15a7bd6). Speed and animation tweaks deferred per user."
-  phase_6: "IN PROGRESS — 11labs Creator subscription активна ($11 first month / $22 ongoing — saved $77/mo vs Pro). Custom LLM endpoint confirmed available в Creator. Model: GPT-4.1 Nano selected. Voice ID picked by user. System prompt + first message drafted (in PHASE-6-SETUP-2026-05-10.md). Awaiting: paste prompts в 11labs UI → Test Agent → capture Agent ID + Voice ID + API key → Klassio frontend integration."
+  phase_6: "BASELINE COMPLETE (2026-05-10 evening) — agent работает в 11labs Test Agent. Final config: GPT-4.1 mini (mini, не nano — nano не справлялся с арифметикой), Multilingual v2 TTS, Nataly voice, Authentication ON, Allowlist klassio-one.vercel.app+localhost:3000. System prompt fixed: gender-neutral для ребёнка (no '(а)' brackets), про себя в женском роде, math accuracy rule (chain-of-thought проверка перед похвалой), self-correction rule. Test results: арифметика честная (73, 79, 34), goly живой, женский, реакция на 'стоп!' работает. Agent ID: agent_7701kr9c2v7eev3tabzv4f2b0e8b. API key — в .env.local (см. MANUAL-ACTIONS.md), pending ротация после первого prod deploy. Open: latency ~3s (можно срезать через Eagerness=High или Turbo v2.5), audio crackling on first connect (network/jitter, лечится Hetzner WS proxy в Phase 6.5). Ready for plan 06-01 — Klassio frontend integration."
 ---
 
 # Klassio — STATE
@@ -42,25 +42,30 @@ deploy_status:
 
 ## Current Position
 
-**Phase 6 (Voice) ACTIVE. 11labs Creator subscription активна. User configuring agent в 11labs dashboard.**
+**Phase 6 (Voice) — BASELINE COMPLETE в 11labs. Готовы к plan 06-01 (Klassio frontend integration).**
 
 - **Production URL**: https://klassio-one.vercel.app — DEPLOYED, working
 - **Phase 1 status**: ✅ DEPLOYED. Auth end-to-end works. Известный UX bug: client-side exception на form submit (email уходит, flow завершается) — non-blocking, отложен на полировку.
 - **Phase 4 status**: ✅ DEPLOYED. Board rendering работает после fixes: camera auto-fit (a36f87d) + first-byte SSE flush + thinking indicator (15a7bd6). User протестировал «объясни 245+874 в столбик» — работает. Speed/animation polish — отложено.
-- **Phase 6 status**: 🟡 ACTIVE. User в 11labs dashboard:
-  - ✅ Creator subscription ($11 first month) — saved $77/мо vs Pro
-  - ✅ Custom LLM endpoint **доступен в Creator** (главный pricing review win)
-  - ✅ Voice picked
-  - ✅ LLM model: **GPT-4.1 Nano** (563ms latency, $0.0016/min ≈ 39₽/мес для 6 уроков)
-  - ⏳ Применить System Prompt + First Message (готовые в `.planning/PHASE-6-SETUP-2026-05-10.md`)
-  - ⏳ Применить Agent Settings (voice/conversation/recording)
-  - ⏳ Test Agent в 11labs browser-tester
-  - ⏳ Capture **Agent ID + Voice ID + 11labs API key**
+- **Phase 6 status**: 🟢 **BASELINE COMPLETE (in 11labs).** Agent работает в Test Agent UI, конфигурация залочена в `.planning/PHASE-6-SETUP-2026-05-10.md`:
+  - ✅ Creator subscription ($11/$22) — saved $77/мо vs Pro
+  - ✅ Custom LLM endpoint работает (OpenAI key через 11labs)
+  - ✅ Voice: **Nataly** (Youthful, Gentle and Soft) + **Eleven Multilingual v2** (после отказа от v3 Alpha — глючил на русском)
+  - ✅ LLM: **GPT-4.1 mini** (повышено с Nano — Nano галлюцинировал на арифметике; cost ~150₽/мес для 6 уроков)
+  - ✅ Voice settings: Stability ~0.30, Similarity 0.75, Style 0.40, Speed 1.05
+  - ✅ System Prompt finalized: gender-neutral для ребёнка (нет `(а)` скобок), женский род для себя, math accuracy rule (chain-of-thought перед похвалой), self-correction rule
+  - ✅ Agent settings: Authentication ON, Allowlist (klassio-one.vercel.app + localhost:3000), First message override ON, Daily limit 100, bursting OFF
+  - ✅ Advanced: Eagerness Normal, Take turn 10s, Max duration 3600s, Generate during silence ON, ASR keywords добавлены (дроби, периметр, etc.)
+  - ✅ **Identifiers**: Agent ID = `agent_7701kr9c2v7eev3tabzv4f2b0e8b`, API key положен в `.env.local` (rотация после prod deploy)
+  - ⚠️ **Open issues для plan 06-01 follow-up**: latency ~3s (можно срезать), потрескивание на first connect (network jitter, лечится Hetzner WS proxy позже)
+  - ⏳ **Next**: `/gsd-plan-phase 06-voice` для plan 06-01 (frontend integration)
 - **Phase 7 status**: ✅ shell deployed; UX bugs (no retry after wrong answer, jitter) — pending редизайн.
 - **Phases done implementation**: 1, 2, 3, 4, 5, 7, 9 (7 из 12). Phases 8, 10, 11, 12 — skeleton CONTEXTs (depend on Phase 6 completion + user decisions).
 - **Resume file для следующей сессии после /clear**: `.planning/PHASE-6-SETUP-2026-05-10.md` (главный) + `.planning/STATE.md` (этот файл) + `.planning/MANUAL-ACTIONS.md`.
 
 ### Recent transitions
+
+- **2026-05-10 (#23 — Phase 6 baseline COMPLETE)**: Agent в 11labs полностью настроен и протестирован в Test Agent UI. Iterative tuning session: (1) Custom LLM endpoint работает; (2) GPT-4.1 Nano галлюцинировал на арифметике (подтвердил ребёнку «70» вместо 73 для 25+48) → upgrade на GPT-4.1 mini; (3) v3 Conversational Alpha TTS глючил на русском (повторы абзацев, «инопланетный язык») → downgrade на Multilingual v2 stable, audio tags `[warmly]` убраны из промпта (v2 их не парсит); (4) gender-neutral fix для ребёнка — убраны формы со скобками `(а)` через запрет в промпте. Final test transcript: 73 + 79 + 34 honestly verified, реакция на «стоп!» работает, gender-neutral works. Identifiers получены: Agent ID `agent_7701kr9c2v7eev3tabzv4f2b0e8b`, API key создан с restricted permissions (ElevenAgents=Write, Voices=Read, History=Read), положен в `.env.local`. Файлы обновлены: `.planning/PHASE-6-SETUP-2026-05-10.md` (final config + System Prompt), `.env.example` (env var docs), `MANUAL-ACTIONS.md` (step Vercel env + ротация key), `STATE.md` (этот). Готовы к `/gsd-plan-phase 06-voice`.
 
 - **2026-05-10 (#22 — Phase 6 agent setup session)**: 11labs Creator subscription активирована (saved $77/мо vs Pro decision). Custom LLM endpoint confirmed available в Creator. User picked voice + GPT-4.1 Nano model (563ms, $0.0016/min, ~39₽/мес для 6 уроков/мес — финальный Phase 6 watermark обновлён в COSTS.md с 8 900 до 2 000 ₽/мо). Drafted RU system prompt + first message + agent settings recommendations — все в `.planning/PHASE-6-SETUP-2026-05-10.md` готовое для copy-paste. Bug fixes к Phase 4: camera auto-fit zoomToFit после draw_ primitives (a36f87d), first-byte SSE flush + 'Бот думает…' indicator (15a7bd6) — пользователь подтвердил board rendering работает в проде. Pricing review committed (79c5791): Phase 6 cost watermark снижен в 4.4 раза. User делает /clear для resume в чистой сессии.
 

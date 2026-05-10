@@ -276,7 +276,7 @@ User progressed Phase 6 substantially:
 
 ### Что осталось (resume guide для следующей сессии)
 
-**Главный файл для resume**: `.planning/PHASE-6-SETUP-2026-05-10.md`
+**Главный файл для resume**: `.planning/PHASE-6-SETUP-2026-05-10.md` (обновлён — финальная конфигурация)
 
 В нём готовые copy-paste:
 - ✅ System Prompt (Russian, age-adapted для 5 класса, безопасный, проактивный)
@@ -316,4 +316,60 @@ User progressed Phase 6 substantially:
 Поставим:
 - Перед РФ smoke test
 - ИЛИ перед первым beta-юзером
+
+
+## Update 2026-05-10 #3 (Phase 6 baseline COMPLETE)
+
+### Phase 6 baseline в 11labs полностью настроен ✅
+
+User довёл agent до working state в 11labs Test Agent — арифметика честная (GPT-4.1 mini), голос живой (Nataly + Multilingual v2), gender-neutral для ребёнка, говорит про себя в женском роде. Финальная конфигурация целиком в `.planning/PHASE-6-SETUP-2026-05-10.md`.
+
+### Получены identifiers
+```
+Agent ID:  agent_7701kr9c2v7eev3tabzv4f2b0e8b
+API Key:   sk_... (показывать не буду — сейчас в чат-логах, ротация ниже)
+Voice ID:  не нужен (голос привязан к Agent ID)
+```
+
+### ⚠️ Phase 6, Step 1 — Положить env vars (USER ACTION)
+
+**Local dev (`.env.local`)** — ✅ DONE 2026-05-11:
+
+```
+# 11labs Conversational AI (Phase 6)
+ELEVENLABS_API_KEY=sk_<REDACTED-OLD-KEY>
+ELEVENLABS_AGENT_ID=agent_7701kr9c2v7eev3tabzv4f2b0e8b
+```
+
+**Vercel production** — ✅ DONE 2026-05-11:
+
+Обе переменные **server-only** (без `NEXT_PUBLIC_` префикса) — Agent ID используется только server-side в `/api/voice/signed-url` route. Клиент его никогда не видит. С Authentication=ON на agent это единственный валидный path.
+
+```bash
+# Подтверждение:
+cd C:/Users/krato/ClaudeVibecoding/ClaudeDesktop/Klassio
+vercel env ls
+# должны быть: ELEVENLABS_API_KEY (Production), ELEVENLABS_AGENT_ID (Production)
+```
+
+**НЕ делать `vercel --prod` сейчас** — деплой произойдёт автоматически когда plan 06-01 закоммитит код, который реально использует эти переменные.
+
+### ⚠️ Phase 6, Step 2 — Ротация API Key (USER ACTION, ПОСЛЕ deploy)
+
+API key `sk_ec83844ed07112fbe33c55...` попал в чат-логи Claude (dev session 2026-05-10). После того как Phase 6 интеграция задеплоится и заработает в проде:
+
+1. На 11labs → Settings → API Keys → **Create API Key** новый (те же permissions: ElevenAgents=Write, Voices=Read, History=Read)
+2. Положить новый ключ в `.env.local` + `vercel env add ELEVENLABS_API_KEY production` (можно `vercel env rm` старый сначала или `vercel env pull` для diff)
+3. `vercel --prod` чтобы новая переменная применилась
+4. На 11labs → удалить старый ключ
+5. Smoke test что voice всё ещё работает на проде
+
+1 минута работы.
+
+### Что Claude сделает после "положил env vars"
+
+- Запустит `/gsd-plan-phase 06-voice` → создаст PLAN.md для plan 06-01 (frontend integration)
+- В plan: signed URL endpoint, VoicePanel rewrite, bus event wiring, E2E
+- Execute plan → коммиты с конкретными деривациями
+- Build + tsc + tests green → готово к Vercel auto-deploy
 
