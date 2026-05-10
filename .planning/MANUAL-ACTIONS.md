@@ -373,3 +373,86 @@ API key `sk_ec83844ed07112fbe33c55...` попал в чат-логи Claude (dev
 - Execute plan → коммиты с конкретными деривациями
 - Build + tsc + tests green → готово к Vercel auto-deploy
 
+
+## Update 2026-05-11 #4 (Phase 6 implementation COMPLETE — overnight autonomous run)
+
+### Что было сделано автономно (2026-05-11 night session)
+
+User ушёл спать после baseline complete. Claude отработал:
+
+1. **`/gsd-plan-phase 06-voice`** — research (HIGH confidence), pattern mapping (10/10), planner (2 PLAN.md в 2 wave'ах), plan-checker (VERIFICATION PASSED первой итерацией, 12/12 dimensions)
+2. **`/gsd-execute-phase 06-voice`** — Wave 1 (06-01 server foundation, ~7 мин, 21 unit tests) → Wave 2 (06-02 VoicePanel + E2E, ~12 мин, 17 unit + 11 E2E) → goal-backward verifier (PARTIAL → human_needed, 11/13 must-haves verified)
+
+**Total**: 9 commits, 0 regressions, 338/338 unit tests green, tsc + build clean.
+
+```
+8961a97 docs(06-voice): phase verification report (PARTIAL → human_needed)
+79a5711 docs(06-02): complete VoicePanel UI integration plan
+5510696 test(06-02): E2E voice flow + bundle-leak smoke (VOI-01-S/T)
+ca87b0f feat(06-02): VoicePanel mic integration + topic prop (VOI-01-I..R GREEN)
+8dc64de test(06-02): failing VoicePanel tests + LessonShell topic prop (VOI-01-I..R RED)
+209e597 docs(06-01): complete voice server foundation plan
+b12631e feat(06-01): add POST /api/voice/signed-url + tests (VOI-01-D..H)
+40e1868 test(06-01): add failing tests for /api/voice/signed-url (VOI-01-D..H + 502 + order)
+492f175 feat(06-01): implement getSignedUrl server util + types (VOI-01-A/B/C)
+e549d39 test(06-01): add failing tests for getSignedUrl (VOI-01-A/B/C) + install @elevenlabs/react
+```
+
+### ⚠️ Phase 6 — Утренний manual UAT (USER ACTION, ~15 мин)
+
+Implementation готова, но 6 вещей можно проверить только live микрофоном + VPN. Делается одним сеансом:
+
+#### Шаг 1 — Поднять локально (~30 сек)
+```bash
+cd C:/Users/krato/ClaudeVibecoding/ClaudeDesktop/Klassio
+npm run dev
+# ждать "Ready in ..."
+```
+Открыть https://localhost:3000 (или http://localhost:3000) **с включённым VPN-туннелем** (для OpenAI + 11labs WS).
+
+#### Шаг 2 — Логин + lesson page
+1. Залогиниться через magic link на свой `kratov.gr@gmail.com`
+2. Открыть тестовый урок из `/lessons` (должен быть seed test lesson «sample addition lesson»)
+
+#### Шаг 3 — Voice UAT по D-09 чеклисту
+
+Жми «Запустить голос» в VoicePanel (нижняя половина под Avatar). Проверь:
+
+| # | Что проверить | Ожидание |
+|---|---|---|
+| **D-09 #4** | Браузер запрашивает mic permission | Native popup «Разрешить доступ к микрофону?» |
+| **D-09 #5** | Скажи «Привет!» в микрофон | Учительница (Nataly) отвечает голосом по-русски в течение ~3 сек |
+| **D-09 #6** | Avatar реагирует во время разговора | 👂 когда говоришь, 🗣️ когда отвечает, 🙂 в idle. Эмодзи меняются плавно. |
+| **D-09 #7** | Тема урока в greeting | Услышишь фразу типа «Сегодня у нас тема: сложение в столбик. Тебя как зовут?» — тема из БД должна попасть в первую реплику |
+| **D-09 #8** | Жми «Остановить» / «Стоп» | Conversation корректно завершается, mic indicator (красная точка в табе) исчезает, Avatar → 🙂 idle |
+| **D-09 #9** | Reload страницы (Ctrl+R) | Можешь снова запустить голос без артефактов прошлого session |
+| **Open Q1** | Allowlist + Signed URL не конфликтуют | 11labs Security tab: Allowlist (klassio-one.vercel.app + localhost:3000) + Authentication ON одновременно. Если WS handshake падает с `403 forbidden` или `policy violation` — Open Q1 ПОДТВЕРДИЛСЯ. Тогда временно: 11labs Security → Allowlist → удалить хосты → сохранить → повторить. Если работает с пустым allowlist — задокументировать в `06-02-SUMMARY.md` § Manual UAT и обновить `PHASE-6-SETUP-2026-05-10.md` § 7. |
+| **Latency** | Засеки замером: click «Запустить голос» → первый звук речи | Цель <3.5s. Если >5s — отдельный issue (можем оптимизировать через Eagerness=High или TTS=Turbo v2.5). |
+
+#### Шаг 4 — После UAT
+Запиши outcome в `.planning/phases/06-voice/06-02-SUMMARY.md` § Manual UAT (там готовый шаблон), и сообщи Claude:
+> «Phase 6 UAT прошёл, всё работает» — Claude обновит REQUIREMENTS.md (VOI-01 → Complete) и ROADMAP
+
+Если что-то не работает — скажи что именно, и Claude диагностирует.
+
+### ⚠️ Phase 6, Step 5 — Ротация API Key (USER ACTION, всё ещё PENDING)
+
+API key `sk_ec83844...` всё ещё в чат-логах. После того как Phase 6 задеплоится в прод и UAT пройдёт:
+
+См. **Step 2 — Ротация API Key** выше — процедура та же.
+
+### Hetzner WS proxy (Phase 6.5) — всё ещё DEFERRED
+
+Phase 6 implementation работает только через VPN (т.к. OpenAI блокирован в РФ). Phase 6.5 (Hetzner Frankfurt WS proxy) нужен **перед** первым РФ-без-VPN beta-юзером. Setup steps:
+- См. `MANUAL-ACTIONS.md` § Phase 6 — Step 4-7 (выше в этом файле, lines 155-187)
+- Estimate: 1-2 часа
+
+Pre-flight check (можно сделать прямо сейчас, информация для plan'а 6.5): какой домен / subdomain хочешь для voice proxy? `voice.klassio-one.vercel.app` (через Cloudflare) или новый купленный домен?
+
+### Что Claude может сделать утром после твоего ОК
+
+- Если UAT прошёл → mark Phase 6 fully complete (REQUIREMENTS.md + ROADMAP final tick)
+- Если UAT нашёл баги → /gsd-debug или /gsd-plan-phase 06-voice --gaps
+- Можно сразу `/gsd-plan-phase 7` (Phase 7 trainer уже implemented, нужны UX fixes) или `/gsd-plan-phase 8` (Pedagogical LLM tier)
+- Или Phase 6.5 setup для Hetzner
+
