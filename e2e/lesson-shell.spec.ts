@@ -162,18 +162,17 @@ test.describe('Lesson shell (LES-01)', () => {
     await expect(page.getByText('Тренажёр').first()).toBeVisible()
   })
 
-  test('trainer panel starts at 0 test events', async ({ page }) => {
+  test('trainer panel shows placeholder when no config is set', async ({ page }) => {
     await goToLesson(page)
-    await expect(page.getByText(/Получено 0 тестовых событий/).first()).toBeVisible()
+    // Phase 7: TrainerPanel shows placeholder when lesson has no htmlTrainerPath.
+    // The seed lesson in this spec does NOT set html_trainer_path, so placeholder is shown.
+    await expect(page.getByText(/Тренажёр для этого урока ещё не настроен/).first()).toBeVisible()
   })
 
-  test('clicking Тест шины increments counter in trainer panel', async ({ page }) => {
+  test('trainer card heading Тренажёр is visible', async ({ page }) => {
     await goToLesson(page)
-    // Click the test bus button in voice panel
-    await page.getByRole('button', { name: /Тест шины/ }).first().click()
-    await expect(page.getByText(/Получено 1 тестовых событий/).first()).toBeVisible()
-    await page.getByRole('button', { name: /Тест шины/ }).first().click()
-    await expect(page.getByText(/Получено 2 тестовых событий/).first()).toBeVisible()
+    // Phase 7: TrainerPanel always renders the Тренажёр card heading.
+    await expect(page.getByText('Тренажёр').first()).toBeVisible()
   })
 
   test('Завершить урок shows AlertDialog confirm', async ({ page }) => {
