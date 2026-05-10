@@ -10,6 +10,7 @@ import { db, schema } from '@/lib/db'
 import { eq, and } from 'drizzle-orm'
 import { canStartLesson } from '@/app/lessons/can-start'
 import { LessonShell } from '@/components/lesson-shell'
+import { loadTrainerConfig } from '@/lib/trainer/config-loader'
 import { Button } from '@/components/ui/button'
 import pkg from 'pg'
 
@@ -110,12 +111,23 @@ export default async function LessonPage({
     })
   }
 
-  // 6. Render lesson shell — pass serialized primitives only (RSC→Client boundary)
+  // 6. Load trainer config (server-side, from public/trainer-configs/).
+  //    Graceful fallback: if file missing or invalid JSON, trainerConfig = null (placeholder mode).
+  //    T-07-02-01: htmlTrainerPath is set by admin CLI only; path.join normalizes the filename.
+  const trainerConfig = lesson.htmlTrainerPath
+    ? await loadTrainerConfig(lesson.htmlTrainerPath).catch((err) => {
+        console.error('[LessonPage] Failed to load trainer config:', err)
+        return null
+      })
+    : null
+
+  // 7. Render lesson shell — pass serialized primitives only (RSC→Client boundary)
   //    Per D-11 step 7: if status was in_progress, render directly without re-fetch.
   return (
     <LessonShell
       lessonId={lesson.id}
       topic={lesson.topic}
+      trainerConfig={trainerConfig}
     />
   )
 }

@@ -8,13 +8,17 @@ type TaskStatus = 'pending' | 'correct' | 'wrong'
 interface NumericInputTaskProps {
   task: TrainerTask
   onSubmit?: (event: { taskId: string; value: string; correct: boolean }) => void
+  /** Optional hint level override from TrainerPanel (trainer:show_hint command). */
+  hintLevelOverride?: number
 }
 
-export function NumericInputTask({ task, onSubmit }: NumericInputTaskProps) {
+export function NumericInputTask({ task, onSubmit, hintLevelOverride }: NumericInputTaskProps) {
   const bus = useLessonBus()
   const [inputValue, setInputValue] = useState('')
   const [status, setStatus] = useState<TaskStatus>('pending')
-  const [hintLevel, setHintLevel] = useState(0)
+  const [localHintLevel, setLocalHintLevel] = useState(0)
+  // Effective hint level: max of local and override (bot can advance hint display)
+  const hintLevel = Math.max(localHintLevel, hintLevelOverride ?? 0)
 
   // TODO: Phase 8 — bot voice reaction to trainer:answer_submitted (wrong) — see D-21
   const handleSubmit = () => {
@@ -28,13 +32,13 @@ export function NumericInputTask({ task, onSubmit }: NumericInputTaskProps) {
 
   const handleHintClick = () => {
     const maxHints = task.hints?.length ?? 0
-    if (hintLevel >= 3) {
+    if (localHintLevel >= 3) {
       console.warn(`[NumericInputTask] hintLevel already at max (3) for task ${task.id}`)
       return
     }
-    if (hintLevel < maxHints) {
-      const next = hintLevel + 1
-      setHintLevel(next)
+    if (localHintLevel < maxHints) {
+      const next = localHintLevel + 1
+      setLocalHintLevel(next)
       bus.emit('trainer:hint_opened', { taskId: task.id, hintLevel: next })
     }
   }
@@ -53,7 +57,7 @@ export function NumericInputTask({ task, onSubmit }: NumericInputTaskProps) {
         : ''
 
   const currentHint = hintLevel > 0 ? task.hints?.[hintLevel - 1] : null
-  const showHintButton = status === 'wrong' && (task.hints?.length ?? 0) > 0 && hintLevel < (task.hints?.length ?? 0)
+  const showHintButton = status === 'wrong' && (task.hints?.length ?? 0) > 0 && localHintLevel < (task.hints?.length ?? 0)
 
   return (
     <div

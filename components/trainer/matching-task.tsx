@@ -9,6 +9,8 @@ type TaskStatus = 'pending' | 'correct' | 'wrong'
 interface MatchingTaskProps {
   task: TrainerTask
   onSubmit?: (event: { taskId: string; value: string; correct: boolean }) => void
+  /** Optional hint level override from TrainerPanel (trainer:show_hint command). */
+  hintLevelOverride?: number
 }
 
 // Stable shuffle seeded by task.id — sort characters to avoid Math.random hydration mismatch
@@ -19,10 +21,11 @@ function stableSort(items: string[], seed: string): string[] {
   )
 }
 
-export function MatchingTask({ task, onSubmit }: MatchingTaskProps) {
+export function MatchingTask({ task, onSubmit, hintLevelOverride }: MatchingTaskProps) {
   const bus = useLessonBus()
   const [status, setStatus] = useState<TaskStatus>('pending')
-  const [hintLevel, setHintLevel] = useState(0)
+  const [localHintLevel, setLocalHintLevel] = useState(0)
+  const hintLevel = Math.max(localHintLevel, hintLevelOverride ?? 0)
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null)
   const [pairs, setPairs] = useState<Array<[string, string]>>([])
 
@@ -64,18 +67,18 @@ export function MatchingTask({ task, onSubmit }: MatchingTaskProps) {
 
   const handleHintClick = () => {
     const maxHints = task.hints?.length ?? 0
-    if (hintLevel >= 3) {
+    if (localHintLevel >= 3) {
       console.warn(`[MatchingTask] hintLevel already at max (3) for task ${task.id}`)
       return
     }
-    if (hintLevel < maxHints) {
-      const next = hintLevel + 1
-      setHintLevel(next)
+    if (localHintLevel < maxHints) {
+      const next = localHintLevel + 1
+      setLocalHintLevel(next)
       bus.emit('trainer:hint_opened', { taskId: task.id, hintLevel: next })
     }
   }
 
-  const showHintButton = status === 'wrong' && (task.hints?.length ?? 0) > 0 && hintLevel < (task.hints?.length ?? 0)
+  const showHintButton = status === 'wrong' && (task.hints?.length ?? 0) > 0 && localHintLevel < (task.hints?.length ?? 0)
   const currentHint = hintLevel > 0 ? task.hints?.[hintLevel - 1] : null
 
   const borderClass =

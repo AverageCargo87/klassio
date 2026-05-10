@@ -13,6 +13,7 @@ import { LessonBusProvider } from '@/lib/lesson-bus'
 import { BoardPanel } from '@/components/panels/board-panel'
 import { VoicePanel } from '@/components/panels/voice-panel'
 import { TrainerPanel } from '@/components/panels/trainer-panel'
+import type { TrainerConfig } from '@/lib/trainer/config-schema'
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -29,9 +30,11 @@ import { endLesson } from '@/app/lesson/[id]/end-lesson'
 interface LessonShellProps {
   lessonId: string
   topic: string
+  /** Parsed TrainerConfig from server (null = lesson has no trainer configured). */
+  trainerConfig?: TrainerConfig | null
 }
 
-export function LessonShell({ lessonId, topic }: LessonShellProps) {
+export function LessonShell({ lessonId, topic, trainerConfig }: LessonShellProps) {
   const [isPending, startTransition] = useTransition()
 
   function handleEndLesson() {
@@ -114,7 +117,7 @@ export function LessonShell({ lessonId, topic }: LessonShellProps) {
               <VoicePanel lessonId={lessonId} />
             </div>
             <div className="min-h-0 flex-1 h-[25vh] lg:h-auto">
-              <TrainerPanel lessonId={lessonId} />
+              <TrainerPanel lessonId={lessonId} trainerConfig={trainerConfig} />
             </div>
           </div>
         </div>
