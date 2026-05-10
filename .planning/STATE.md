@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-10T03:15:00Z"
+last_updated: "2026-05-10T06:26:53Z"
 progress:
   total_phases: 12
-  completed_phases: 4
-  total_plans: 17
-  completed_plans: 17
-  percent: 95
+  completed_phases: 5
+  total_plans: 19
+  completed_plans: 19
+  percent: 96
 ---
 
 # Klassio — STATE
@@ -36,15 +36,17 @@ progress:
 ## Current Position
 
 Phase: 5
-Plan: 01 complete
+Plan: 02 complete
 
-- **Current phase**: Phase 5 — Scenes — Plan 05-01 COMPLETE.
-- **Current plan**: Plan 05-01 complete. Scene architecture (types+registry+15 schemas) + 8 Wave-1 scene generators + route.ts scene interception. 183 unit tests (57 scene + 3 integration + 123 prior) all green. npm run build passes.
-- **Status**: **Phase 5 Plan 01 COMPLETE** (1/2 plans). Wave-2 scenes (05-02) pending: 7 remaining scenes (multiplication_grid, long_division, decimal_multiplication, rectangle_area, rectangle_perimeter, simple_equation, arithmetic_mean).
-- **Progress (overall v1)**: `[█████████████] Phase 5/01 complete. Scene expansion system live.`.
+- **Current phase**: Phase 5 — Scenes — COMPLETE (both plans 05-01 and 05-02 done).
+- **Current plan**: Plan 05-02 complete. All 15 explain_* scenes implemented and registered in route.ts. 233 unit tests (50 new scene tests + 183 prior) all green. npm run build passes. BRD-02 fully satisfied.
+- **Status**: **Phase 5 COMPLETE** (2/2 plans). All 15 scene generators wired. Next: Phase 6 (Voice — 11labs Conversational AI via Hetzner WS proxy).
+- **Progress (overall v1)**: `[██████████████] Phase 5 complete. Full 15-scene curriculum library live.`.
 - **Resume file**: None.
 
 ### Recent transitions
+
+- **2026-05-10 (#17 — execute 05-02)**: Plan 05-02 (Wave-2 scenes: multiplication_grid, long_division, decimal_multiplication, rectangle_area, rectangle_perimeter, simple_equation, arithmetic_mean) executed in ~6 min. 3 tasks, 2 feature commits (4fb8817, 2d551cc) + 1 docs commit. TDD RED→GREEN for all 7 scenes. 50 new unit tests + 1 integration test (explain_long_division expansion). route.ts now has all 15 scene side-effect imports. 233 total tests green. npm run build + tsc --noEmit both clean. BRD-02 fully satisfied. ROADMAP Phase 5 marked complete.
 
 - **2026-05-10 (#16 — execute 05-01)**: Plan 05-01 (Scene architecture + 8 Wave-1 scenes + route.ts interception) executed in ~13 min. 3 TDD tasks, 3 commits (7714aad, 8e6ea5a, b840396). PrimitiveCall+SceneGenerator+SceneName types + registry (registerScene/isSceneName/getScene). 15 scene tool schemas in allBoardTools (24 total tools). 8 scene generators (column add/sub, fraction add/sub/compare/simplify, decimal add, percent). Route.ts intercepts explain_* calls server-side — client receives only primitive tool_use SSE events. scene_used field on done event. Russian scene encouragement in SYSTEM_PROMPT. 183 unit tests + npm run build all green. BRD-02 complete. One auto-fix: allBoardTools count corrected to 24 (plan said 25 — finish already counted in 9 primitives).
 
@@ -105,6 +107,7 @@ Plan: 01 complete
 | Phase 04-board-deploy P04-02 | 4 | 2 tasks | 2 files |
 | Phase 04-board-deploy P04-03 | 12 | 3 tasks | 9 files |
 | Phase 05-scenes P05-01 | 13 | 3 tasks | 19 files |
+| Phase 05-scenes P05-02 | 6 | 3 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -143,6 +146,13 @@ Plan: 01 complete
 3. **Проактивный, не реактивный бот** (PED-02 в Phase 8).
 4. **Юзер не должен ставить ничего** (INV-01 в Phase 1, foundational).
 5. **Ощущение живого учителя у доски** (BRD-03 в Phase 11).
+
+### Plan 05-02 decisions (executor — 2026-05-10)
+
+- **explainSimpleEquation uses explicit type='multiply'|'add' discriminant**: Avoids coefficient-sign inference heuristics. Cleaner LLM schema, unambiguous TypeError for invalid type.
+- **explainDecimalMultiplication uses toFixed(totalDec) and strips trailing zeros**: Avoids floating-point display artifacts (0.1×0.2=0.020000000000000004) at MVP without complex rounding logic. T-05-02-04 accepted as-is.
+- **explainLongDivision skips leading digit groups < divisor on first position**: Matches standard Russian уголок curriculum (first quotient group collects leftmost digits until sum >= divisor). No leading zero digit in quotient.
+- **Rectangle visual size capped at 280×180 with Math.max(60,dim*20) floor**: Ensures visible rectangle even for width=height=1 while capping large numbers.
 
 ### Plan 05-01 decisions (executor — 2026-05-10)
 
@@ -240,8 +250,8 @@ Plan: 01 complete
 
 ## Session Continuity
 
-- **Last session**: 2026-05-10 — Plan 04-03 executed (BoardPanel UI — full tldraw integration + prompt UI + SSE processing — 3 tasks, 3 commits a0f1cf2+a8001f0+64997f9. 117 unit tests green. Phase 4 implementation COMPLETE. Production deploy DEFERRED to user — see MANUAL-ACTIONS.md).
-- **Next session entry point**: Phase 5 (production deploy via Vercel + Cloudflare + DNS) or Phase 6 (voice integration) — per ROADMAP.md. Phase 4 implementation done; user must complete deploy steps in MANUAL-ACTIONS.md before Phase 5 DEP-01 criteria #4-#6 can be verified.
+- **Last session**: 2026-05-10 — Plan 05-02 executed (Scene Wave 2 — 7 remaining explain_* scenes + all 15 wired into route.ts — 3 tasks, 2 commits 4fb8817+2d551cc. 233 unit tests green. Phase 5 COMPLETE. BRD-02 fully satisfied).
+- **Next session entry point**: Phase 6 (Voice — 11labs Conversational AI via Hetzner WS proxy). Phase 5 fully complete; all 15 scenes registered. User must also complete production deploy steps in MANUAL-ACTIONS.md (Phases 1 and 4) before Phase 6 DEP-01 criteria can be verified in prod.
 - **What new Claude Code session needs to read first** (порядок):
   1. `PROJECT.md` — core value, locked decisions, anti-scope, invariants.
   2. `STATE.md` (этот файл) — где мы сейчас, что блокирует.

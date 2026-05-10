@@ -40,7 +40,7 @@
 - [x] **Phase 2: Расписание уроков + admin путь для заведения** — Ребёнок видит расписание; разработчик может вручную завести тестового ребёнка и тестовый урок. (Complete 2026-05-10: 3/3 plans done, ACC-03 + ACC-04 satisfied, 15 E2E tests green)
 - [x] **Phase 3: Lesson page shell — три-панельный layout + event bus** — Существует страница урока с пустыми панелями (доска / голос / тренажёр) и общая event-шина между ними. (Complete 2026-05-10: 3/3 plans done, LES-01 satisfied, 81 unit + 20 E2E tests green)
 - [x] **Phase 4: Production deploy + порт прототипа доски в Klassio** — Доска tldraw + OpenAI работает в Klassio в проде на Vercel + Cloudflare; РФ-юзер открывает без VPN. (Implementation COMPLETE 2026-05-10; 3/3 plans done, BRD-01+PED-01 implementation satisfied; production deploy DEFERRED to user — see MANUAL-ACTIONS.md)
-- [ ] **Phase 5: Сцены — методические `explain_*` tools** — Бот объясняет темы 5 класса через 12–15 высокоуровневых сцен, не только примитивы.
+- [x] **Phase 5: Сцены — методические `explain_*` tools** — Бот объясняет темы 5 класса через 15 высокоуровневых сцен, не только примитивы. (Implementation complete 2026-05-10; all 15 scenes registered; 233 tests green)
 - [ ] **Phase 6: Голос — 11labs Conversational AI через Hetzner WS-прокси** — Голосовой учитель говорит по-русски в браузере ребёнка без VPN.
 - [ ] **Phase 7: HTML-тренажёр — контракт data-атрибутов + event bus** — Ребёнок решает задания, бот видит ввод и подсвечивает элементы.
 - [ ] **Phase 8: Двухуровневая LLM (Pedagogical + Realtime) + проактивные триггеры** — Slow planner следит за стратегией урока, fast actor исполняет; бот сам подключается на молчании/уходе.
@@ -145,7 +145,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 05-01-PLAN.md — Scene arch + 8 simpler scenes (column ops, fractions, decimals, percent) [COMPLETE 2026-05-10]
-- [ ] 05-02-PLAN.md — 7 remaining scenes (multiplication grid, long division, geometry, equations, mean) + all 15 scenes wired into route.ts
+- [x] 05-02-PLAN.md — 7 remaining scenes (multiplication grid, long division, geometry, equations, mean) + all 15 scenes wired into route.ts [COMPLETE 2026-05-10]
 
 ---
 
@@ -277,7 +277,7 @@ Plans:
 | LES-01 (3-pillar layout + event bus) | Phase 3 | shell before content |
 | LES-02 (voice+hand+text sync at runtime) | Phase 11 | implementable only after all 3 channels exist |
 | BRD-01 (board prototype) | Phase 4 | port to Klassio + production deploy together |
-| BRD-02 (scenes) | Phase 5 | requires working board first |
+| BRD-02 (scenes) | Phase 5 | In Progress (05-01 — 05-02): 15/15 scenes implemented; all registered in route.ts |
 | BRD-03 (stroke-drawing animation) | Phase 11 | grouped with sync |
 | VOI-01 (11labs voice) | Phase 6 | requires production deploy from Phase 4 |
 | VOI-02 (Lottie avatar) | Phase 9 | requires voice events to drive states |
@@ -305,7 +305,7 @@ Cross-cutting invariants (INV-01, INV-02) attached to the phase where their firs
 | 2. Расписание уроков + admin путь для заведения | 0/3 | Plans created | - |
 | 3. Lesson page shell — три-панельный layout + event bus | 0/3 | Plans created | - |
 | 4. Production deploy + порт прототипа доски в Klassio | 0/0 | Not started | - |
-| 5. Сцены — методические `explain_*` tools | 0/2 | Plans created | - |
+| 5. Сцены — методические `explain_*` tools | 2/2 | Complete | 2026-05-10 |
 | 6. Голос — 11labs Conversational AI через Hetzner WS-прокси | 0/0 | Not started | - |
 | 7. HTML-тренажёр — контракт data-атрибутов + event bus | 0/0 | Not started | - |
 | 8. Двухуровневая LLM + проактивные триггеры | 0/0 | Not started | - |
