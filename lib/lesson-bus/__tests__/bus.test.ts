@@ -58,4 +58,21 @@ describe('LessonBus', () => {
       bus.emit('lesson:end', { lessonId: 'abc', at: new Date() })
     }).not.toThrow()
   })
+
+  // Phase 7 — trainer event round-trip tests
+  it('emits trainer:answer_submitted payload to subscribed handler', () => {
+    const bus = new LessonBus()
+    const handler = vi.fn()
+    bus.on('trainer:answer_submitted', handler)
+    bus.emit('trainer:answer_submitted', { taskId: 'task-1', value: '42', correct: true })
+    expect(handler).toHaveBeenCalledWith({ taskId: 'task-1', value: '42', correct: true })
+  })
+
+  it('emits trainer:highlight command payload to subscribed handler', () => {
+    const bus = new LessonBus()
+    const handler = vi.fn()
+    bus.on('trainer:highlight', handler)
+    bus.emit('trainer:highlight', { elementId: 'task-1', durationMs: 3000 })
+    expect(handler).toHaveBeenCalledWith({ elementId: 'task-1', durationMs: 3000 })
+  })
 })
