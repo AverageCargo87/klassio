@@ -46,7 +46,8 @@ test.describe('login happy path (ACC-01)', () => {
     expect(page.url()).toMatch(/\/lessons/)
 
     // 5. Seed lesson card must be visible on /lessons (ACC-02 partial verification)
-    await expect(page.getByRole('heading', { name: /^Уроки$/ })).toBeVisible()
+    // Heading changed from "Уроки" → "Расписание" in Plan 02-02 schedule refactor
+    await expect(page.getByRole('heading', { name: /Расписание/ })).toBeVisible()
     await expect(page.getByText(/E2E тестовый урок/)).toBeVisible()
   })
 })
