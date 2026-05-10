@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: unknown
-last_updated: "2026-05-10T04:11:00.930Z"
+status: ready_to_plan
+last_updated: "2026-05-10T04:22:00Z"
 progress:
   total_phases: 12
-  completed_phases: 6
-  total_plans: 19
-  completed_plans: 19
-  percent: 100
+  completed_phases: 8
+  total_plans: 20
+  completed_plans: 20
+  percent: 62
 ---
 
 # Klassio — STATE
@@ -35,16 +35,18 @@ progress:
 
 ## Current Position
 
-Phase: 7
-Plan: 02 — COMPLETE
+Phase: 9
+Plan: Complete
 
-- **Current phase**: Phase 7 — HTML Trainer — BOTH PLANS COMPLETE.
-- **Current plan**: Plan 07-02 complete. TrainerPanel rewritten (TrainerRenderer + 3 bus command subscriptions), config-loader server helper, 2 sample configs validated, admin CLI --trainer-config flag, 3 Playwright E2E specs. 280 unit tests (7 new) all green. npm run build + tsc --noEmit clean. HTM-01 fully satisfied.
-- **Status**: **Phase 7 COMPLETE** (2/2 plans). Next: Phase 8 (Voice integration via Pedagogical LLM).
-- **Progress (overall v1)**: `[███████████████] Phase 7 complete. TrainerPanel live with config loading + bus command subscriptions.`.
+- **Current phase**: Phase 9 — Avatar SHELL — COMPLETE (1/1 plans).
+- **Current plan**: Plan 09-01 complete. 6-state emoji avatar (idle/listening/speaking/thinking/happy/sad) with CSS animations, pure useReducer state machine, bus subscriptions via useAvatarState hook, VoicePanel rewrite (Avatar top + Phase 6 placeholder bottom), window.__lessonBus E2E exposure. 301 unit tests (21 new) all green. npm run build clean. VOI-02 satisfied.
+- **Status**: **Phase 9 COMPLETE** (1/1 plans). Next: Phase 10 (Recording/playback) or Phase 6 (Voice integration).
+- **Progress (overall v1)**: `[████████████████] Phase 9 complete. Avatar SHELL live with bus subscriptions ready for Phase 6 voice + Phase 8 emotion wiring.`.
 - **Resume file**: None.
 
 ### Recent transitions
+
+- **2026-05-10 (#20 — execute 09-01)**: Plan 09-01 (Avatar SHELL) executed in ~5 min. 3 tasks, 3 commits (eed102f, e7e7002, b8cbca4). 2 new LessonBusEvent variants (voice:state, avatar:emotion). lib/avatar/state-machine.ts: 6-state pure reducer (AvatarState + AvatarAction). components/avatar/avatar.tsx: 6 emoji (🙂👂🗣️🤔😊😟) + CSS @keyframes animations. components/avatar/use-avatar-state.ts: bus subscriptions (voice:state, avatar:emotion, trainer:answer_submitted), 2-wrong-streak → sad, auto-reset after 3s. VoicePanel rewrite (Avatar top + Phase 6 placeholder bottom). window.__lessonBus exposed in non-prod. 3 Playwright E2E specs (AVT-01). 301 unit tests green (21 new: 13 reducer + 8 component). npm run build clean. VOI-02 satisfied. Phase 9 complete.
 
 - **2026-05-10 (#19 — execute 07-02)**: Plan 07-02 (TrainerPanel wiring + E2E) executed in ~10 min. 3 tasks (Task 1 TDD RED+GREEN), 4 commits (6e491a2, 81e2570, 9628b5d, f2f511a). TrainerPanel fully rewritten — TrainerRenderer when config provided, placeholder when null; 3 bus command subscriptions (trainer:highlight CSS ring, trainer:show_hint hintOverrides Map, trainer:goto_task scrollIntoView+focus). lib/trainer/config-loader.ts with server-only import guard. LessonShell trainerConfig prop threaded to TrainerPanel. Lesson page RSC calls loadTrainerConfig. 2 sample configs (5+3 tasks, both schema-valid). Admin CLI --trainer-config flag. Seed links to sample config. 3 Playwright E2E specs (TRN-01). 280 unit tests green (7 new). npm run build + tsc --noEmit clean. HTM-01 fully satisfied. Phase 7 complete.
 
@@ -113,6 +115,7 @@ Plan: 02 — COMPLETE
 | Phase 05-scenes P05-01 | 13 | 3 tasks | 19 files |
 | Phase 05-scenes P05-02 | 6 | 3 tasks | 16 files |
 | Phase 07-trainer P07-02 | 10 | 3 tasks | 14 files |
+| Phase 09-avatar P09-01 | 5 | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -151,6 +154,14 @@ Plan: 02 — COMPLETE
 3. **Проактивный, не реактивный бот** (PED-02 в Phase 8).
 4. **Юзер не должен ставить ничего** (INV-01 в Phase 1, foundational).
 5. **Ощущение живого учителя у доски** (BRD-03 в Phase 11).
+
+### Plan 09-01 decisions (executor — 2026-05-10)
+
+- **CSS animations over Lottie (D-03, D-08)**: Phase 9 SHELL uses emoji + CSS @keyframes. Lottie deferred to Phase 9.1 when designer assets available. CSS is cheaper (D-08 FPS budget) and swappable.
+- **useReducer over XState (D-04)**: Linear 6-state machine with no nested/parallel regions. XState overhead unjustified.
+- **window.__lessonBus in LessonBusProvider useEffect**: Co-located with bus lifecycle. NODE_ENV !== 'production' guard. Cleanup on unmount. Pattern formalised for E2E in Phase 9 (was ad-hoc in Phase 7).
+- **2-wrong-streak threshold = 2 (D-05)**: wrongStreakRef (useRef) tracks consecutive wrong answers. Resets on correct. Sad on >=2 consecutive wrong. Consistent with D-05.
+- **useRef for timer + streak**: Timer and streak counter are side-effect state — no visual output. Using state would add unnecessary re-renders. Consistent with Phase 7 useTrainerIdle pattern.
 
 ### Plan 07-02 decisions (executor — 2026-05-10)
 
@@ -245,6 +256,7 @@ Plan: 02 — COMPLETE
 
 ### Active todos
 
+- ✅ Plan 09-01 Avatar SHELL — complete (3 tasks, 301 tests passing). 6-state emoji avatar with CSS animations, state machine, VoicePanel rewrite, window.__lessonBus, 3 E2E specs. VOI-02 satisfied.
 - ✅ Plan 01-01 Bootstrap — complete (3 tasks, 5 tests passing).
 - ✅ Plan 01-02 Account provisioning — complete (Neon + Resend + AUTH_SECRET provisioned; A1 silent-drop resolved; Vercel Hobby decision recorded).
 - ✅ Plan 01-03 Schema push + seed — complete (2 tasks, 2 commits, 12 tests passing). 6 Drizzle tables in live Neon DB; seed idempotent; custom db-push.ts for Neon ECONNRESET quirk.
@@ -269,8 +281,8 @@ Plan: 02 — COMPLETE
 
 ## Session Continuity
 
-- **Last session**: 2026-05-10 — Plan 07-02 executed (HTML Trainer Plan 02 — TrainerPanel rewrite + config-loader + 2 sample configs + admin CLI + E2E — 4 commits (6e491a2, 81e2570, 9628b5d, f2f511a). 280 unit tests green. npm run build + tsc --noEmit clean. HTM-01 fully satisfied. Phase 7 complete.
-- **Next session entry point**: Phase 8 (Voice integration — Pedagogical LLM wires bot reactions to trainer events; 11labs Conversational AI; trainer:answer_submitted → bot command flow).
+- **Last session**: 2026-05-10 — Plan 09-01 executed (Avatar SHELL — 6-state emoji avatar, CSS animations, state machine, VoicePanel rewrite, window.__lessonBus, 3 E2E specs — 3 commits (eed102f, e7e7002, b8cbca4). 301 unit tests green. npm run build clean. VOI-02 satisfied. Phase 9 complete.
+- **Next session entry point**: Phase 10 (Recording/playback) OR Phase 6 (Voice integration — 11labs Conversational AI; real voice:state events will wire to avatar automatically).
 - **What new Claude Code session needs to read first** (порядок):
   1. `PROJECT.md` — core value, locked decisions, anti-scope, invariants.
   2. `STATE.md` (этот файл) — где мы сейчас, что блокирует.
