@@ -6,8 +6,10 @@
 // слушает на 127.0.0.1:108xx, и через него уходит весь VPN-трафик.
 // Curl читает HTTPS_PROXY автоматически — Node нет.
 // Без этого хука fetch к OpenAI уходит напрямую к провайдеру → блок по гео (CON-openai-rf-block).
-
-import { createRequire } from 'node:module'
+//
+// IMPORTANT: this file is loaded by BOTH Node.js and Edge runtimes.
+// Edge runtime does NOT have `node:module`. All Node-only imports MUST be
+// dynamic and guarded by `NEXT_RUNTIME === 'nodejs'` early-return.
 
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
@@ -24,9 +26,10 @@ export async function register() {
   }
 
   try {
-    // createRequire — нативный Node CJS require. Webpack его не статически анализирует
-    // и не пытается забандлить undici (а его mock-сабмодуль импортит `node:console`,
-    // которое webpack по умолчанию не пропускает). CON-webpack-undici.
+    // Dynamic import — keeps `node:module` out of the edge bundle.
+    // Webpack does NOT statically analyze dynamic import strings (so `node:module`
+    // is not included in the dependency graph for edge runtime).
+    const { createRequire } = await import('node:module')
     const nodeRequire = createRequire(import.meta.url)
     const undici = nodeRequire('undici') as typeof import('undici')
     undici.setGlobalDispatcher(new undici.ProxyAgent({ uri: proxyUrl }))
