@@ -16,7 +16,11 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "db:studio": "drizzle-kit studio",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "admin:create-user": "tsx scripts/admin/create-user.ts",
+    "admin:create-lesson": "tsx scripts/admin/create-lesson.ts",
+    "admin:list-users": "tsx scripts/admin/list-users.ts",
+    "admin:list-lessons": "tsx scripts/admin/list-lessons.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.2",
