@@ -311,7 +311,7 @@
 | BRD-01 | Phase 4 | Pending |
 | BRD-02 | Phase 5 | Complete (05-01, 2026-05-10) |
 | BRD-03 | Phase 11 | Pending |
-| VOI-01 | Phase 6 | In Progress (06-01: SDK install + lib/elevenlabs + signed-url route, 21 tests, 2026-05-10 — 06-02 VoicePanel UI + E2E pending) |
+| VOI-01 | Phase 6 | Complete — Implementation (06-01: SDK + lib/elevenlabs + signed-url route, 21 tests; 06-02: VoicePanel + LessonShell + 17 component tests + 11 E2E tests, 2026-05-10). Manual UAT (real-voice + Open Q1 allowlist) DEFERRED to developer per plan critical_implementation_rules. Phase 6.5 (Hetzner WS proxy for РФ-без-VPN) tracked separately. |
 | VOI-02 | Phase 9 | Pending |
 | HTM-01 | Phase 7 | Complete (07-01: bus contract + components, 07-02: TrainerPanel + config-loader + E2E, 2026-05-10) |
 | LLM-01 | Phase 8 | Pending |

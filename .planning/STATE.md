@@ -2,21 +2,21 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: phase_6_in_progress
-last_updated: "2026-05-10T22:14:00Z"
+status: phase_6_complete
+last_updated: "2026-05-10T22:33:00Z"
 progress:
   total_phases: 12
-  completed_phases: 7
-  active_phase: 6
-  blocked_phases: 4   # 8, 10, 11, 12 (Phase 6 unblocked, others depend)
-  total_plans: 21
-  completed_plans: 21
-  percent: 63
+  completed_phases: 8
+  active_phase: null
+  blocked_phases: 4   # 8, 10, 11, 12 (Phase 6 done, Phase 6.5 + Phase 8 next; 10/11/12 still depend)
+  total_plans: 23
+  completed_plans: 23
+  percent: 67
 production_url: "https://klassio-one.vercel.app"
 deploy_status:
   phase_1: "DEPLOYED ✓ — auth flow end-to-end works (Resend magic link → /lessons). Known UX bug: client-side exception on form submit (email still sent, non-blocking)."
   phase_4: "DEPLOYED ✓ — board renders explanations correctly. Camera auto-fit fix applied (a36f87d). First-byte SSE flush + 'Бот думает…' indicator (15a7bd6). Speed and animation tweaks deferred per user."
-  phase_6: "PLAN 06-01 COMPLETE (2026-05-10) — server foundation shipped: @elevenlabs/react@^1.6.0 installed, lib/elevenlabs/{types,get-signed-url}.ts, POST /api/voice/signed-url with auth+ownership+env-guard+502-wrap, 21 unit tests green. Baseline agent (config in .planning/PHASE-6-SETUP-2026-05-10.md) ready for VoicePanel integration in plan 06-02."
+  phase_6: "IMPLEMENTATION COMPLETE (2026-05-10) — both plans shipped. Plan 06-01: SDK install + lib/elevenlabs/ + POST /api/voice/signed-url (21 unit tests). Plan 06-02: VoicePanel rewrite (ConversationProvider + useConversation + mic-first flow + 4 Russian mic-error messages + bus wiring) + 17 component tests + 11 E2E tests (5 VOI-01-S bus-driven + 1 fetch-fail UI + 5 VOI-01-T bundle-leak scans). 338/338 unit tests green, tsc clean, build clean. Manual UAT (D-09 #1–9 + Open Q1 allowlist smoke) DEFERRED to developer — see 06-02-SUMMARY.md. Vercel env vars (ELEVENLABS_API_KEY/AGENT_ID) DEFERRED — see MANUAL-ACTIONS.md."
 ---
 
 # Klassio — STATE
@@ -42,12 +42,12 @@ deploy_status:
 
 ## Current Position
 
-**Phase 6 (Voice) — BASELINE COMPLETE в 11labs. Готовы к plan 06-01 (Klassio frontend integration).**
+**Phase 6 (Voice) — IMPLEMENTATION COMPLETE. Manual UAT отложено пользователю.**
 
 - **Production URL**: https://klassio-one.vercel.app — DEPLOYED, working
 - **Phase 1 status**: ✅ DEPLOYED. Auth end-to-end works. Известный UX bug: client-side exception на form submit (email уходит, flow завершается) — non-blocking, отложен на полировку.
 - **Phase 4 status**: ✅ DEPLOYED. Board rendering работает после fixes: camera auto-fit (a36f87d) + first-byte SSE flush + thinking indicator (15a7bd6). User протестировал «объясни 245+874 в столбик» — работает. Speed/animation polish — отложено.
-- **Phase 6 status**: 🟢 **BASELINE COMPLETE (in 11labs).** Agent работает в Test Agent UI, конфигурация залочена в `.planning/PHASE-6-SETUP-2026-05-10.md`:
+- **Phase 6 status**: ✅ **IMPLEMENTATION COMPLETE (2026-05-10).** Plan 06-01 + 06-02 shipped в Klassio. Manual UAT (real voice через VPN) deferred пользователю — см. `06-02-SUMMARY.md` § Manual UAT. Конфигурация агента залочена в `.planning/PHASE-6-SETUP-2026-05-10.md`:
   - ✅ Creator subscription ($11/$22) — saved $77/мо vs Pro
   - ✅ Custom LLM endpoint работает (OpenAI key через 11labs)
   - ✅ Voice: **Nataly** (Youthful, Gentle and Soft) + **Eleven Multilingual v2** (после отказа от v3 Alpha — глючил на русском)
@@ -58,12 +58,16 @@ deploy_status:
   - ✅ Advanced: Eagerness Normal, Take turn 10s, Max duration 3600s, Generate during silence ON, ASR keywords добавлены (дроби, периметр, etc.)
   - ✅ **Identifiers**: Agent ID = `agent_7701kr9c2v7eev3tabzv4f2b0e8b`, API key положен в `.env.local` (rотация после prod deploy)
   - ⚠️ **Open issues для plan 06-01 follow-up**: latency ~3s (можно срезать), потрескивание на first connect (network jitter, лечится Hetzner WS proxy позже)
-  - ⏳ **Next**: `/gsd-plan-phase 06-voice` для plan 06-01 (frontend integration)
+  - ✅ **Plan 06-01 COMPLETE** (commits e549d39, 492f175, 40e1868, b12631e, 209e597): @elevenlabs/react SDK + lib/elevenlabs/ + signed-url route + 21 unit tests
+  - ✅ **Plan 06-02 COMPLETE** (commits 8dc64de, ca87b0f, 5510696): VoicePanel rewrite (ConversationProvider + useConversation + mic-first + 4 Russian errors + bus wiring) + 17 component tests + 11 E2E tests (5 bus-driven + 1 fetch-fail UI + 5 bundle-leak scans). One Rule 1 deviation: SDK v1.6.0 API drift (useConversation now requires ConversationProvider; startSession/endSession return void). Resolved cleanly inside Task 1.
+  - ⏳ **Next**: Manual UAT (D-09 #1–9) + Vercel env deploy (см. MANUAL-ACTIONS.md). Затем Phase 6.5 (Hetzner WS proxy) ИЛИ Phase 8 (Pedagogical LLM) ИЛИ Phase 10 (Recording).
 - **Phase 7 status**: ✅ shell deployed; UX bugs (no retry after wrong answer, jitter) — pending редизайн.
 - **Phases done implementation**: 1, 2, 3, 4, 5, 7, 9 (7 из 12). Phases 8, 10, 11, 12 — skeleton CONTEXTs (depend on Phase 6 completion + user decisions).
 - **Resume file для следующей сессии после /clear**: `.planning/PHASE-6-SETUP-2026-05-10.md` (главный) + `.planning/STATE.md` (этот файл) + `.planning/MANUAL-ACTIONS.md`.
 
 ### Recent transitions
+
+- **2026-05-10 (#25 — execute 06-02)**: Plan 06-02 (VoicePanel UI + LessonShell topic prop + E2E + bundle-leak scan) executed in ~12 min. 2 TDD tasks, 3 commits (8dc64de RED, ca87b0f GREEN, 5510696 E2E). VoicePanel fully rewritten — ConversationProvider + useConversation, mic-first flow (navigator.mediaDevices.getUserMedia BEFORE POST /api/voice/signed-url), startSession with connectionType:'websocket' + firstMessage override using server-authoritative topic (defense-in-depth Open Q4), 4 SDK callbacks → bus.emit('voice:state', ...) wiring (onConnect → 'idle' per Open Q3, onModeChange → mode, onDisconnect → 'idle', onError → 'idle' + Russian error block), 4 distinct DOMException.name mapped Russian mic errors, cleanup useEffect calls endSession on unmount. LessonShell threads existing topic prop. 17 component tests green (TDD RED→GREEN). 11 Playwright tests landed (5 VOI-01-S bus-driven avatar + 1 fetch-fail UI + 5 VOI-01-T bundle-leak scans against page HTML + JS chunks). 338/338 full Vitest suite. tsc + build clean. **One Rule 1 deviation**: @elevenlabs/react@1.6.0 API drift — useConversation now requires ConversationProvider as ancestor (RESEARCH.md captured pre-1.6.0 standalone-hook API). startSession/endSession return void (not Promise). onConnect/onDisconnect/onError signatures changed. Resolved by wrapping VoicePanel in ConversationProvider (export wraps inner) + dropping await + updating handler signatures. UX behavior identical. Plus 3 minor sub-fixes (stale «Тест шины» smoke test pruned, stable-bus mock for callback-stability test, act() wrapping for async state updates). VOI-01 implementation satisfied. Manual UAT (D-09 #1–9 + Open Q1 allowlist smoke) DEFERRED to developer per plan critical_implementation_rules #11.
 
 - **2026-05-10 (#24 — execute 06-01)**: Plan 06-01 (Voice server foundation) executed in ~7 min. 2 TDD tasks, 4 commits (e549d39 RED test, 492f175 GREEN feat, 40e1868 RED test, b12631e GREEN feat). @elevenlabs/react@^1.6.0 installed (transitive @elevenlabs/client@1.7.0, livekit-client). lib/elevenlabs/types.ts: ConversationMode/ConversationStatus/VoiceErrorKind unions. lib/elevenlabs/get-signed-url.ts: fetch+throw REST wrapper around 11labs get-signed-url endpoint (`xi-api-key` header, `cache: 'no-store'`, missing-field guard). app/api/voice/signed-url/route.ts: 5-step handler (auth → validate → ownership → env-guard → upstream-call wrapped in 502), returns `{signedUrl, topic}` on 200, all 6 Russian error messages match draw route conventions. 21 unit tests passing (7 lib + 14 route) covering VOI-01-A..H + 502 + order invariant (auth before body parse). Full suite 322/322 (+21 new). tsc clean. npm run build lists /api/voice/signed-url. No deviations — plan executed exactly as specified. VOI-01 satisfied. Plan 06-02 (VoicePanel + E2E) unblocked.
 

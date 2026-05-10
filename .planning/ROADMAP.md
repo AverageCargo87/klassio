@@ -41,7 +41,7 @@
 - [x] **Phase 3: Lesson page shell — три-панельный layout + event bus** — Существует страница урока с пустыми панелями (доска / голос / тренажёр) и общая event-шина между ними. (Complete 2026-05-10: 3/3 plans done, LES-01 satisfied, 81 unit + 20 E2E tests green)
 - [x] **Phase 4: Production deploy + порт прототипа доски в Klassio** — Доска tldraw + OpenAI работает в Klassio в проде на Vercel + Cloudflare; РФ-юзер открывает без VPN. (Implementation COMPLETE 2026-05-10; 3/3 plans done, BRD-01+PED-01 implementation satisfied; production deploy DEFERRED to user — see MANUAL-ACTIONS.md)
 - [x] **Phase 5: Сцены — методические `explain_*` tools** — Бот объясняет темы 5 класса через 15 высокоуровневых сцен, не только примитивы. (Implementation complete 2026-05-10; all 15 scenes registered; 233 tests green)
-- [ ] **Phase 6: Голос — 11labs Conversational AI через Hetzner WS-прокси** — Голосовой учитель говорит по-русски в браузере ребёнка без VPN.
+- [x] **Phase 6: Голос — 11labs Conversational AI (VPN-path)** — Голосовой учитель говорит по-русски в браузере dev-юзера через VPN (Hetzner WS-прокси для РФ-без-VPN отложен на Phase 6.5 per D-02). (Implementation COMPLETE 2026-05-10: 2/2 plans done, VOI-01 implementation satisfied; manual UAT — D-09 #1–9 — DEFERRED to user)
 - [x] **Phase 7: HTML-тренажёр — контракт data-атрибутов + event bus** — Ребёнок решает задания, бот видит ввод и подсвечивает элементы.
 - [ ] **Phase 8: Двухуровневая LLM (Pedagogical + Realtime) + проактивные триггеры** — Slow planner следит за стратегией урока, fast actor исполняет; бот сам подключается на молчании/уходе.
 - [x] **Phase 9: 2D Lottie аватар учителя** — На странице урока виден живой аватар, переключающий состояния по событиям голосового агента.
@@ -163,7 +163,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 06-01-PLAN.md — SDK install + lib/elevenlabs/ (types + getSignedUrl) + POST /api/voice/signed-url + unit tests (Wave 1, autonomous, VOI-01-A..H) ✅ 2026-05-10 (21 tests green, see 06-01-SUMMARY.md)
-- [ ] 06-02-PLAN.md — VoicePanel rewrite + LessonShell topic prop + component tests + E2E (bus-driven avatar + bundle-leak scan) + manual smoke note for Open Q1 allowlist (Wave 2, autonomous, VOI-01-I..T)
+- [x] 06-02-PLAN.md — VoicePanel rewrite + LessonShell topic prop + component tests + E2E (bus-driven avatar + bundle-leak scan) + manual smoke note for Open Q1 allowlist (Wave 2, autonomous, VOI-01-I..T) ✅ 2026-05-10 (17 component tests + 11 E2E tests, 338 total, see 06-02-SUMMARY.md; one Rule 1 deviation for SDK v1.6.0 API drift resolved inline)
 **UI hint**: yes
 
 ---
