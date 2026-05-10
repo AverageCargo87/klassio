@@ -84,7 +84,11 @@ Plans:
   2. Разработчик может через admin endpoint / CLI / SQL создать нового тестового ребёнка с уникальной ссылкой и привязать к нему тестовый урок (дата, время, тема, ссылка на HTML-тренажёр).
   3. Существует README/admin guide, описывающий, как зарезервировать тестового ребёнка и тестовый урок для проверки v1 success metric.
   4. Прошедшие уроки видны в отдельной секции/вкладке (готовится крючок для записей из Phase 10).
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 02-01-PLAN.md — Schema migration (3 nullable lesson columns) + 4 admin CLI scripts (create-user, create-lesson, list-users, list-lessons)
+- [ ] 02-02-PLAN.md — Schedule UI refactor: week grouping, smart-relative dates, collapsible past-lessons section
+- [ ] 02-03-PLAN.md — Admin guide docs + Playwright E2E for schedule grouping
 **UI hint**: yes
 
 ---
@@ -287,7 +291,7 @@ Cross-cutting invariants (INV-01, INV-02) attached to the phase where their firs
 | Phase | Plans Complete | Status | Completed |
 |---|---|---|---|
 | 1. ЛК — оболочка, авторизация по ссылке, список уроков | 0/6 | Plans created | - |
-| 2. Расписание уроков + admin путь для заведения | 0/0 | Not started | - |
+| 2. Расписание уроков + admin путь для заведения | 0/3 | Plans created | - |
 | 3. Lesson page shell — три-панельный layout + event bus | 0/0 | Not started | - |
 | 4. Production deploy + порт прототипа доски в Klassio | 0/0 | Not started | - |
 | 5. Сцены — методические `explain_*` tools | 0/0 | Not started | - |
