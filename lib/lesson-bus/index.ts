@@ -15,6 +15,9 @@ export type {
   TrainerHighlightPayload,
   TrainerShowHintPayload,
   TrainerGotoTaskPayload,
+  // Phase 9 — Avatar/voice payloads (D-06)
+  VoiceStatePayload,
+  AvatarEmotionPayload,
 } from './events'
 export { LessonBus } from './bus'
 export { LessonBusProvider, LessonBusContext } from './provider'

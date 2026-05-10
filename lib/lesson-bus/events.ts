@@ -2,6 +2,7 @@
 // Phase 3 baseline: lesson:test, lesson:start, lesson:end.
 // Phase 4 adds: board:say (stub — emitted in Phase 6 when voice integration lands).
 // Phase 7 adds: trainer events (4 events + 3 commands).
+// Phase 9 adds: voice:state, avatar:emotion.
 // Each variant is a discriminated union with a unique 'type' literal.
 
 export type LessonTestPayload  = { source: string; counter: number }
@@ -22,6 +23,12 @@ export type TrainerHighlightPayload  = { elementId: string; durationMs?: number 
 export type TrainerShowHintPayload   = { taskId: string; hintLevel: number }
 export type TrainerGotoTaskPayload   = { taskId: string }
 
+// Phase 9 — Avatar/voice events (D-06)
+// voice:state: emitted by Phase 6 voice agent; subscribed by AvatarPanel (D-06)
+export type VoiceStatePayload  = { state: 'idle' | 'listening' | 'speaking' | 'thinking' }
+// avatar:emotion: emitted by Phase 8 Pedagogical LLM; subscribed by AvatarPanel (D-06)
+export type AvatarEmotionPayload = { emotion: 'neutral' | 'happy' | 'sad' | 'thinking' }
+
 export type LessonBusEvent =
   | { type: 'lesson:test';  payload: LessonTestPayload }
   | { type: 'lesson:start'; payload: LessonStartPayload }
@@ -36,6 +43,9 @@ export type LessonBusEvent =
   | { type: 'trainer:highlight';  payload: TrainerHighlightPayload }
   | { type: 'trainer:show_hint';  payload: TrainerShowHintPayload }
   | { type: 'trainer:goto_task';  payload: TrainerGotoTaskPayload }
+  // Phase 9 — Avatar/voice events (D-06)
+  | { type: 'voice:state';    payload: VoiceStatePayload }
+  | { type: 'avatar:emotion'; payload: AvatarEmotionPayload }
 
 // Helper: extract payload type for a given event type string.
 // Usage: EventPayload<'lesson:test'> → { source: string; counter: number }
