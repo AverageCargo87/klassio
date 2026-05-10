@@ -2,8 +2,10 @@ import path from 'node:path'
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  // CON-nextjs-tracing-root: lock workspace root, otherwise Next.js finds ~/package-lock.json
-  outputFileTracingRoot: path.resolve(__dirname),
+  // CON-nextjs-tracing-root: lock workspace root in DEV only, otherwise Next.js finds ~/package-lock.json.
+  // On Vercel this path bakes into the bundle and breaks function routing — Vercel's default
+  // tracing handles its own isolated build context correctly.
+  outputFileTracingRoot: process.env.VERCEL ? undefined : path.resolve(__dirname),
 
   // Prevent webpack from bundling Node.js native modules used in server-only code.
   // pg (node-postgres) uses native Node.js net/tls/fs — webpack bundling breaks it in RSC.
