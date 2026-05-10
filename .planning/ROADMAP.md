@@ -125,8 +125,8 @@ Plans:
   6. Env vars в Vercel: только `OPENAI_API_KEY` (никаких HTTPS_PROXY).
 **Plans**: 3 plans (implementation complete; deploy deferred to user — see MANUAL-ACTIONS.md)
 Plans:
-- [ ] 04-01-PLAN.md — deps + config + lib port (tldraw/openai/undici exact-pinned, next.config.ts, instrumentation.ts, lib/board/)
-- [ ] 04-02-PLAN.md — /api/draw SSE endpoint (auth guard + lessonId ownership + agent loop)
+- [x] 04-01-PLAN.md — deps + config + lib port (tldraw/openai/undici exact-pinned, next.config.ts, instrumentation.ts, lib/board/)
+- [x] 04-02-PLAN.md — /api/draw SSE endpoint (auth guard + lessonId ownership + agent loop)
 - [ ] 04-03-PLAN.md — BoardPanel UI + board:say bus stub + E2E smoke spec
 **UI hint**: yes
 

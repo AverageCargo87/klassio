@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-10T02:24:51.049Z"
+last_updated: "2026-05-10T02:31:14Z"
 progress:
   total_phases: 12
   completed_phases: 3
   total_plans: 15
-  completed_plans: 13
-  percent: 87
+  completed_plans: 15
+  percent: 93
 ---
 
 # Klassio — STATE
@@ -45,6 +45,8 @@ Plan: Not started
 - **Resume file**: None — Phase 4 is next phase.
 
 ### Recent transitions
+
+- **2026-05-10 (#14 — execute 04-02)**: Plan 04-02 (POST /api/draw SSE endpoint) executed in ~4 min. 2 TDD tasks (RED + GREEN), 2 commits (f938ae9, c96668b). auth() guard (401), zod-free input validation (400), drizzle ownership check WHERE id=lessonId AND userId=session.user.id (403), agent loop with tool_choice:'required' + finish tool intercept + MAX_AGENT_TURNS=30 + parsed_arguments fallback. SSE ReadableStream with proper headers. 8 Vitest tests added, 112 total green. npm run build passes (8 routes). Auto-fixes: OpenAI mock constructor + OPENAI_API_KEY env in happy-path tests.
 
 - **2026-05-10 (#13 — execute 03-03)**: Plan 03-03 (Lesson page shell + LessonShell + 3 panels + E2E) executed in ~12 min. 3 tasks, 3 commits (61360de, 524fcc8, 40a7ba8). app/lesson/[id]/page.tsx rewritten (auth, ownership, canStart guard, pg idempotent transition). end-lesson server action (pg UPDATE, ownership guard, status guard, redirect). LessonShell client (LessonBusProvider, AlertDialog confirm, adaptive layout). 3 panel placeholders with bus wiring. shadcn alert-dialog added. 5 component tests (TDD RED→GREEN) + 5 E2E tests. 81 unit tests + 20 E2E tests all green. LES-01 acceptance criteria satisfied.
 
@@ -96,6 +98,7 @@ Plan: Not started
 | Phase 03-lesson-shell P03-03 | 12 | 3 tasks | 9 files |
 | Phase 03-lesson-shell P03 | 12 | 3 tasks | 9 files |
 | Phase 04-board-deploy P04-01 | 5 | 2 tasks | 11 files |
+| Phase 04-board-deploy P04-02 | 4 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -134,6 +137,12 @@ Plan: Not started
 3. **Проактивный, не реактивный бот** (PED-02 в Phase 8).
 4. **Юзер не должен ставить ничего** (INV-01 в Phase 1, foundational).
 5. **Ощущение живого учителя у доски** (BRD-03 в Phase 11).
+
+### Plan 04-02 decisions (executor — 2026-05-10)
+
+- **OpenAI mock uses function constructor (not arrow):** Arrow functions cannot be used with `new`. The route calls `new OpenAI({ apiKey })`, so the vi.mock must use `function MockOpenAI() { return {...} }` rather than `vi.fn().mockImplementation(()=>({...}))`.
+- **process.env.OPENAI_API_KEY set inline in happy-path tests:** Route checks for missing key after ownership verification. Setting it per-test (with cleanup) is simpler than mocking lib/env.
+- **Error messages 401/403/400 in Russian per constraint:** "Войдите в систему" (401), "Промпт обязателен" (400), "lessonId обязателен" (400), "Этот урок не ваш" (403). Server logs remain English.
 
 ### Plan 03-03 decisions (executor — 2026-05-10)
 
@@ -197,6 +206,8 @@ Plan: Not started
 - ✅ Plan 03-01 — Lesson timestamps schema — complete (actual_start_at + actual_end_at columns in Neon, idempotent migration).
 - ✅ Plan 03-02 — Event bus core — complete (LessonBus class, LessonBusEvent union, LessonBusProvider, useLessonBus + useLessonBusEvent hooks; 10 bus tests green).
 - ✅ Plan 03-03 — Lesson shell — complete (lesson page + LessonShell + 3 panels + E2E; LES-01 satisfied; 81 unit + 20 E2E green).
+- ✅ Plan 04-01 — Board library layer — complete (tldraw executor + tools schema, 23 tests, instrumentation.ts).
+- ✅ Plan 04-02 — SSE draw endpoint — complete (POST /api/draw with auth + ownership + agent loop, 8 tests, 112 total).
 - **USER ACTION REQUIRED:** Complete Phase 1 production deploy + RU email test — см. `.planning/MANUAL-ACTIONS.md` Phase 1 Wave 6 Task 3.
 - **Phase 4 prerequisite:** Перед Phase 4 (production deploy) апгрейднуть Vercel **Hobby → Pro** ($20/мо). Hobby ToS запрещает commercial use — как только первый beta-юзер откроет URL, нужен Pro. Решение зафиксировано в плане 01-02 SUMMARY и COSTS.md § 7 Tracking.
 - (Опционально) формализовать какое-либо из 8 locked decisions как ADR через `/gsd-add-decision`.
@@ -210,8 +221,8 @@ Plan: Not started
 
 ## Session Continuity
 
-- **Last session**: 2026-05-09 — Plan 01-03 executed (Drizzle schema push + seed — 2 tasks, 12 tests passing, live Neon DB verified).
-- **Next session entry point**: Plan 01-04 (magic link auth — NextAuth v5 + Resend + DrizzleAdapter). `autonomous: true`.
+- **Last session**: 2026-05-10 — Plan 04-02 executed (POST /api/draw SSE endpoint with auth + ownership + agent loop — 2 TDD tasks, 2 commits, 8 new tests, 112 total green).
+- **Next session entry point**: Plan 04-03 (BoardPanel UI — wire /api/draw SSE endpoint to tldraw canvas). `autonomous: true`.
 - **What new Claude Code session needs to read first** (порядок):
   1. `PROJECT.md` — core value, locked decisions, anti-scope, invariants.
   2. `STATE.md` (этот файл) — где мы сейчас, что блокирует.
