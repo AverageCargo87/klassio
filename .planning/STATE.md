@@ -2,14 +2,20 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: ready_to_plan
-last_updated: "2026-05-10T04:22:00Z"
+status: deploy_in_progress
+last_updated: "2026-05-10T18:10:00Z"
 progress:
   total_phases: 12
-  completed_phases: 8
+  completed_phases: 7
+  partial_phases: 1
+  blocked_phases: 5
   total_plans: 20
   completed_plans: 20
-  percent: 62
+  percent: 60
+production_url: "https://klassio-one.vercel.app"
+deploy_status:
+  phase_1: "DEPLOYED — auth flow end-to-end ✓ (Resend magic link → /lessons), client-side exception on form submit (UX bug, non-blocking)"
+  phase_4: "DEPLOYED, BOARD RENDERING BUG — SSE stream + executor.createShape() работают, но shapes invisible на canvas (диагностика in DEPLOY-SESSION-2026-05-10.md)"
 ---
 
 # Klassio — STATE
@@ -35,16 +41,18 @@ progress:
 
 ## Current Position
 
-Phase: 9
-Plan: Complete
+**Production deploy active. Phase 1 + 4 deployed. Board rendering bug pending diagnosis.**
 
-- **Current phase**: Phase 9 — Avatar SHELL — COMPLETE (1/1 plans).
-- **Current plan**: Plan 09-01 complete. 6-state emoji avatar (idle/listening/speaking/thinking/happy/sad) with CSS animations, pure useReducer state machine, bus subscriptions via useAvatarState hook, VoicePanel rewrite (Avatar top + Phase 6 placeholder bottom), window.__lessonBus E2E exposure. 301 unit tests (21 new) all green. npm run build clean. VOI-02 satisfied.
-- **Status**: **Phase 9 COMPLETE** (1/1 plans). Next: Phase 10 (Recording/playback) or Phase 6 (Voice integration).
-- **Progress (overall v1)**: `[████████████████] Phase 9 complete. Avatar SHELL live with bus subscriptions ready for Phase 6 voice + Phase 8 emotion wiring.`.
-- **Resume file**: None.
+- **Production URL**: https://klassio-one.vercel.app (Vercel project recreated 2026-05-10 после corrupted state с Framework=Other)
+- **Phase 1 status**: ✅ DEPLOYED. Auth end-to-end работает: form → Resend magic link → Gmail → click → `/lessons`. **Известный UX баг**: client-side exception на form submit (страница error на /login?sent=1 после submit, но email уходит и flow завершается). См. DEPLOY-SESSION-2026-05-10.md § Known issues.
+- **Phase 4 status**: ⚠️ DEPLOYED, BOARD RENDERING BUG. /api/draw SSE стримит правильно, executor.ts вызывает editor.createShape() для каждого tool_use event, narration panel показывает ✓ для каждого вызова — но shapes не видны на canvas. Hypothesis: tldraw container layout (height=0?) или camera offset. **Под диагностикой** через DevTools (canvas .getBoundingClientRect, shapes count). См. DEPLOY-SESSION-2026-05-10.md § Active investigation.
+- **Trainer UX bugs (Phase 7)**: pending redesign per user — нет «попробовать ещё раз» после wrong answer, jitter on wrong-state. Косметика, не блокер.
+- **Phases done implementation**: 1, 2, 3, 4, 5, 7, 9 (7 из 12). Phases 6, 8, 10, 11, 12 — skeleton CONTEXTs only (BLOCKED on user decisions / Phase 6 voice subsystem).
+- **Resume file для следующей сессии**: `.planning/DEPLOY-SESSION-2026-05-10.md` (полный trail debugging + open issues + next steps).
 
 ### Recent transitions
+
+- **2026-05-10 (#21 — production deploy session)**: Phase 1 + Phase 4 deployed на Vercel. Vercel проект пересоздан с нуля (старый имел corrupted state — Framework=Other deduplicated builds через cache). 5 env vars добавлены (DATABASE_URL pooled, DATABASE_URL_DIRECT, AUTH_SECRET, AUTH_RESEND_KEY, OPENAI_API_KEY). 4 deploy fixes: auth.config.ts relative import (Vercel edge bundler не резолвит `@/` alias), next.config.ts outputFileTracingRoot conditional на VERCEL env, instrumentation split на edge-safe gateway + node-only file (Next.js canonical pattern), tools.ts JSONSchemaProperty.items для arithmetic_mean array (OpenAI strict validation). Production URL: https://klassio-one.vercel.app. Auth flow ✅ работает, board rendering ⚠️ диагностируется (shapes создаются executor'ом но invisible). См. `.planning/DEPLOY-SESSION-2026-05-10.md`.
 
 - **2026-05-10 (#20 — execute 09-01)**: Plan 09-01 (Avatar SHELL) executed in ~5 min. 3 tasks, 3 commits (eed102f, e7e7002, b8cbca4). 2 new LessonBusEvent variants (voice:state, avatar:emotion). lib/avatar/state-machine.ts: 6-state pure reducer (AvatarState + AvatarAction). components/avatar/avatar.tsx: 6 emoji (🙂👂🗣️🤔😊😟) + CSS @keyframes animations. components/avatar/use-avatar-state.ts: bus subscriptions (voice:state, avatar:emotion, trainer:answer_submitted), 2-wrong-streak → sad, auto-reset after 3s. VoicePanel rewrite (Avatar top + Phase 6 placeholder bottom). window.__lessonBus exposed in non-prod. 3 Playwright E2E specs (AVT-01). 301 unit tests green (21 new: 13 reducer + 8 component). npm run build clean. VOI-02 satisfied. Phase 9 complete.
 

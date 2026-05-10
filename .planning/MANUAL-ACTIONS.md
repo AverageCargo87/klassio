@@ -229,3 +229,35 @@ CONTEXT.md draft в `.planning/phases/08-llm/08-CONTEXT.md` capturing 7 design d
 - Trigger detector that uses ONLY trainer events (no VAD) — covers 3 of 5 triggers
 - Polling loop scaffold
 
+
+
+## Update 2026-05-10 (deploy session)
+
+После production deploy session **Phase 1 + Phase 4 deploy items частично закрыты**:
+
+### ✅ Phase 1 deploy — DONE с одной ремаркой
+
+- Vercel project linked, env vars (DATABASE_URL × 2, AUTH_SECRET, AUTH_RESEND_KEY, OPENAI_API_KEY) добавлены
+- `vercel --prod` успешно (после серии fixes)
+- Production URL: https://klassio-one.vercel.app
+- Auth flow end-to-end ✓: form → magic link Gmail → click → /lessons
+- **Известный UX баг**: client-side exception на form submit (письмо приходит, но клиент видит "Application error"). Не блокирует функциональность. Подробнее в `.planning/DEPLOY-SESSION-2026-05-10.md`
+
+### ⚠️ Phase 4 deploy — DONE минус rendering bug
+
+- Board API `/api/draw` ✓: SSE stream, agent loop, scenes server-side expansion
+- BoardPanel UI ✓: prompt textarea, suggestion chips, narration log
+- **Активный баг**: `editor.createShape()` вызывается, но shapes не видны на canvas. Скорее всего layout/CSS issue. Под диагностикой через DevTools. Полный trail + next steps в DEPLOY-SESSION-2026-05-10.md § 1.
+
+### Что осталось из этого списка
+
+- **Cloudflare CDN setup** (Phase 4) — pending. Нужно для DEP-01 acceptance #2-3 (РФ-юзеры без VPN). Делать когда купишь домен или решишь использовать `klassio-one.vercel.app` напрямую.
+- **РФ smoke test (DEP-01 #3)** — нужен контакт в РФ или VPN-on-Russia. Pending.
+- **Pro upgrade перед beta-юзерами** (Phase 1 Wave 2 D-decision) — пока в Hobby. Перед первым реальным юзером — `vercel switch` на Pro.
+
+### При возврате — что прочитать
+
+1. `.planning/DEPLOY-SESSION-2026-05-10.md` — главный resume файл
+2. Этот файл (MANUAL-ACTIONS.md) — оставшиеся ручные шаги
+3. `.planning/STATE.md` — общая картина
+
