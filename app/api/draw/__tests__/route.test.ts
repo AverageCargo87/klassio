@@ -21,7 +21,8 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 // ─── Mock OpenAI ────────────────────────────────────────────────────────────
-// Default mock: stream with no tool calls → agent exits after one turn
+// Default mock: stream with no tool calls → agent exits after one turn.
+// Must use a class-style function (not arrow) so `new OpenAI()` works.
 vi.mock('openai', () => {
   const makeMockStream = () => ({
     on: vi.fn().mockReturnThis(),
@@ -35,15 +36,16 @@ vi.mock('openai', () => {
       usage: { prompt_tokens: 100, completion_tokens: 20 },
     }),
   })
-  return {
-    default: vi.fn().mockImplementation(() => ({
+  function MockOpenAI() {
+    return {
       chat: {
         completions: {
           stream: vi.fn().mockReturnValue(makeMockStream()),
         },
       },
-    })),
+    }
   }
+  return { default: MockOpenAI }
 })
 
 import { POST } from '../route'
@@ -117,20 +119,24 @@ describe('POST /api/draw', () => {
 
   // ── Happy path: SSE stream ──────────────────────────────────────────────
   it('returns 200 with text/event-stream when auth + lessonId are valid', async () => {
+    process.env.OPENAI_API_KEY = 'sk-test-key-for-unit-tests'
     vi.mocked(auth).mockResolvedValue({ user: { id: 'user-1' } } as never)
     vi.mocked(db.select).mockReturnValue(makeDbChain([{ id: 'uuid-1' }]) as never)
 
     const res = await POST(makeRequest({ prompt: 'объясни 245+874 в столбик', lessonId: 'uuid-1' }))
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toContain('text/event-stream')
+    delete process.env.OPENAI_API_KEY
   })
 
   it('sets Cache-Control: no-cache on SSE response', async () => {
+    process.env.OPENAI_API_KEY = 'sk-test-key-for-unit-tests'
     vi.mocked(auth).mockResolvedValue({ user: { id: 'user-1' } } as never)
     vi.mocked(db.select).mockReturnValue(makeDbChain([{ id: 'uuid-1' }]) as never)
 
     const res = await POST(makeRequest({ prompt: 'тест', lessonId: 'uuid-1' }))
     expect(res.status).toBe(200)
     expect(res.headers.get('Cache-Control')).toContain('no-cache')
+    delete process.env.OPENAI_API_KEY
   })
 })
