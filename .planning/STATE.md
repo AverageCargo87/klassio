@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: unknown
-last_updated: "2026-05-10T06:26:53Z"
+status: ready_to_plan
+last_updated: "2026-05-10T06:51:00Z"
 progress:
   total_phases: 12
-  completed_phases: 5
-  total_plans: 19
-  completed_plans: 19
-  percent: 96
+  completed_phases: 6
+  total_plans: 21
+  completed_plans: 20
+  percent: 52
 ---
 
 # Klassio — STATE
@@ -35,16 +35,18 @@ progress:
 
 ## Current Position
 
-Phase: 5
-Plan: 02 complete
+Phase: 7
+Plan: 01 — COMPLETE
 
-- **Current phase**: Phase 5 — Scenes — COMPLETE (both plans 05-01 and 05-02 done).
-- **Current plan**: Plan 05-02 complete. All 15 explain_* scenes implemented and registered in route.ts. 233 unit tests (50 new scene tests + 183 prior) all green. npm run build passes. BRD-02 fully satisfied.
-- **Status**: **Phase 5 COMPLETE** (2/2 plans). All 15 scene generators wired. Next: Phase 6 (Voice — 11labs Conversational AI via Hetzner WS proxy).
-- **Progress (overall v1)**: `[██████████████] Phase 5 complete. Full 15-scene curriculum library live.`.
+- **Current phase**: Phase 7 — HTML Trainer — Plan 07-01 COMPLETE.
+- **Current plan**: Plan 07-01 complete. 7 trainer bus variants, TrainerConfig zod schema, useTrainerIdle hook, TrainerRenderer + 3 task components. 273 unit tests (40 new) all green. npm run build + tsc --noEmit clean. HTM-01 partially satisfied (07-02 needed for full TrainerPanel integration).
+- **Status**: **Phase 7 Plan 01 COMPLETE** (1/2 plans). Next: Plan 07-02 (TrainerPanel wiring + E2E).
+- **Progress (overall v1)**: `[███████████████] Phase 7 Plan 01 complete. Trainer event contract + components live.`.
 - **Resume file**: None.
 
 ### Recent transitions
+
+- **2026-05-10 (#18 — execute 07-01)**: Plan 07-01 (Trainer event contract + 3 task components) executed in ~6 min. 3 TDD tasks, 6 commits (9f41d83, e2fb6d1, 32f2dc0, 8d1911a, 38c15d5, 4a29018). 7 new trainer LessonBusEvent variants (4 events + 3 commands), TrainerConfig zod schema (tasks.min(1), hints.max(3)), useTrainerIdle (5s poll, 15s threshold, 30s spam guard, useRef state). TrainerRenderer root (data-block="trainer"), NumericInputTask (inputmode=numeric, Ответить, Показать подсказку), SingleChoiceTask (button-group options, disabled on answer), MatchingTask (click-to-pair, stable seed shuffle). 273 total tests green (40 new: 8 schema + 5 idle + 7 renderer + 6 numeric + 4 choice + 4 matching + 2 bus round-trip + 4 test files RED commits). npm run build + tsc --noEmit both clean. HTM-01 partially satisfied.
 
 - **2026-05-10 (#17 — execute 05-02)**: Plan 05-02 (Wave-2 scenes: multiplication_grid, long_division, decimal_multiplication, rectangle_area, rectangle_perimeter, simple_equation, arithmetic_mean) executed in ~6 min. 3 tasks, 2 feature commits (4fb8817, 2d551cc) + 1 docs commit. TDD RED→GREEN for all 7 scenes. 50 new unit tests + 1 integration test (explain_long_division expansion). route.ts now has all 15 scene side-effect imports. 233 total tests green. npm run build + tsc --noEmit both clean. BRD-02 fully satisfied. ROADMAP Phase 5 marked complete.
 
@@ -146,6 +148,13 @@ Plan: 02 complete
 3. **Проактивный, не реактивный бот** (PED-02 в Phase 8).
 4. **Юзер не должен ставить ничего** (INV-01 в Phase 1, foundational).
 5. **Ощущение живого учителя у доски** (BRD-03 в Phase 11).
+
+### Plan 07-01 decisions (executor — 2026-05-10)
+
+- **useRef for idle state (not useState)**: lastActivityAt, lastEmitAt, intervalRef are refs — polling is a side effect with no visual output. Zero re-renders needed from useTrainerIdle.
+- **MatchingTask stable shuffle via localeCompare(item+seed)**: Deterministic per task.id, SSR-safe. No Math.random to avoid hydration mismatch.
+- **tasks.min(1) in schema per critical constraint**: Empty tasks array rejected by trainerConfigSchema. Plan action body showed no min but critical constraints #2 require min(1).
+- **vi.mock + await import() for test isolation**: Mock @/lib/lesson-bus before dynamic import of component — simpler than real LessonBusProvider, avoids circular import issues in vitest.
 
 ### Plan 05-02 decisions (executor — 2026-05-10)
 
@@ -250,8 +259,8 @@ Plan: 02 complete
 
 ## Session Continuity
 
-- **Last session**: 2026-05-10 — Plan 05-02 executed (Scene Wave 2 — 7 remaining explain_* scenes + all 15 wired into route.ts — 3 tasks, 2 commits 4fb8817+2d551cc. 233 unit tests green. Phase 5 COMPLETE. BRD-02 fully satisfied).
-- **Next session entry point**: Phase 6 (Voice — 11labs Conversational AI via Hetzner WS proxy). Phase 5 fully complete; all 15 scenes registered. User must also complete production deploy steps in MANUAL-ACTIONS.md (Phases 1 and 4) before Phase 6 DEP-01 criteria can be verified in prod.
+- **Last session**: 2026-05-10 — Plan 07-01 executed (HTML Trainer Plan 01 — 7 bus variants, TrainerConfig schema, useTrainerIdle, TrainerRenderer + 3 task components — 6 commits (9f41d83, e2fb6d1, 32f2dc0, 8d1911a, 38c15d5, 4a29018). 273 unit tests green. npm run build + tsc --noEmit clean. HTM-01 partially satisfied.
+- **Next session entry point**: Phase 7 Plan 02 (TrainerPanel wiring — subscribe to trainer:highlight/show_hint/goto_task commands, load JSON config from lesson.htmlTrainerPath, integrate TrainerRenderer into lesson shell, E2E spec for trainer panel).
 - **What new Claude Code session needs to read first** (порядок):
   1. `PROJECT.md` — core value, locked decisions, anti-scope, invariants.
   2. `STATE.md` (этот файл) — где мы сейчас, что блокирует.

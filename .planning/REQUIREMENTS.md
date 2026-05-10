@@ -313,7 +313,7 @@
 | BRD-03 | Phase 11 | Pending |
 | VOI-01 | Phase 6 | Pending |
 | VOI-02 | Phase 9 | Pending |
-| HTM-01 | Phase 7 | Pending |
+| HTM-01 | Phase 7 | Partial (07-01: bus contract + components, 2026-05-10; 07-02: TrainerPanel + E2E pending) |
 | LLM-01 | Phase 8 | Pending |
 | PED-01 | Phase 4 | Pending |
 | PED-02 | Phase 8 | Pending |

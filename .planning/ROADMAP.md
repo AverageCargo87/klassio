@@ -177,7 +177,7 @@ Plans:
   6. Ручная QA: тестовый ребёнок вводит ответ → событие появляется в event bus → бот реагирует репликой через 11labs (даже простой заглушкой «вижу твой ответ» — полноценная реакция в Phase 8).
 **Plans**: 2 plans
 Plans:
-- [ ] 07-01-PLAN.md — Bus events (7 variants) + TrainerConfig schema + useTrainerIdle + 3 task-type components
+- [x] 07-01-PLAN.md — Bus events (7 variants) + TrainerConfig schema + useTrainerIdle + 3 task-type components
 - [ ] 07-02-PLAN.md — TrainerPanel rewrite + config loader + sample configs + admin CLI flag + E2E
 **UI hint**: yes
 
