@@ -144,7 +144,7 @@ Plans:
   5. Текущие 9 примитивов сохранены и работают как fallback для тем, на которые сцены ещё не написаны.
 **Plans**: 2 plans
 Plans:
-- [ ] 05-01-PLAN.md — Scene arch + 8 simpler scenes (column ops, fractions, decimals, percent)
+- [x] 05-01-PLAN.md — Scene arch + 8 simpler scenes (column ops, fractions, decimals, percent) [COMPLETE 2026-05-10]
 - [ ] 05-02-PLAN.md — 7 remaining scenes (multiplication grid, long division, geometry, equations, mean) + all 15 scenes wired into route.ts
 
 ---

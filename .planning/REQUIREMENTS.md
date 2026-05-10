@@ -309,7 +309,7 @@
 | LES-01 | Phase 3 | In Progress (03-01 schema, 03-02 event bus — 03-03 pending) |
 | LES-02 | Phase 11 | Pending |
 | BRD-01 | Phase 4 | Pending |
-| BRD-02 | Phase 5 | Pending |
+| BRD-02 | Phase 5 | Complete (05-01, 2026-05-10) |
 | BRD-03 | Phase 11 | Pending |
 | VOI-01 | Phase 6 | Pending |
 | VOI-02 | Phase 9 | Pending |

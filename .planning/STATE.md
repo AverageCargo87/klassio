@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-10T05:45:00.000Z"
+last_updated: "2026-05-10T03:15:00Z"
 progress:
   total_phases: 12
   completed_phases: 4
-  total_plans: 15
-  completed_plans: 15
-  percent: 100
+  total_plans: 17
+  completed_plans: 17
+  percent: 95
 ---
 
 # Klassio — STATE
@@ -35,16 +35,18 @@ progress:
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
+Phase: 5
+Plan: 01 complete
 
-- **Current phase**: Phase 4 — Board Deploy — implementation COMPLETE. Production deploy DEFERRED to user.
-- **Current plan**: Plan 04-03 complete. BoardPanel with tldraw + prompt UI + SSE + narration panel. 117 unit tests + 20 E2E green (board E2E requires running dev server + OPENAI_API_KEY to fully execute).
-- **Status**: **Phase 4 implementation COMPLETE** (3/3 plans, BRD-01+PED-01 implementation done). Deploy deferred to user manual action (see MANUAL-ACTIONS.md).
-- **Progress (overall v1)**: `[█████████████] Phase 4 complete (implementation). Board UI wired to /api/draw SSE endpoint.`.
-- **Resume file**: None — user must complete deploy steps before Phase 5 verification.
+- **Current phase**: Phase 5 — Scenes — Plan 05-01 COMPLETE.
+- **Current plan**: Plan 05-01 complete. Scene architecture (types+registry+15 schemas) + 8 Wave-1 scene generators + route.ts scene interception. 183 unit tests (57 scene + 3 integration + 123 prior) all green. npm run build passes.
+- **Status**: **Phase 5 Plan 01 COMPLETE** (1/2 plans). Wave-2 scenes (05-02) pending: 7 remaining scenes (multiplication_grid, long_division, decimal_multiplication, rectangle_area, rectangle_perimeter, simple_equation, arithmetic_mean).
+- **Progress (overall v1)**: `[█████████████] Phase 5/01 complete. Scene expansion system live.`.
+- **Resume file**: None.
 
 ### Recent transitions
+
+- **2026-05-10 (#16 — execute 05-01)**: Plan 05-01 (Scene architecture + 8 Wave-1 scenes + route.ts interception) executed in ~13 min. 3 TDD tasks, 3 commits (7714aad, 8e6ea5a, b840396). PrimitiveCall+SceneGenerator+SceneName types + registry (registerScene/isSceneName/getScene). 15 scene tool schemas in allBoardTools (24 total tools). 8 scene generators (column add/sub, fraction add/sub/compare/simplify, decimal add, percent). Route.ts intercepts explain_* calls server-side — client receives only primitive tool_use SSE events. scene_used field on done event. Russian scene encouragement in SYSTEM_PROMPT. 183 unit tests + npm run build all green. BRD-02 complete. One auto-fix: allBoardTools count corrected to 24 (plan said 25 — finish already counted in 9 primitives).
 
 - **2026-05-10 (#15 — execute 04-03)**: Plan 04-03 (BoardPanel UI) executed in ~12 min. 3 tasks, 3 commits (a0f1cf2, a8001f0, 64997f9). Full tldraw integration replacing Phase 3 placeholder: Tldraw dynamic import (ssr:false), prompt textarea (shadcn Textarea), 3 suggestion chips, executeDraw() SSE ReadableStream reader, narration panel (say tool), error display, board:say Phase 6 TODO. LessonShell passes lessonId to all panels. VoicePanel/TrainerPanel accept optional lessonId. 5 new BoardPanel unit tests (117 total). 5 E2E smoke specs created. npm run build passes (26.8kB lesson route). Phase 4 implementation COMPLETE — deploy deferred to user.
 
@@ -102,6 +104,7 @@ Plan: Not started
 | Phase 04-board-deploy P04-01 | 5 | 2 tasks | 11 files |
 | Phase 04-board-deploy P04-02 | 4 | 2 tasks | 2 files |
 | Phase 04-board-deploy P04-03 | 12 | 3 tasks | 9 files |
+| Phase 05-scenes P05-01 | 13 | 3 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -140,6 +143,12 @@ Plan: Not started
 3. **Проактивный, не реактивный бот** (PED-02 в Phase 8).
 4. **Юзер не должен ставить ничего** (INV-01 в Phase 1, foundational).
 5. **Ощущение живого учителя у доски** (BRD-03 в Phase 11).
+
+### Plan 05-01 decisions (executor — 2026-05-10)
+
+- **allBoardTools count is 24 not 25**: Plan said "9 + 15 + finish = 25" but finish is already in the 9 drawTools — actual count is 24. The must_haves say "LLM receives 24+ tools" which is satisfied.
+- **Side-effect import pattern for registry**: Each scene file calls registerScene() at module load time. Route.ts imports all 8 scene files as side effects. Avoids circular imports.
+- **Test mock via _streamFactory variable**: Module-level _streamFactory variable lets each test override the OpenAI stream mock without re-hoisting vi.mock.
 
 ### Plan 04-03 decisions (executor — 2026-05-10)
 
