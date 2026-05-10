@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-10T04:47:00.000Z"
+last_updated: "2026-05-10T02:01:38.344Z"
 progress:
   total_phases: 12
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 12
-  completed_plans: 11
-  percent: 92
+  completed_plans: 12
+  percent: 100
 ---
 
 # Klassio — STATE
@@ -36,15 +36,17 @@ progress:
 ## Current Position
 
 Phase: 3
-Plan: 3 (03-01 complete, 03-02 complete, 03-03 next)
+Plan: 3 (03-01 complete, 03-02 complete, 03-03 complete)
 
-- **Current phase**: Phase 3 — Lesson Shell (страница урока + статус-машина).
-- **Current plan**: Plan 03-02 complete. LessonBus core built (events + bus + provider + hooks). 76 unit tests green.
-- **Status**: **Phase 3 in progress** (2/3 plans, 76 unit tests green).
-- **Progress (overall v1)**: `[██████████] Phase 3 underway. Plan 03-03 next.`.
-- **Resume file**: None — 03-03 is next plan.
+- **Current phase**: Phase 3 — Lesson Shell — COMPLETE.
+- **Current plan**: Plan 03-03 complete. Lesson page shell + 3 panels + E2E. 81 unit tests + 20 E2E green.
+- **Status**: **Phase 3 COMPLETE** (3/3 plans, LES-01 satisfied).
+- **Progress (overall v1)**: `[██████████] Phase 3 complete. Phase 4 (tldraw board) is next.`.
+- **Resume file**: None — Phase 4 is next phase.
 
 ### Recent transitions
+
+- **2026-05-10 (#13 — execute 03-03)**: Plan 03-03 (Lesson page shell + LessonShell + 3 panels + E2E) executed in ~12 min. 3 tasks, 3 commits (61360de, 524fcc8, 40a7ba8). app/lesson/[id]/page.tsx rewritten (auth, ownership, canStart guard, pg idempotent transition). end-lesson server action (pg UPDATE, ownership guard, status guard, redirect). LessonShell client (LessonBusProvider, AlertDialog confirm, adaptive layout). 3 panel placeholders with bus wiring. shadcn alert-dialog added. 5 component tests (TDD RED→GREEN) + 5 E2E tests. 81 unit tests + 20 E2E tests all green. LES-01 acceptance criteria satisfied.
 
 - **2026-05-10 (#12 — execute 03-02)**: Plan 03-02 (Event bus core) executed in ~7 min. 2 tasks, 2 commits (c69c740, 96386b3). LessonBus class (Map pub/sub, on/off/emit/clear), LessonBusEvent discriminated union (3 variants), LessonBusProvider (React Context), useLessonBus() + useLessonBusEvent() hooks. 10 new tests (6 bus + 4 hooks), 76 total green. Zero external deps. No deviations.
 
@@ -91,6 +93,8 @@ Plan: 3 (03-01 complete, 03-02 complete, 03-03 next)
 | Phase 03-lesson-shell P03-01 | 10 | 2 tasks | 8 files |
 | Phase 03 P03-01 | 10 | 2 tasks | 8 files |
 | Phase 03-lesson-shell P03-02 | 7 | 2 tasks | 7 files |
+| Phase 03-lesson-shell P03-03 | 12 | 3 tasks | 9 files |
+| Phase 03-lesson-shell P03 | 12 | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -129,6 +133,14 @@ Plan: 3 (03-01 complete, 03-02 complete, 03-03 next)
 3. **Проактивный, не реактивный бот** (PED-02 в Phase 8).
 4. **Юзер не должен ставить ничего** (INV-01 в Phase 1, foundational).
 5. **Ощущение живого учителя у доски** (BRD-03 в Phase 11).
+
+### Plan 03-03 decisions (executor — 2026-05-10)
+
+- **Single render of panels (no DOM duplicates)**: Rendering panels once inside a single `flex lg:grid` parent avoids duplicate elements in DOM. Earlier dual-container approach (one for tablet, one for desktop) caused E2E selectors to find CSS-hidden copies first.
+- **AlertDialogTrigger styled directly**: base-ui Trigger renders its own native `<button>`. Wrapping shadcn `<Button>` inside it creates button-in-button DOM nesting error. Solution: apply buttonVariants CSS directly as className on AlertDialogTrigger.
+- **E2E seeds lesson as in_progress**: Direct seed to status='in_progress' avoids pg transition DML on first page load during E2E, eliminating timing race conditions.
+- **Mock end-lesson server action in Vitest**: Server action imports next-auth which imports next/server (server-only), incompatible with vitest happy-dom. `vi.mock('@/app/lesson/[id]/end-lesson')` severs the chain at import time.
+- **LessonShell receives only string primitives from RSC**: lessonId (UUID string) + topic (string) — no Date objects across the RSC→Client boundary.
 
 ### Plan 03-02 decisions (executor — 2026-05-10)
 
@@ -181,6 +193,9 @@ Plan: 3 (03-01 complete, 03-02 complete, 03-03 next)
 - ✅ Plan 01-04 — Magic link auth — complete (NextAuth v5 split-config, DrizzleAdapter, whitelist, Resend template; 24 unit + 9 integration tests green).
 - ✅ Plan 01-05 — UI routes — complete (5 routes in Russian, 35 tests, shadcn/ui + Tailwind v4).
 - ✅ Plan 01-06 — E2E suite — implementation complete (8 spec files, 10 E2E tests green locally; deploy deferred).
+- ✅ Plan 03-01 — Lesson timestamps schema — complete (actual_start_at + actual_end_at columns in Neon, idempotent migration).
+- ✅ Plan 03-02 — Event bus core — complete (LessonBus class, LessonBusEvent union, LessonBusProvider, useLessonBus + useLessonBusEvent hooks; 10 bus tests green).
+- ✅ Plan 03-03 — Lesson shell — complete (lesson page + LessonShell + 3 panels + E2E; LES-01 satisfied; 81 unit + 20 E2E green).
 - **USER ACTION REQUIRED:** Complete Phase 1 production deploy + RU email test — см. `.planning/MANUAL-ACTIONS.md` Phase 1 Wave 6 Task 3.
 - **Phase 4 prerequisite:** Перед Phase 4 (production deploy) апгрейднуть Vercel **Hobby → Pro** ($20/мо). Hobby ToS запрещает commercial use — как только первый beta-юзер откроет URL, нужен Pro. Решение зафиксировано в плане 01-02 SUMMARY и COSTS.md § 7 Tracking.
 - (Опционально) формализовать какое-либо из 8 locked decisions как ADR через `/gsd-add-decision`.
