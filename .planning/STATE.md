@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: unknown
-last_updated: "2026-05-10T01:16:20.883Z"
+status: in_progress
+last_updated: "2026-05-10T04:42:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
-  percent: 100
+  total_plans: 12
+  completed_plans: 10
+  percent: 83
 ---
 
 # Klassio — STATE
@@ -35,16 +35,18 @@ progress:
 
 ## Current Position
 
-Phase: 02 (admin) — COMPLETE (3/3 plans done)
-Plan: 3 of 3 — all plans implemented
+Phase: 3
+Plan: 2 (03-01 complete, 03-02 next)
 
-- **Current phase**: Phase 2 — Расписание уроков + admin путь для заведения.
-- **Current plan**: All 3/3 plans complete. ACC-03 (schedule UI) + ACC-04 (admin CLI + docs) both satisfied.
-- **Status**: **Phase 2 COMPLETE** (3/3 plans, 15 E2E + 64 unit tests green, admin-guide.md delivered).
-- **Progress (overall v1)**: `[██████████] 100% · Phase 2 complete. Phase 3 next.`.
-- **Resume file**: None — Phase 2 done. Phase 3 (next) is unplanned.
+- **Current phase**: Phase 3 — Lesson Shell (страница урока + статус-машина).
+- **Current plan**: Plan 03-01 complete. LES-01 satisfied (actual_start_at + actual_end_at on Neon).
+- **Status**: **Phase 3 in progress** (1/3 plans, 66 unit tests green).
+- **Progress (overall v1)**: `[██████████] Phase 3 underway. Plan 03-02 next.`.
+- **Resume file**: None — 03-02 is next plan.
 
 ### Recent transitions
+
+- **2026-05-10 (#11 — execute 03-01)**: Plan 03-01 (Lesson timestamps schema migration) executed in ~10 min. 2 tasks, 2 commits (4edbb85, 9d4ffdb). Added actual_start_at + actual_end_at nullable timestamp columns to Neon lesson table. TDD: RED→GREEN cycle confirmed. Migration applied via scripts/apply-0002-migration.ts (pg + IF NOT EXISTS). 66 tests all green. LES-01 complete. Auto-fix: updated 3 lesson fixtures in 2 test files (TypeScript type error after schema extension).
 
 - **2026-05-10 (#10 — execute 02-03)**: Plan 02-03 (Admin guide + Schedule E2E) executed in ~35 min. 2 tasks, 2 commits (d831e69, e76630c). docs/admin-guide.md (RU, quickstart + 4 CLI commands + FAQ + troubleshooting). README.md created. e2e/schedule-grouping.spec.ts (5 tests: heading, week header, smart date, past collapsed/expanded). Fixed stale heading selector in login-happy-path.spec.ts. 15 E2E tests all green. ACC-03 + ACC-04 complete.
 
@@ -84,6 +86,8 @@ Plan: 3 of 3 — all plans implemented
 | Phase 01-account-shell P05 | 7 | 3 tasks | 18 files |
 | Phase 02-admin P02 | 7 | 2 tasks | 8 files |
 | Phase 02-admin P02-03 | 35 | 2 tasks | 4 files |
+| Phase 03-lesson-shell P03-01 | 10 | 2 tasks | 8 files |
+| Phase 03 P03-01 | 10 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -122,6 +126,12 @@ Plan: 3 of 3 — all plans implemented
 3. **Проактивный, не реактивный бот** (PED-02 в Phase 8).
 4. **Юзер не должен ставить ничего** (INV-01 в Phase 1, foundational).
 5. **Ощущение живого учителя у доски** (BRD-03 в Phase 11).
+
+### Plan 03-01 decisions (executor — 2026-05-10)
+
+- **Migration via scripts/apply-0002-migration.ts (pg + IF NOT EXISTS)**: drizzle-kit push hangs on Neon ECONNRESET. Same proven pattern as Phase 2 Plan 01 — pg client + IF NOT EXISTS guards for idempotency.
+- **drizzle-kit generate → rename + add IF NOT EXISTS**: drizzle-kit generate produces valid SQL but without IF NOT EXISTS guards. Rename file to canonical name, add guards manually before applying.
+- **Both columns nullable (no .notNull())**: existing lesson rows get NULL — no data migration, no backfill, backward-compatible.
 
 ### Plan 02-01 decisions (executor — 2026-05-10)
 
