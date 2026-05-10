@@ -1,13 +1,18 @@
 'use client'
-// Voice placeholder panel — Mic icon + bus test button (D-18, D-20).
-// D-18: "Тест шины" button emits lesson:test with incrementing counter.
-// D-20: Button visible when NEXT_PUBLIC_LESSON_BUS_TEST !== 'false' (default: visible).
-// Will be replaced with real voice+avatar in Phase 6.
+// VoicePanel — Phase 9 rewrite (D-07).
+// Layout: Avatar (top half) + voice control area (bottom half).
+// Voice controls are placeholders for Phase 6 real mic integration.
+// Test bus button kept behind NEXT_PUBLIC_LESSON_BUS_TEST flag (D-07 compat).
+//
+// window.__lessonBus is exposed by LessonBusProvider in non-prod (A4, D-11)
+// so Playwright E2E can emit events without clicking the UI button.
 import { useState } from 'react'
 import { Mic } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useLessonBus } from '@/lib/lesson-bus'
+import { Avatar } from '@/components/avatar/avatar'
+import { useAvatarState } from '@/components/avatar/use-avatar-state'
 
 // Check at module load time — env var is frozen in Next.js bundle at build time
 const SHOW_TEST_BUTTON = process.env.NEXT_PUBLIC_LESSON_BUS_TEST !== 'false'
@@ -19,6 +24,7 @@ interface VoicePanelProps {
 export function VoicePanel({ lessonId: _lessonId }: VoicePanelProps = {}) {
   const bus = useLessonBus()
   const [counter, setCounter] = useState(0)
+  const avatarState = useAvatarState()
 
   function handleTestBus() {
     const next = counter + 1
@@ -34,16 +40,27 @@ export function VoicePanel({ lessonId: _lessonId }: VoicePanelProps = {}) {
           Голос
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-        <Mic className="h-10 w-10 opacity-20" />
-        <p className="text-sm text-center">
-          Голос и аватар появятся в Phase 6
-        </p>
-        {SHOW_TEST_BUTTON && (
-          <Button size="sm" variant="outline" onClick={handleTestBus}>
-            Тест шины
-          </Button>
-        )}
+
+      <CardContent className="flex-1 flex flex-col gap-4 min-h-0">
+        {/* TOP HALF — Avatar */}
+        <div className="flex-1 flex items-center justify-center">
+          <Avatar state={avatarState} />
+        </div>
+
+        {/* BOTTOM HALF — Voice controls (Phase 6 placeholder) */}
+        <div className="flex flex-col items-center gap-2 pb-2">
+          {/* TODO Phase 6: replace with real mic button + voice status indicator */}
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Mic className="h-5 w-5 opacity-30" />
+            <span className="text-xs">Голосовой агент появится в Phase 6</span>
+          </div>
+
+          {SHOW_TEST_BUTTON && (
+            <Button size="sm" variant="outline" onClick={handleTestBus}>
+              Тест шины
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   )
