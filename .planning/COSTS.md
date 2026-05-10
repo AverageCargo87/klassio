@@ -31,7 +31,7 @@
 | Vercel | Phase 1 | 0 → $20 ≈ 1 800 ₽ | **Hobby сейчас → Pro перед Phase 4** | Hobby для Phase 1–3 dev/testing (0 ₽). Upgrade to Pro перед первым beta-юзером (Phase 4 prod-deploy). Решение зафиксировано 2026-05-09, plan 01-02. |
 | Cloudflare | Phase 4 | 0 | Free | Free тарифа достаточно для v1 |
 | Hetzner Frankfurt VPS | Phase 4 | €8 ≈ 800 ₽ | CX22 (2 vCPU, 4 GB RAM) | Любой нероссийский VPS подойдёт; нужен только для backend-прокси |
-| 11labs Conversational AI | Phase 6 | **$99 ≈ 8 900 ₽** | Pro (требуется Custom LLM endpoint) | ⚠️ **Открытый вопрос:** подтвердить, что Custom LLM endpoint включён в Pro. Если только в Business ($1320/мес) — экономика ломается. |
+| 11labs Conversational AI | Phase 6 | **$22 ≈ 2 000 ₽** (первый месяц $11 ≈ 1 000 ₽ — promo) | **Creator** (downgrade с Pro per 2026-05-10 review) | ✅ **Pricing review (2026-05-10):** Creator $22/мо хватает для Phase 6 — 275 min/мо ≈ 6 уроков, 10 concurrent calls, Multilingual + Commercial License. Custom LLM endpoint в Phase 6 = заглушка (используем 11labs built-in LLM); может потребоваться upgrade до Pro $99 в Phase 8 ЕСЛИ Creator не включает Custom LLM (verify через Creator dashboard ПОСЛЕ подписки). До Phase 8 — экономия $77/мо vs Pro. |
 | Database | Phase 1 | 0–$25 | **Neon Free** (переключились с Supabase — plan 01-02) | Free хватит до ~50 пользователей; Neon Pro при росте. Нeon eu-central-1 Frankfurt, Postgres 17.8. |
 | Object storage (записи) | Phase 10 | ~$1–5 ≈ 100–450 ₽ | Cloudflare R2 (10 GB free) | Цена растёт с количеством записей; см. variable секцию |
 | Email (auth-ссылки) | Phase 1 | 0 | Resend Free (3 000/мес) | Postmark $15 как fallback при росте |
@@ -43,7 +43,8 @@
 | Pre-Phase 1 | 0 | Только разовые: домен (~50 ₽/мес амортизированно) + OpenAI deposit |
 | После Phase 1 (только ЛК) | ~0 ₽ (текущий) / ~1 850 ₽ (после Phase 4 апгрейда) | Vercel Hobby + Neon Free + Resend Free (домен ещё не куплен); перед Phase 4: + Vercel Pro $20 + домен |
 | После Phase 4 (доска в проде) | ~2 650 ₽ | + Hetzner + Cloudflare Free |
-| После Phase 6 (с голосом) | **~11 550 ₽** | + 11labs Pro (резкий скачок) |
+| После Phase 6 (с голосом) | **~4 650 ₽** | + 11labs Creator $22/мо (≈ 2 000 ₽). Phase 6 watermark снижен с 11 550 ₽ до ~4 650 ₽ per 2026-05-10 review (Custom LLM endpoint не нужен в Phase 6 — D-05 заглушка). |
+| После Phase 8 (если Pro upgrade нужен для Custom LLM) | **~11 550 ₽** | + 11labs Creator → Pro upgrade (+$77/мо ≈ 7 000 ₽). Verify в Phase 8 plan: если Creator включает Custom LLM endpoint — остаёмся на Creator весь v1. |
 | После Phase 10 (с записями) | ~12 000 ₽ | + R2 storage |
 | Полный v1 (после Phase 12) | **~12 000 ₽/мес** | всё включено |
 
