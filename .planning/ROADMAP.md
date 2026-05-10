@@ -86,7 +86,7 @@ Plans:
   4. Прошедшие уроки видны в отдельной секции/вкладке (готовится крючок для записей из Phase 10).
 **Plans**: 3 plans
 Plans:
-- [ ] 02-01-PLAN.md — Schema migration (3 nullable lesson columns) + 4 admin CLI scripts (create-user, create-lesson, list-users, list-lessons)
+- [x] 02-01-PLAN.md — Schema migration (3 nullable lesson columns) + 4 admin CLI scripts (create-user, create-lesson, list-users, list-lessons) — COMPLETE (2 tasks, 2 commits: 1add440, 9c001a2; 43 tests green; ACC-04 met)
 - [ ] 02-02-PLAN.md — Schedule UI refactor: week grouping, smart-relative dates, collapsible past-lessons section
 - [ ] 02-03-PLAN.md — Admin guide docs + Playwright E2E for schedule grouping
 **UI hint**: yes

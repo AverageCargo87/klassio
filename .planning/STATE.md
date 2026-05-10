@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
 status: executing
-last_updated: "2026-05-10T00:00:00Z"
+last_updated: "2026-05-10T00:24:26Z"
 progress:
   total_phases: 12
   completed_phases: 0
@@ -45,6 +45,8 @@ Plan: 6 of 6 — all plans implemented
 - **Resume file**: None — awaiting user deploy action per `.planning/MANUAL-ACTIONS.md`.
 
 ### Recent transitions
+
+- **2026-05-10 (#9 — execute 02-01)**: Plan 02-01 (Schema migration + admin CLI) executed in ~10 min. 2 tasks, 2 commits (1add440, 9c001a2). 3 nullable lesson columns added to Neon (recording_url, transcript_url, html_trainer_path). 4 admin CLI scripts: create-user (idempotent), create-lesson, list-users, list-lessons. 43 tests total (was 35). ACC-04 complete. Migration applied via scripts/apply-0001-migration.ts (pg + IF NOT EXISTS, Neon-safe). Smoke tests passed against live Neon.
 
 - **2026-05-10 (#8 — execute 01-06 Task 4)**: Phase 1 implementation signed off. 10 Playwright E2E tests all green locally (cecbf84, 0c7af18). Runtime DB client migrated postgres-js → neon-http for Vercel serverless compatibility. VALIDATION.md updated with as-built test IDs (43 tests total). STATE.md, COSTS.md, MANUAL-ACTIONS.md updated. Production deploy DEFERRED to user manual action — see MANUAL-ACTIONS.md.
 - **2026-05-10 (#7 — execute 01-06 Tasks 1-2)**: 8 Playwright E2E spec files written (login-happy-path, whitelist-uniform-response, magic-link-single-use, protected-routes, root-redirect, persist-session, no-access) + e2e/fixtures/db-setup.ts. lib/db/index.ts migrated from postgres-js to neon-http (stateless, immune to TCP termination). All 10 E2E tests green.
@@ -116,6 +118,12 @@ Plan: 6 of 6 — all plans implemented
 3. **Проактивный, не реактивный бот** (PED-02 в Phase 8).
 4. **Юзер не должен ставить ничего** (INV-01 в Phase 1, foundational).
 5. **Ощущение живого учителя у доски** (BRD-03 в Phase 11).
+
+### Plan 02-01 decisions (executor — 2026-05-10)
+
+- **Migration via scripts/apply-0001-migration.ts (not db-push.ts)**: db-push.ts applies ALL .sql files including already-applied 0000 — hangs on postgres.js awaiting CREATE TABLE responses. One-shot pg script with IF NOT EXISTS is Neon-safe.
+- **parseArgs exported from create-user.ts, inlined in others**: plan requires no separate module; each script self-contained; unit tests import from create-user.
+- **T-02-04 mitigated**: --date validated with YYYY-MM-DD regex before timestamp construction.
 
 ### Plan 01-01 decisions (executor — 2026-05-09)
 

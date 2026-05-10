@@ -305,7 +305,7 @@
 | ACC-01 | Phase 1 | Pending |
 | ACC-02 | Phase 1 | Pending |
 | ACC-03 | Phase 2 | Pending |
-| ACC-04 | Phase 2 | Pending |
+| ACC-04 | Phase 2 | Complete (02-01) |
 | LES-01 | Phase 3 | Pending |
 | LES-02 | Phase 11 | Pending |
 | BRD-01 | Phase 4 | Pending |
