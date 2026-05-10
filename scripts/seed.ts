@@ -67,14 +67,16 @@ export default async function main() {
 
   if (existingResult.length === 0) {
     const oneHourLater = new Date(Date.now() + 60 * 60 * 1000)
+    // D-14: Link seed lesson to sample trainer config for Phase 7 integration testing.
+    // html_trainer_path references public/trainer-configs/sample-column-addition.json (5 tasks).
     await withClient(async (client) => {
       await client.query(
-        `INSERT INTO lesson (id, user_id, scheduled_at, topic, duration_min, status)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, 'scheduled')`,
-        [userId, oneHourLater.toISOString(), 'Сложение в столбик', 45]
+        `INSERT INTO lesson (id, user_id, scheduled_at, topic, duration_min, html_trainer_path, status)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'scheduled')`,
+        [userId, oneHourLater.toISOString(), 'Сложение в столбик', 45, 'sample-column-addition.json']
       )
     })
-    console.log(`[seed]    new lesson scheduled for ${oneHourLater.toISOString()}`)
+    console.log(`[seed]    new lesson scheduled for ${oneHourLater.toISOString()} (trainer: sample-column-addition.json)`)
   } else {
     console.log(`[seed]    user has ${existingResult.length} existing lesson(s); skipping insert (idempotent)`)
   }

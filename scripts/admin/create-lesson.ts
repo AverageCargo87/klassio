@@ -62,7 +62,15 @@ async function main() {
   const date = typeof args['date'] === 'string' ? args['date'] : null
   const time = typeof args['time'] === 'string' ? args['time'] : '10:00'
   const duration = typeof args['duration'] === 'string' ? parseInt(args['duration'], 10) : 45
-  const trainer = typeof args['trainer'] === 'string' ? args['trainer'] : null
+  // --trainer-config <filename> sets html_trainer_path to public/trainer-configs/<filename>
+  // Backward-compat: --trainer <path> continues to work (sets same column).
+  // Both flags accept a filename; html_trainer_path is stored as the raw filename.
+  const trainerConfig =
+    typeof args['trainer-config'] === 'string'
+      ? args['trainer-config']
+      : typeof args['trainer'] === 'string'
+        ? args['trainer']
+        : null
   const status = typeof args['status'] === 'string' ? args['status'] : 'scheduled'
 
   // Validation
@@ -75,7 +83,8 @@ async function main() {
     console.error('  --date <YYYY-MM-DD> Scheduled date (required)')
     console.error('  --time <HH:mm>     Scheduled time (default: 10:00)')
     console.error('  --duration <min>   Duration in minutes (default: 45)')
-    console.error('  --trainer <path>   HTML trainer path (optional)')
+    console.error('  --trainer-config <file> Trainer config filename in public/trainer-configs/ (e.g. sample-column-addition.json)')
+    console.error('  --trainer <file>   Alias for --trainer-config (backward compat)')
     console.error('  --status <value>   Status: scheduled|in_progress|completed|cancelled (default: scheduled)')
     process.exit(1)
   }
@@ -132,12 +141,13 @@ async function main() {
   const userId = userRow.id
 
   // Step 2: Insert lesson
+  // html_trainer_path: set to trainerConfig filename when --trainer-config or --trainer is provided
   const lessonRow = await withClient(async (client) => {
     const r = await client.query(
       `INSERT INTO lesson (id, user_id, scheduled_at, topic, duration_min, html_trainer_path, status)
        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)
        RETURNING id`,
-      [userId, scheduledAt.toISOString(), topic, duration, trainer, status]
+      [userId, scheduledAt.toISOString(), topic, duration, trainerConfig, status]
     )
     return r.rows[0] as { id: string }
   })
@@ -156,8 +166,8 @@ async function main() {
   console.log(`  Topic: ${topic}`)
   console.log(`  Scheduled: ${formattedDate} (local time)`)
   console.log(`  User: ${email}`)
-  if (trainer) {
-    console.log(`  Trainer: ${trainer}`)
+  if (trainerConfig) {
+    console.log(`  Trainer config: public/trainer-configs/${trainerConfig}`)
   }
   console.log(`  Note: re-running this command creates a NEW lesson (by design).`)
 }
