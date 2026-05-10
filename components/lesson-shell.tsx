@@ -102,7 +102,7 @@ export function LessonShell({ lessonId, topic }: LessonShellProps) {
         >
           {/* Board: tall on tablet (60vh), fills height on desktop */}
           <div className="min-h-0 h-[60vh] lg:h-full">
-            <BoardPanel />
+            <BoardPanel lessonId={lessonId} />
           </div>
 
           {/* Right column: voice (15vh tablet / 12rem desktop) + trainer (fills rest) */}
@@ -111,10 +111,10 @@ export function LessonShell({ lessonId, topic }: LessonShellProps) {
             style={{ gridTemplateRows: '12rem 1fr', display: 'flex' }}
           >
             <div className="min-h-0 h-[15vh] lg:h-48 shrink-0">
-              <VoicePanel />
+              <VoicePanel lessonId={lessonId} />
             </div>
             <div className="min-h-0 flex-1 h-[25vh] lg:h-auto">
-              <TrainerPanel />
+              <TrainerPanel lessonId={lessonId} />
             </div>
           </div>
         </div>

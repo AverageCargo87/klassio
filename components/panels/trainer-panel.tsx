@@ -8,7 +8,11 @@ import { BookOpen } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { useLessonBusEvent } from '@/lib/lesson-bus'
 
-export function TrainerPanel() {
+interface TrainerPanelProps {
+  lessonId?: string // Optional — Phase 7 trainer integration will use this
+}
+
+export function TrainerPanel({ lessonId: _lessonId }: TrainerPanelProps = {}) {
   const [received, setReceived] = useState(0)
 
   // D-19: listen to lesson:test events from VoicePanel (or any emitter)

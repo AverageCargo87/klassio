@@ -12,7 +12,11 @@ import { useLessonBus } from '@/lib/lesson-bus'
 // Check at module load time — env var is frozen in Next.js bundle at build time
 const SHOW_TEST_BUTTON = process.env.NEXT_PUBLIC_LESSON_BUS_TEST !== 'false'
 
-export function VoicePanel() {
+interface VoicePanelProps {
+  lessonId?: string // Optional — Phase 6 voice integration will use this
+}
+
+export function VoicePanel({ lessonId: _lessonId }: VoicePanelProps = {}) {
   const bus = useLessonBus()
   const [counter, setCounter] = useState(0)
 

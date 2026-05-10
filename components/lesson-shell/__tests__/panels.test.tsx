@@ -1,10 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
 import { LessonBusProvider } from '@/lib/lesson-bus'
-import { BoardPanel } from '@/components/panels/board-panel'
-import { VoicePanel } from '@/components/panels/voice-panel'
-import { TrainerPanel } from '@/components/panels/trainer-panel'
 
 // Mock the server action so LessonShell can be imported in client-side test context.
 // The 'use server' action imports @/auth which transitively imports next/server (server-only).
@@ -12,17 +9,131 @@ vi.mock('@/app/lesson/[id]/end-lesson', () => ({
   endLesson: vi.fn().mockResolvedValue(undefined),
 }))
 
-// Import LessonShell after mocks are set up
+// Mock next/dynamic to return a synchronous stub for Tldraw (DOM dependency, ssr:false)
+vi.mock('next/dynamic', () => ({
+  default: () => {
+    const MockTldraw = ({ onMount }: { onMount?: (editor: unknown) => void }) => {
+      // Simulate tldraw mount by calling onMount with a mock editor
+      React.useEffect(() => {
+        if (onMount) {
+          const mockEditor = {
+            setCamera: vi.fn(),
+            updateInstanceState: vi.fn(),
+            getCurrentPageShapeIds: vi.fn(() => new Set()),
+            deleteShapes: vi.fn(),
+            createShape: vi.fn(),
+          }
+          onMount(mockEditor)
+        }
+      }, [onMount])
+      return React.createElement('div', { 'data-testid': 'tldraw-canvas', className: 'tl-canvas' })
+    }
+    return MockTldraw
+  },
+}))
+
+// Mock tldraw/tldraw.css to avoid CSS import errors in test environment
+vi.mock('tldraw/tldraw.css', () => ({}))
+
+// Mock lib/board executeToolCall to avoid tldraw dependency in tests
+vi.mock('@/lib/board', () => ({
+  executeToolCall: vi.fn().mockResolvedValue({ ok: true }),
+}))
+
+// Import panels and LessonShell after mocks are set up
+import { BoardPanel } from '@/components/panels/board-panel'
+import { VoicePanel } from '@/components/panels/voice-panel'
+import { TrainerPanel } from '@/components/panels/trainer-panel'
 import { LessonShell } from '@/components/lesson-shell'
 
 const wrap = (ui: React.ReactNode) =>
   render(React.createElement(LessonBusProvider, null, ui))
 
 describe('BoardPanel', () => {
-  it('renders Доска heading and Phase 4 placeholder', () => {
-    wrap(React.createElement(BoardPanel))
-    expect(screen.getByText(/Доска/)).toBeDefined()
-    expect(screen.getByText(/Phase 4/)).toBeDefined()
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // Mock global fetch for SSE tests
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  it('renders Доска heading', () => {
+    wrap(React.createElement(BoardPanel, { lessonId: 'test-lesson' }))
+    expect(screen.getAllByText(/Доска/).length).toBeGreaterThan(0)
+  })
+
+  it('renders prompt textarea with placeholder', () => {
+    wrap(React.createElement(BoardPanel, { lessonId: 'test-lesson' }))
+    const textarea = screen.getByPlaceholderText(/объясни сложение/i)
+    expect(textarea).toBeDefined()
+  })
+
+  it('renders Объяснить button disabled when prompt is empty', () => {
+    wrap(React.createElement(BoardPanel, { lessonId: 'test-lesson' }))
+    const button = screen.getByRole('button', { name: /Объяснить/ })
+    expect(button).toBeDefined()
+    // Button should be disabled when prompt is empty (initial state)
+    expect(button.hasAttribute('disabled')).toBe(true)
+  })
+
+  it('renders 3 suggestion chips', () => {
+    wrap(React.createElement(BoardPanel, { lessonId: 'test-lesson' }))
+    expect(screen.getByRole('button', { name: /Сложение в столбик/ })).toBeDefined()
+    expect(screen.getByRole('button', { name: /Дроби/ })).toBeDefined()
+    expect(screen.getByRole('button', { name: /Умножение на 10/ })).toBeDefined()
+  })
+
+  it('clicking chip fills textarea value', async () => {
+    // Provide a minimal fetch mock so auto-submit does not throw
+    const mockStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('data: {"type":"done","finish_reason":"finished","usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}\n\n'))
+        controller.close()
+      },
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, body: mockStream }))
+
+    wrap(React.createElement(BoardPanel, { lessonId: 'test-lesson' }))
+    const chip = screen.getByRole('button', { name: /Сложение в столбик/ })
+    fireEvent.click(chip)
+    const textarea = screen.getByPlaceholderText(/объясни сложение/i) as HTMLTextAreaElement
+    await waitFor(() => {
+      expect(textarea.value).toMatch(/Сложение/)
+    })
+  })
+
+  it('submit POSTs to /api/draw with prompt and lessonId', async () => {
+    // Setup a mock fetch that returns a done SSE stream
+    const mockStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('data: {"type":"done","finish_reason":"finished","usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n'))
+        controller.close()
+      }
+    })
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: mockStream,
+    })
+    vi.stubGlobal('fetch', mockFetch)
+
+    wrap(React.createElement(BoardPanel, { lessonId: 'lesson-abc' }))
+
+    // Type in the textarea
+    const textarea = screen.getByPlaceholderText(/объясни сложение/i)
+    fireEvent.change(textarea, { target: { value: 'Покажи умножение на 5' } })
+
+    // Click submit
+    const button = screen.getByRole('button', { name: /Объяснить/ })
+    fireEvent.click(button)
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/draw',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ prompt: 'Покажи умножение на 5', lessonId: 'lesson-abc' }),
+        })
+      )
+    })
   })
 })
 
