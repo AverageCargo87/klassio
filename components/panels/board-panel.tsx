@@ -160,6 +160,13 @@ export function BoardPanel({ lessonId }: BoardPanelProps) {
                 }
                 return next
               })
+              // Auto-fit camera to created shapes — eliminates need for manual
+              // "Назад к содержанию" click. Triggers when shapes exist and a
+              // drawing primitive just ran.
+              const hasContent = editor.getCurrentPageShapeIds().size > 0
+              if (hasContent && name.startsWith('draw_')) {
+                editor.zoomToFit({ animation: { duration: 200 } })
+              }
             } else if (evt.type === 'text') {
               const text = String(evt.text ?? '')
               if (text) {
