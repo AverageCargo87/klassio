@@ -76,4 +76,18 @@ describe('lib/db/schema', () => {
     const values = (schema.lessonStatusEnum as unknown as { enumValues: readonly string[] }).enumValues
     expect(values).toEqual(['scheduled', 'in_progress', 'completed', 'cancelled'])
   })
+
+  // === Phase 3 extensions (D-13) — lesson timing analytics ===
+  it('lessons has actualStartAt nullable timestamp column', () => {
+    const col = schema.lessons.actualStartAt
+    expect(col).toBeDefined()
+    expect(col.columnType).toBe('PgTimestamp')
+    // nullable — no notNull constraint
+  })
+
+  it('lessons has actualEndAt nullable timestamp column', () => {
+    const col = schema.lessons.actualEndAt
+    expect(col).toBeDefined()
+    expect(col.columnType).toBe('PgTimestamp')
+  })
 })

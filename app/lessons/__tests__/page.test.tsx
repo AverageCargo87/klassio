@@ -88,6 +88,9 @@ describe('LessonsPage', () => {
       recordingUrl: null,
       transcriptUrl: null,
       createdAt: new Date(),
+      // Phase 3 extensions (D-13)
+      actualStartAt: null,
+      actualEndAt: null,
     }
     vi.mocked(groupByWeek).mockReturnValueOnce([
       {
@@ -119,6 +122,9 @@ describe('LessonsPage', () => {
       recordingUrl: null,
       transcriptUrl: null,
       createdAt: new Date(),
+      // Phase 3 extensions (D-13)
+      actualStartAt: null,
+      actualEndAt: null,
     }
     vi.mocked(groupByWeek).mockReturnValueOnce([
       {

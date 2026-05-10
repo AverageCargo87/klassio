@@ -22,6 +22,9 @@ function lesson(scheduledAt: Date, id = Math.random().toString()) {
     transcriptUrl: null,
     status: 'scheduled' as const,
     createdAt: new Date('2026-01-01'),
+    // Phase 3 extensions (D-13)
+    actualStartAt: null,
+    actualEndAt: null,
   }
 }
 

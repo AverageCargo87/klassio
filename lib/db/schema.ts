@@ -104,6 +104,9 @@ export const lessons = pgTable(
     htmlTrainerPath: text('html_trainer_path'),  // Phase 7 will populate
     status: lessonStatusEnum('status').notNull().default('scheduled'),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    // === Phase 3 extensions (D-13) — lesson timing analytics ===
+    actualStartAt: timestamp('actual_start_at', { mode: 'date' }),  // set on first in_progress transition
+    actualEndAt: timestamp('actual_end_at', { mode: 'date' }),      // set on completed transition
   },
   (t) => [
     index('lesson_user_id_idx').on(t.userId),

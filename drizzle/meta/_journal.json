@@ -15,6 +15,13 @@
       "when": 1778372104271,
       "tag": "0001_fat_mockingbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778376795967,
+      "tag": "0002_lesson_timestamps",
+      "breakpoints": true
     }
   ]
 }
