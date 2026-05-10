@@ -261,3 +261,59 @@ CONTEXT.md draft в `.planning/phases/08-llm/08-CONTEXT.md` capturing 7 design d
 2. Этот файл (MANUAL-ACTIONS.md) — оставшиеся ручные шаги
 3. `.planning/STATE.md` — общая картина
 
+
+
+## Update 2026-05-10 #2 (Phase 6 agent setup session)
+
+### Phase 6 progress — PARTIALLY UNBLOCKED ✅
+
+User progressed Phase 6 substantially:
+
+1. ✅ **11labs Creator subscription** — $11 first month / $22 ongoing. **DOWNGRADE from Pro** saved $77/мо (~6 160 ₽/мо)
+2. ✅ **Custom LLM endpoint в Creator** — verified available. Не нужен Pro upgrade для voice (был watermark — снят)
+3. ✅ **Voice ID** — picked by user (нужно записать какой именно когда вернёмся)
+4. ✅ **LLM Model: GPT-4.1 Nano** — 563ms latency (best для voice), $0.0016/мин = ~39 ₽/мес для 6 уроков
+
+### Что осталось (resume guide для следующей сессии)
+
+**Главный файл для resume**: `.planning/PHASE-6-SETUP-2026-05-10.md`
+
+В нём готовые copy-paste:
+- ✅ System Prompt (Russian, age-adapted для 5 класса, безопасный, проактивный)
+- ✅ First Message (greeting)
+- ✅ Agent Settings (voice stability/speed/conversation timeouts/recording)
+- ✅ Test checklist для browser-tester
+- ✅ Открытые вопросы для verify (Custom LLM работает? Voice ID какой?)
+
+**Действия пользователя в 11labs**:
+1. Paste System Prompt → Agent settings → System Prompt field
+2. Paste First Message → Agent settings → First Message field
+3. Apply Voice/Conversation/Recording settings per PHASE-6-SETUP-2026-05-10.md § 3
+4. Click "Test Agent" / "Talk to Agent" — поговорить голосом
+5. Verify checklist (russian voice ✓, понимает речь ✓, переходит к теме ✓, etc.)
+6. Capture: **Agent ID**, **Voice ID**, **11labs API key**
+
+**Когда готов** — открыть новую сессию (после `/clear`) и написать Claude:
+> Phase 6 baseline готов в 11labs:
+> - Agent ID: ...
+> - Voice ID: ...
+> - 11labs API key: el_... (положу в .env.local)
+>
+> Готов к integration в Klassio frontend.
+
+**Claude после этого**:
+- Plan 06-01 — Klassio frontend integration (11labs Conversational AI SDK в VoicePanel)
+- ELEVENLABS_AGENT_ID + ELEVENLABS_VOICE_ID env vars в Vercel
+- Wire `voice:state` + `avatar:emotion` bus events
+- Удалить Phase 6 placeholder в VoicePanel
+- E2E test для voice flow
+- Estimated ~2-3 hours work
+
+### Hetzner WS proxy — STILL deferred
+
+Не нужен пока не testing с реального РФ-IP без VPN. Для твоего dev-теста (через VPN) — integration работает напрямую. Setup в PHASE-6-SETUP-2026-05-10.md § Hetzner.
+
+Поставим:
+- Перед РФ smoke test
+- ИЛИ перед первым beta-юзером
+

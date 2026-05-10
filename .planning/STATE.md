@@ -2,20 +2,21 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: deploy_in_progress
-last_updated: "2026-05-10T18:10:00Z"
+status: phase_6_in_progress
+last_updated: "2026-05-10T20:30:00Z"
 progress:
   total_phases: 12
   completed_phases: 7
-  partial_phases: 1
-  blocked_phases: 5
+  active_phase: 6
+  blocked_phases: 4   # 8, 10, 11, 12 (Phase 6 unblocked, others depend)
   total_plans: 20
   completed_plans: 20
-  percent: 60
+  percent: 62
 production_url: "https://klassio-one.vercel.app"
 deploy_status:
-  phase_1: "DEPLOYED — auth flow end-to-end ✓ (Resend magic link → /lessons), client-side exception on form submit (UX bug, non-blocking)"
-  phase_4: "DEPLOYED, BOARD RENDERING BUG — SSE stream + executor.createShape() работают, но shapes invisible на canvas (диагностика in DEPLOY-SESSION-2026-05-10.md)"
+  phase_1: "DEPLOYED ✓ — auth flow end-to-end works (Resend magic link → /lessons). Known UX bug: client-side exception on form submit (email still sent, non-blocking)."
+  phase_4: "DEPLOYED ✓ — board renders explanations correctly. Camera auto-fit fix applied (a36f87d). First-byte SSE flush + 'Бот думает…' indicator (15a7bd6). Speed and animation tweaks deferred per user."
+  phase_6: "IN PROGRESS — 11labs Creator subscription активна ($11 first month / $22 ongoing — saved $77/mo vs Pro). Custom LLM endpoint confirmed available в Creator. Model: GPT-4.1 Nano selected. Voice ID picked by user. System prompt + first message drafted (in PHASE-6-SETUP-2026-05-10.md). Awaiting: paste prompts в 11labs UI → Test Agent → capture Agent ID + Voice ID + API key → Klassio frontend integration."
 ---
 
 # Klassio — STATE
@@ -41,16 +42,27 @@ deploy_status:
 
 ## Current Position
 
-**Production deploy active. Phase 1 + 4 deployed. Board rendering bug pending diagnosis.**
+**Phase 6 (Voice) ACTIVE. 11labs Creator subscription активна. User configuring agent в 11labs dashboard.**
 
-- **Production URL**: https://klassio-one.vercel.app (Vercel project recreated 2026-05-10 после corrupted state с Framework=Other)
-- **Phase 1 status**: ✅ DEPLOYED. Auth end-to-end работает: form → Resend magic link → Gmail → click → `/lessons`. **Известный UX баг**: client-side exception на form submit (страница error на /login?sent=1 после submit, но email уходит и flow завершается). См. DEPLOY-SESSION-2026-05-10.md § Known issues.
-- **Phase 4 status**: ⚠️ DEPLOYED, BOARD RENDERING BUG. /api/draw SSE стримит правильно, executor.ts вызывает editor.createShape() для каждого tool_use event, narration panel показывает ✓ для каждого вызова — но shapes не видны на canvas. Hypothesis: tldraw container layout (height=0?) или camera offset. **Под диагностикой** через DevTools (canvas .getBoundingClientRect, shapes count). См. DEPLOY-SESSION-2026-05-10.md § Active investigation.
-- **Trainer UX bugs (Phase 7)**: pending redesign per user — нет «попробовать ещё раз» после wrong answer, jitter on wrong-state. Косметика, не блокер.
-- **Phases done implementation**: 1, 2, 3, 4, 5, 7, 9 (7 из 12). Phases 6, 8, 10, 11, 12 — skeleton CONTEXTs only (BLOCKED on user decisions / Phase 6 voice subsystem).
-- **Resume file для следующей сессии**: `.planning/DEPLOY-SESSION-2026-05-10.md` (полный trail debugging + open issues + next steps).
+- **Production URL**: https://klassio-one.vercel.app — DEPLOYED, working
+- **Phase 1 status**: ✅ DEPLOYED. Auth end-to-end works. Известный UX bug: client-side exception на form submit (email уходит, flow завершается) — non-blocking, отложен на полировку.
+- **Phase 4 status**: ✅ DEPLOYED. Board rendering работает после fixes: camera auto-fit (a36f87d) + first-byte SSE flush + thinking indicator (15a7bd6). User протестировал «объясни 245+874 в столбик» — работает. Speed/animation polish — отложено.
+- **Phase 6 status**: 🟡 ACTIVE. User в 11labs dashboard:
+  - ✅ Creator subscription ($11 first month) — saved $77/мо vs Pro
+  - ✅ Custom LLM endpoint **доступен в Creator** (главный pricing review win)
+  - ✅ Voice picked
+  - ✅ LLM model: **GPT-4.1 Nano** (563ms latency, $0.0016/min ≈ 39₽/мес для 6 уроков)
+  - ⏳ Применить System Prompt + First Message (готовые в `.planning/PHASE-6-SETUP-2026-05-10.md`)
+  - ⏳ Применить Agent Settings (voice/conversation/recording)
+  - ⏳ Test Agent в 11labs browser-tester
+  - ⏳ Capture **Agent ID + Voice ID + 11labs API key**
+- **Phase 7 status**: ✅ shell deployed; UX bugs (no retry after wrong answer, jitter) — pending редизайн.
+- **Phases done implementation**: 1, 2, 3, 4, 5, 7, 9 (7 из 12). Phases 8, 10, 11, 12 — skeleton CONTEXTs (depend on Phase 6 completion + user decisions).
+- **Resume file для следующей сессии после /clear**: `.planning/PHASE-6-SETUP-2026-05-10.md` (главный) + `.planning/STATE.md` (этот файл) + `.planning/MANUAL-ACTIONS.md`.
 
 ### Recent transitions
+
+- **2026-05-10 (#22 — Phase 6 agent setup session)**: 11labs Creator subscription активирована (saved $77/мо vs Pro decision). Custom LLM endpoint confirmed available в Creator. User picked voice + GPT-4.1 Nano model (563ms, $0.0016/min, ~39₽/мес для 6 уроков/мес — финальный Phase 6 watermark обновлён в COSTS.md с 8 900 до 2 000 ₽/мо). Drafted RU system prompt + first message + agent settings recommendations — все в `.planning/PHASE-6-SETUP-2026-05-10.md` готовое для copy-paste. Bug fixes к Phase 4: camera auto-fit zoomToFit после draw_ primitives (a36f87d), first-byte SSE flush + 'Бот думает…' indicator (15a7bd6) — пользователь подтвердил board rendering работает в проде. Pricing review committed (79c5791): Phase 6 cost watermark снижен в 4.4 раза. User делает /clear для resume в чистой сессии.
 
 - **2026-05-10 (#21 — production deploy session)**: Phase 1 + Phase 4 deployed на Vercel. Vercel проект пересоздан с нуля (старый имел corrupted state — Framework=Other deduplicated builds через cache). 5 env vars добавлены (DATABASE_URL pooled, DATABASE_URL_DIRECT, AUTH_SECRET, AUTH_RESEND_KEY, OPENAI_API_KEY). 4 deploy fixes: auth.config.ts relative import (Vercel edge bundler не резолвит `@/` alias), next.config.ts outputFileTracingRoot conditional на VERCEL env, instrumentation split на edge-safe gateway + node-only file (Next.js canonical pattern), tools.ts JSONSchemaProperty.items для arithmetic_mean array (OpenAI strict validation). Production URL: https://klassio-one.vercel.app. Auth flow ✅ работает, board rendering ⚠️ диагностируется (shapes создаются executor'ом но invisible). См. `.planning/DEPLOY-SESSION-2026-05-10.md`.
 
