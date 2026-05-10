@@ -42,7 +42,7 @@
 - [x] **Phase 4: Production deploy + порт прототипа доски в Klassio** — Доска tldraw + OpenAI работает в Klassio в проде на Vercel + Cloudflare; РФ-юзер открывает без VPN. (Implementation COMPLETE 2026-05-10; 3/3 plans done, BRD-01+PED-01 implementation satisfied; production deploy DEFERRED to user — see MANUAL-ACTIONS.md)
 - [x] **Phase 5: Сцены — методические `explain_*` tools** — Бот объясняет темы 5 класса через 15 высокоуровневых сцен, не только примитивы. (Implementation complete 2026-05-10; all 15 scenes registered; 233 tests green)
 - [ ] **Phase 6: Голос — 11labs Conversational AI через Hetzner WS-прокси** — Голосовой учитель говорит по-русски в браузере ребёнка без VPN.
-- [ ] **Phase 7: HTML-тренажёр — контракт data-атрибутов + event bus** — Ребёнок решает задания, бот видит ввод и подсвечивает элементы.
+- [x] **Phase 7: HTML-тренажёр — контракт data-атрибутов + event bus** — Ребёнок решает задания, бот видит ввод и подсвечивает элементы.
 - [ ] **Phase 8: Двухуровневая LLM (Pedagogical + Realtime) + проактивные триггеры** — Slow planner следит за стратегией урока, fast actor исполняет; бот сам подключается на молчании/уходе.
 - [ ] **Phase 9: 2D Lottie аватар учителя** — На странице урока виден живой аватар, переключающий состояния по событиям голосового агента.
 - [ ] **Phase 10: Запись урока + транскрипт + контент-модерация + 152-ФЗ** — Каждый урок записан и доступен в ЛК; контент модерируется; согласие собрано.
@@ -178,7 +178,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 07-01-PLAN.md — Bus events (7 variants) + TrainerConfig schema + useTrainerIdle + 3 task-type components
-- [ ] 07-02-PLAN.md — TrainerPanel rewrite + config loader + sample configs + admin CLI flag + E2E
+- [x] 07-02-PLAN.md — TrainerPanel rewrite + config loader + sample configs + admin CLI flag + E2E
 **UI hint**: yes
 
 ---

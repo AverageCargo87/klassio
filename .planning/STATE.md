@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: ready_to_plan
-last_updated: "2026-05-10T06:51:00Z"
+status: unknown
+last_updated: "2026-05-10T04:16:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 6
-  total_plans: 21
-  completed_plans: 20
-  percent: 52
+  total_plans: 19
+  completed_plans: 19
+  percent: 100
 ---
 
 # Klassio — STATE
@@ -36,15 +36,17 @@ progress:
 ## Current Position
 
 Phase: 7
-Plan: 01 — COMPLETE
+Plan: 02 — COMPLETE
 
-- **Current phase**: Phase 7 — HTML Trainer — Plan 07-01 COMPLETE.
-- **Current plan**: Plan 07-01 complete. 7 trainer bus variants, TrainerConfig zod schema, useTrainerIdle hook, TrainerRenderer + 3 task components. 273 unit tests (40 new) all green. npm run build + tsc --noEmit clean. HTM-01 partially satisfied (07-02 needed for full TrainerPanel integration).
-- **Status**: **Phase 7 Plan 01 COMPLETE** (1/2 plans). Next: Plan 07-02 (TrainerPanel wiring + E2E).
-- **Progress (overall v1)**: `[███████████████] Phase 7 Plan 01 complete. Trainer event contract + components live.`.
+- **Current phase**: Phase 7 — HTML Trainer — BOTH PLANS COMPLETE.
+- **Current plan**: Plan 07-02 complete. TrainerPanel rewritten (TrainerRenderer + 3 bus command subscriptions), config-loader server helper, 2 sample configs validated, admin CLI --trainer-config flag, 3 Playwright E2E specs. 280 unit tests (7 new) all green. npm run build + tsc --noEmit clean. HTM-01 fully satisfied.
+- **Status**: **Phase 7 COMPLETE** (2/2 plans). Next: Phase 8 (Voice integration via Pedagogical LLM).
+- **Progress (overall v1)**: `[███████████████] Phase 7 complete. TrainerPanel live with config loading + bus command subscriptions.`.
 - **Resume file**: None.
 
 ### Recent transitions
+
+- **2026-05-10 (#19 — execute 07-02)**: Plan 07-02 (TrainerPanel wiring + E2E) executed in ~10 min. 3 tasks (Task 1 TDD RED+GREEN), 4 commits (6e491a2, 81e2570, 9628b5d, f2f511a). TrainerPanel fully rewritten — TrainerRenderer when config provided, placeholder when null; 3 bus command subscriptions (trainer:highlight CSS ring, trainer:show_hint hintOverrides Map, trainer:goto_task scrollIntoView+focus). lib/trainer/config-loader.ts with server-only import guard. LessonShell trainerConfig prop threaded to TrainerPanel. Lesson page RSC calls loadTrainerConfig. 2 sample configs (5+3 tasks, both schema-valid). Admin CLI --trainer-config flag. Seed links to sample config. 3 Playwright E2E specs (TRN-01). 280 unit tests green (7 new). npm run build + tsc --noEmit clean. HTM-01 fully satisfied. Phase 7 complete.
 
 - **2026-05-10 (#18 — execute 07-01)**: Plan 07-01 (Trainer event contract + 3 task components) executed in ~6 min. 3 TDD tasks, 6 commits (9f41d83, e2fb6d1, 32f2dc0, 8d1911a, 38c15d5, 4a29018). 7 new trainer LessonBusEvent variants (4 events + 3 commands), TrainerConfig zod schema (tasks.min(1), hints.max(3)), useTrainerIdle (5s poll, 15s threshold, 30s spam guard, useRef state). TrainerRenderer root (data-block="trainer"), NumericInputTask (inputmode=numeric, Ответить, Показать подсказку), SingleChoiceTask (button-group options, disabled on answer), MatchingTask (click-to-pair, stable seed shuffle). 273 total tests green (40 new: 8 schema + 5 idle + 7 renderer + 6 numeric + 4 choice + 4 matching + 2 bus round-trip + 4 test files RED commits). npm run build + tsc --noEmit both clean. HTM-01 partially satisfied.
 
@@ -148,6 +150,13 @@ Plan: 01 — COMPLETE
 3. **Проактивный, не реактивный бот** (PED-02 в Phase 8).
 4. **Юзер не должен ставить ничего** (INV-01 в Phase 1, foundational).
 5. **Ощущение живого учителя у доски** (BRD-03 в Phase 11).
+
+### Plan 07-02 decisions (executor — 2026-05-10)
+
+- **config-loader throws (not returns null)**: Explicit error semantics; callers use .catch(() => null) at page.tsx level. Matches Next.js RSC conventions for graceful degradation without silent failures.
+- **hintLevelOverride via Math.max**: Task component local state is source of truth; bot override only advances (never retreats) the hint display. Prevents race conditions between local user clicks and bot commands.
+- **Voice integration deferred to Phase 8**: trainer:answer_submitted events are emitted by task components but no bot reactions wired yet. Phase 8 TODO comment added at top of trainer-panel.tsx.
+- **E2E lesson-shell.spec.ts updated (deviation Rule 1)**: Old counter-based tests removed (TrainerPanel no longer has event counter). Replaced with placeholder visibility assertions.
 
 ### Plan 07-01 decisions (executor — 2026-05-10)
 
@@ -259,8 +268,8 @@ Plan: 01 — COMPLETE
 
 ## Session Continuity
 
-- **Last session**: 2026-05-10 — Plan 07-01 executed (HTML Trainer Plan 01 — 7 bus variants, TrainerConfig schema, useTrainerIdle, TrainerRenderer + 3 task components — 6 commits (9f41d83, e2fb6d1, 32f2dc0, 8d1911a, 38c15d5, 4a29018). 273 unit tests green. npm run build + tsc --noEmit clean. HTM-01 partially satisfied.
-- **Next session entry point**: Phase 7 Plan 02 (TrainerPanel wiring — subscribe to trainer:highlight/show_hint/goto_task commands, load JSON config from lesson.htmlTrainerPath, integrate TrainerRenderer into lesson shell, E2E spec for trainer panel).
+- **Last session**: 2026-05-10 — Plan 07-02 executed (HTML Trainer Plan 02 — TrainerPanel rewrite + config-loader + 2 sample configs + admin CLI + E2E — 4 commits (6e491a2, 81e2570, 9628b5d, f2f511a). 280 unit tests green. npm run build + tsc --noEmit clean. HTM-01 fully satisfied. Phase 7 complete.
+- **Next session entry point**: Phase 8 (Voice integration — Pedagogical LLM wires bot reactions to trainer events; 11labs Conversational AI; trainer:answer_submitted → bot command flow).
 - **What new Claude Code session needs to read first** (порядок):
   1. `PROJECT.md` — core value, locked decisions, anti-scope, invariants.
   2. `STATE.md` (этот файл) — где мы сейчас, что блокирует.
