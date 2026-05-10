@@ -39,6 +39,7 @@ export type BoardToolName = DrawToolName | SceneToolName
 export interface JSONSchemaProperty {
   type: 'string' | 'number' | 'boolean' | 'object' | 'array'
   description?: string
+  items?: JSONSchemaProperty
 }
 
 export interface DrawToolSchema {
@@ -435,7 +436,11 @@ export const sceneTools: SceneToolSchema[] = [
     parameters: {
       type: 'object',
       properties: {
-        numbers: { type: 'array', description: 'Массив чисел (от 2 до 8 элементов)' },
+        numbers: {
+          type: 'array',
+          description: 'Массив чисел (от 2 до 8 элементов)',
+          items: { type: 'number', description: 'Одно число из набора' },
+        },
       },
       required: ['numbers'],
       additionalProperties: false,
