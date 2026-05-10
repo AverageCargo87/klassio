@@ -61,3 +61,53 @@ last_updated: 2026-05-10
 ---
 
 <!-- New manual actions appended below this line as autonomous run continues -->
+
+## Phase 4 — Production deploy + Cloudflare CDN
+
+**Status:** PENDING (added 2026-05-10 during autonomous run, after board port)
+
+**Что нужно сделать:**
+
+После того как закроешь Phase 1 deploy (см. выше — у Phase 4 deploy будет проще, т.к. Vercel CLI уже залогинен и проект linked):
+
+1. **Add OPENAI_API_KEY env to Vercel production** (в `.env.local` он уже из прототипа — скопируй):
+   ```bash
+   cd C:/Users/krato/ClaudeVibecoding/ClaudeDesktop/Klassio
+   vercel env add OPENAI_API_KEY production
+   # paste sk-... ключ
+   vercel env ls
+   ```
+
+2. **Redeploy** с новой переменной:
+   ```bash
+   vercel --prod
+   ```
+
+3. **Cloudflare setup** (для DEP-01 acceptance — РФ-юзеры без VPN):
+   - Зарегаться на cloudflare.com если ещё нет
+   - Add Site → ввести домен (если уже куплен), либо использовать `klassio-XXX.vercel.app` без CDN пока (fallback)
+   - Configure DNS → CNAME `@` → `cname.vercel-dns.com` (proxied — orange cloud ON)
+   - SSL/TLS → Full (strict)
+   - Caching → Browser TTL: respect existing headers; Edge TTL: 4h default
+   - Network → Brotli ON, "Auto Minify" OFF (Next.js handles), Early Hints ON
+   - Speed → Cloudflare Workers (Phase 11 maybe)
+
+4. **Smoke test board with РФ context** (через VPN-on-Russia или контакт в РФ):
+   - Open production URL
+   - Login через magic link
+   - Start a lesson → board panel renders
+   - Submit prompt: «объясни 245+874 в столбик»
+   - Wait for SSE stream → shapes должны появиться на canvas
+   - Acceptance: разные prompts → разные разборы (PED-01)
+
+5. **DEP-01 acceptance criteria #4-#6 verification**:
+   - #4 Live, не заготовленные: submit 2 different prompts, verify different output
+   - #5 critical constraints: проверить что в production logs нет «outputFileTracingRoot» errors, что undici работает
+   - #6 env vars: `vercel env ls` показывает только OPENAI_API_KEY и Phase 1 переменные (нет HTTPS_PROXY)
+
+**Что Claude сделает после твоего "approved":**
+- Запишет findings в `04-XX-SUMMARY.md`
+- Обновит DEP-01 + BRD-01 + PED-01 traceability в REQUIREMENTS.md
+- Mark Phase 4 fully complete в ROADMAP.md
+- Run phase verification
+
