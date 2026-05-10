@@ -145,18 +145,15 @@ describe('BoardPanel', () => {
 })
 
 describe('VoicePanel', () => {
-  it('renders Голос heading', () => {
-    wrap(React.createElement(VoicePanel))
-    // Use getAllByText since "Голос" appears in both title and paragraph; verify at least one exists
+  // Phase 6 (06-02) rewrote VoicePanel: it now REQUIRES { lessonId, topic } props and
+  // renders «Запустить голос» instead of the legacy «Тест шины» dev button. The deep
+  // SDK / mic / bus integration is covered by components/panels/__tests__/voice-panel.test.tsx;
+  // this file only smoke-tests that the panel can render inside the LessonShell tree.
+  it('renders Голос heading and «Запустить голос» button', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    wrap(React.createElement(VoicePanel as React.FC<any>, { lessonId: 'lid', topic: 'Дроби' }))
     expect(screen.getAllByText(/Голос/).length).toBeGreaterThan(0)
-  })
-
-  it('renders test bus button (dev env)', () => {
-    // NEXT_PUBLIC_LESSON_BUS_TEST defaults to undefined (not 'false')
-    // The component checks process.env.NEXT_PUBLIC_LESSON_BUS_TEST !== 'false'
-    // So the button is shown by default.
-    wrap(React.createElement(VoicePanel))
-    expect(screen.getByRole('button', { name: /Тест шины/ })).toBeDefined()
+    expect(screen.getByRole('button', { name: /Запустить голос/ })).toBeDefined()
   })
 })
 

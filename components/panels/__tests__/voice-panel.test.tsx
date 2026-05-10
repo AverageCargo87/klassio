@@ -20,7 +20,7 @@
 //   #16 Cleanup (Pitfall 7)          — unmount while connected → endSession called
 //   #17 Stable callbacks (Pitfall 4) — re-render twice          → onModeChange ref identical
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
 import React from 'react'
 
 // ─── Mock @elevenlabs/react ────────────────────────────────────────────────
@@ -63,9 +63,14 @@ vi.mock('@elevenlabs/react', () => ({
 }))
 
 // ─── Mock @/lib/lesson-bus ─────────────────────────────────────────────────
+// IMPORTANT: bus reference must be stable across renders so useCallback([bus])
+// keeps the same callback ref — otherwise Pitfall 4 stability test fails.
 const mockEmit = vi.fn()
+const mockOn = vi.fn()
+const mockOff = vi.fn()
+const stableBus = { emit: mockEmit, on: mockOn, off: mockOff }
 vi.mock('@/lib/lesson-bus', () => ({
-  useLessonBus: () => ({ emit: mockEmit, on: vi.fn(), off: vi.fn() }),
+  useLessonBus: () => stableBus,
   useLessonBusEvent: vi.fn(),
 }))
 
@@ -257,7 +262,10 @@ describe('VoicePanel — Phase 6 mic integration (VOI-01-I..R)', () => {
   // ── #10 VOI-01-O ─────────────────────────────────────────────────────────
   it('VOI-01-O: onError displays Russian SDK error AND emits voice:state idle (fail-safe)', () => {
     render(React.createElement(VoicePanel, { lessonId: 'lid-test', topic: 'T' }))
-    capturedOptions.onError!('boom', undefined)
+    // onError calls setError(...) — wrap in act() so the state update flushes.
+    act(() => {
+      capturedOptions.onError!('boom', undefined)
+    })
     expect(screen.getByText(/Ошибка голосового сервиса\. Попробуйте снова\./)).toBeTruthy()
     expect(mockEmit).toHaveBeenCalledWith('voice:state', { state: 'idle' })
   })
@@ -269,8 +277,10 @@ describe('VoicePanel — Phase 6 mic integration (VOI-01-I..R)', () => {
     mockGetUserMedia.mockRejectedValue(err)
 
     render(React.createElement(VoicePanel, { lessonId: 'lid-test', topic: 'T' }))
-    fireEvent.click(screen.getByRole('button', { name: /Запустить голос/ }))
-    await flushMicrotasks(20)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Запустить голос/ }))
+      await flushMicrotasks(20)
+    })
 
     expect(screen.getByText(/Доступ к микрофону запрещён/)).toBeTruthy()
     expect(mockStartSession).not.toHaveBeenCalled()
@@ -283,8 +293,10 @@ describe('VoicePanel — Phase 6 mic integration (VOI-01-I..R)', () => {
     mockGetUserMedia.mockRejectedValue(err)
 
     render(React.createElement(VoicePanel, { lessonId: 'lid-test', topic: 'T' }))
-    fireEvent.click(screen.getByRole('button', { name: /Запустить голос/ }))
-    await flushMicrotasks(20)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Запустить голос/ }))
+      await flushMicrotasks(20)
+    })
 
     expect(screen.getByText(/Микрофон не найден/)).toBeTruthy()
     expect(mockStartSession).not.toHaveBeenCalled()
@@ -297,8 +309,10 @@ describe('VoicePanel — Phase 6 mic integration (VOI-01-I..R)', () => {
     mockGetUserMedia.mockRejectedValue(err)
 
     render(React.createElement(VoicePanel, { lessonId: 'lid-test', topic: 'T' }))
-    fireEvent.click(screen.getByRole('button', { name: /Запустить голос/ }))
-    await flushMicrotasks(20)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Запустить голос/ }))
+      await flushMicrotasks(20)
+    })
 
     expect(screen.getByText(/Микрофон занят другим приложением/)).toBeTruthy()
     expect(mockStartSession).not.toHaveBeenCalled()
@@ -315,8 +329,10 @@ describe('VoicePanel — Phase 6 mic integration (VOI-01-I..R)', () => {
     })
 
     render(React.createElement(VoicePanel, { lessonId: 'lid-test', topic: 'T' }))
-    fireEvent.click(screen.getByRole('button', { name: /Запустить голос/ }))
-    await flushMicrotasks(20)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Запустить голос/ }))
+      await flushMicrotasks(20)
+    })
 
     expect(screen.getByText(/Не удалось получить ссылку/)).toBeTruthy()
     expect(mockStartSession).not.toHaveBeenCalled()
