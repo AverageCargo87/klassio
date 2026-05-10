@@ -149,18 +149,22 @@ Plans:
 
 ---
 
-### Phase 6: Голос — 11labs Conversational AI через Hetzner WS-прокси
-**Goal**: Голосовой учитель говорит по-русски в браузере ребёнка из РФ без VPN. WebSocket к 11labs идёт через Hetzner Frankfurt; ключи 11labs только на сервере.
-**Depends on**: Phase 4.
+### Phase 6: Голос — 11labs Conversational AI (Klassio frontend integration)
+**Goal**: Голосовой учитель говорит по-русски в браузере dev-юзера через VPN-туннель (Hetzner WS-прокси для РФ-без-VPN отложен на Phase 6.5 per D-02). WebSocket к 11labs идёт напрямую с клиента через signed URL; ключи 11labs только на сервере.
+**Depends on**: Phase 4. **Baseline complete in 11labs Test Agent UI 2026-05-10** (see PHASE-6-SETUP-2026-05-10.md).
 **Requirements**: VOI-01.
 **Success Criteria**:
   1. В панели «голос+аватар» страницы урока работает 11labs Conversational AI (Путь A — готовый продукт).
-  2. Backend-прокси на Hetzner Frankfurt держит WebSocket к 11labs; фронт (Vercel) общается с прокси, прокси с 11labs.
-  3. РФ-юзер с туннель-VPN ВЫКЛ открывает Klassio → запускает тестовый урок → жмёт «разрешить микрофон» → говорит в микрофон → бот отвечает голосом по-русски.
-  4. API-ключи 11labs — только в env Hetzner-сервера, никогда в браузере (DevTools проверка).
-  5. Голос бота — один из русских голосов 11labs (Multilingual v2 или Flash v2.5); тестовая выборка реплик прослушана и одобрена для возрастной категории 9–11 лет.
-  6. Custom LLM endpoint 11labs указывает на наш Realtime-LLM endpoint (заглушка в этой фазе — gpt-4o-mini напрямую; полноценная двухуровневая LLM появится в Phase 8).
-**Plans**: TBD
+  2. Frontend подключается напрямую к 11labs WebSocket через signed URL (Authentication=ON на агенте); Hetzner WS-прокси отложен на Phase 6.5.
+  3. Dev-юзер на VPN открывает Klassio → запускает тестовый урок → жмёт «Запустить голос» → разрешает микрофон → говорит → бот отвечает голосом по-русски (Nataly + Multilingual v2).
+  4. API-ключи 11labs — только в env Vercel-сервера, никогда в браузере (DevTools + bundle scan).
+  5. Голос бота — Nataly (Youthful, Gentle and Soft) + Eleven Multilingual v2 (v3 Alpha downgraded per PHASE-6-SETUP § 3 — глюки на русском).
+  6. Custom LLM endpoint 11labs использует наш OPENAI_API_KEY с моделью GPT-4.1 mini (Nano downgraded after арифметические галлюцинации; cost ~150 ₽/мес для 6 уроков).
+**Plans**: 2 plans
+Plans:
+- [ ] 06-01-PLAN.md — SDK install + lib/elevenlabs/ (types + getSignedUrl) + POST /api/voice/signed-url + unit tests (Wave 1, autonomous, VOI-01-A..H)
+- [ ] 06-02-PLAN.md — VoicePanel rewrite + LessonShell topic prop + component tests + E2E (bus-driven avatar + bundle-leak scan) + manual smoke note for Open Q1 allowlist (Wave 2, autonomous, VOI-01-I..T)
+**UI hint**: yes
 
 ---
 
@@ -309,7 +313,7 @@ Cross-cutting invariants (INV-01, INV-02) attached to the phase where their firs
 | 3. Lesson page shell — три-панельный layout + event bus | 0/3 | Plans created | - |
 | 4. Production deploy + порт прототипа доски в Klassio | 0/0 | Not started | - |
 | 5. Сцены — методические `explain_*` tools | 2/2 | Complete | 2026-05-10 |
-| 6. Голос — 11labs Conversational AI через Hetzner WS-прокси | 0/0 | Not started | - |
+| 6. Голос — 11labs Conversational AI (frontend integration) | 0/2 | Plans created | - |
 | 7. HTML-тренажёр — контракт data-атрибутов + event bus | 0/2 | Plans created | - |
 | 8. Двухуровневая LLM + проактивные триггеры | 0/0 | Not started | - |
 | 9. 2D Lottie аватар учителя | 0/0 | Not started | - |
