@@ -114,7 +114,7 @@ export function LessonShell({ lessonId, topic, trainerConfig }: LessonShellProps
             style={{ gridTemplateRows: '12rem 1fr', display: 'flex' }}
           >
             <div className="min-h-0 h-[15vh] lg:h-48 shrink-0">
-              <VoicePanel lessonId={lessonId} />
+              <VoicePanel lessonId={lessonId} topic={topic} />
             </div>
             <div className="min-h-0 flex-1 h-[25vh] lg:h-auto">
               <TrainerPanel lessonId={lessonId} trainerConfig={trainerConfig} />
