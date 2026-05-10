@@ -204,3 +204,28 @@ Claude после этого:
 - Hetzner CCX13: €10/mo (~900 ₽/мес at 90 ₽/€)
 - **Total +8700 ₽/мо** to fixed cost — главный financial milestone проекта
 
+
+## Phase 8 — Two-tier LLM (PARTIAL BLOCK on Phase 6)
+
+**Status:** PARTIAL skeleton (added 2026-05-10)
+
+CONTEXT.md draft в `.planning/phases/08-llm/08-CONTEXT.md` capturing 7 design decisions для Pedagogical (GPT-4o slow) + Realtime (gpt-4o-mini fast through 11labs Custom LLM endpoint) architecture.
+
+**Что blocks полное Phase 8:**
+1. Phase 6 voice subsystem must be live (Custom LLM endpoint = 11labs feature, silence detection = VAD)
+2. Hetzner server (deciding D-07 location: Vercel vs Hetzner)
+3. Pedagogical LLM cost commitment (~$1.50-3 per lesson, 15 lessons/мес = $22-45/мо variable)
+
+**После unblock Phase 6 — что Claude сделает:**
+- Re-run discuss-phase 8 (refine с реальными values от Phase 6)
+- Plans:
+  - 08-01: Pedagogical LLM service (server-side state watcher) + trigger detection
+  - 08-02: 11labs Custom LLM endpoint integration (Realtime tier)
+  - 08-03: E2E test for proactive triggers (silence, tab switch, wrong-answer streak)
+- Cost monitoring: real measurement per lesson
+
+**Можно сделать раньше unblocked Phase 6** (если хочется):
+- Pedagogical decision schema + types (typed JSON contract)
+- Trigger detector that uses ONLY trainer events (no VAD) — covers 3 of 5 triggers
+- Polling loop scaffold
+
