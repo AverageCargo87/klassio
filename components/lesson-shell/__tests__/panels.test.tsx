@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
 import { LessonBusProvider } from '@/lib/lesson-bus'
+import type { TrainerConfig } from '@/lib/trainer/config-schema'
 
 // Mock the server action so LessonShell can be imported in client-side test context.
 // The 'use server' action imports @/auth which transitively imports next/server (server-only).
@@ -34,6 +35,12 @@ vi.mock('next/dynamic', () => ({
 
 // Mock tldraw/tldraw.css to avoid CSS import errors in test environment
 vi.mock('tldraw/tldraw.css', () => ({}))
+
+// Mock TrainerRenderer to isolate TrainerPanel tests from component implementation
+vi.mock('@/components/trainer/trainer-renderer', () => ({
+  TrainerRenderer: ({ config }: { config: { title: string } }) =>
+    React.createElement('div', { 'data-block': 'trainer', 'data-testid': 'trainer-renderer' }, config.title),
+}))
 
 // Mock lib/board executeToolCall to avoid tldraw dependency in tests
 vi.mock('@/lib/board', () => ({
@@ -154,11 +161,36 @@ describe('VoicePanel', () => {
 })
 
 describe('TrainerPanel', () => {
-  it('renders Тренажёр heading and initial counter', () => {
+  it('renders Тренажёр heading and placeholder when no config provided', () => {
     wrap(React.createElement(TrainerPanel))
-    // "Тренажёр" appears in both title and description paragraph; use getAllByText
+    // "Тренажёр" appears in both title and placeholder text; use getAllByText
     expect(screen.getAllByText(/Тренажёр/).length).toBeGreaterThan(0)
-    expect(screen.getByText(/Получено 0 тестовых событий/)).toBeDefined()
+    // Placeholder text (trainerConfig=null/undefined shows placeholder)
+    expect(screen.getByText(/Тренажёр для этого урока ещё не настроен/)).toBeDefined()
+  })
+
+  it('renders placeholder when trainerConfig is null', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    wrap(React.createElement(TrainerPanel as React.FC<any>, { trainerConfig: null }))
+    expect(screen.getAllByText(/Тренажёр/).length).toBeGreaterThan(0)
+    // Should NOT render the TrainerRenderer
+    expect(screen.queryByTestId('trainer-renderer')).toBeNull()
+  })
+
+  it('renders TrainerRenderer when trainerConfig is provided', () => {
+    const config: TrainerConfig = {
+      title: 'Тест тренажёр',
+      tasks: [
+        { id: 'task-1', type: 'numeric-input', prompt: 'Реши: 2+2=?', correct: 4 },
+      ],
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    wrap(React.createElement(TrainerPanel as React.FC<any>, { trainerConfig: config }))
+    expect(screen.getByTestId('trainer-renderer')).toBeDefined()
+    // Should render the config title via TrainerRenderer
+    expect(screen.getByText('Тест тренажёр')).toBeDefined()
+    // Should NOT show placeholder text
+    expect(screen.queryByText(/Тренажёр для этого урока ещё не настроен/)).toBeNull()
   })
 })
 
