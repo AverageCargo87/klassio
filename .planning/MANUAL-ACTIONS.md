@@ -111,3 +111,96 @@ last_updated: 2026-05-10
 - Mark Phase 4 fully complete в ROADMAP.md
 - Run phase verification
 
+
+## Phase 6 — 11labs voice + Hetzner WS proxy (FULLY BLOCKED for autonomous run)
+
+**Status:** PENDING (added 2026-05-10 — Phase 6 contains $-significant decisions Claude cannot make)
+
+**Why Claude skipped:**
+- $99/мо 11labs Pro = significant fixed cost (~7800 ₽/мо). Главный watermark по COSTS.md.
+- Custom LLM endpoint: Pro vs Business $1320 — нужно verify ДО подписки (per project pointer)
+- 11labs payments для нерезидента РФ требуют personal financial decision (нерезидентская карта или посредник)
+- Hetzner server provisioning требует SSH keys + cloud console access
+- Voice selection требует subjective listening + child testing
+
+**Что нужно сделать (примерный порядок 1-2 дня):**
+
+### Step 1 — Verify 11labs Custom LLM endpoint в Pro
+1. Open https://elevenlabs.io/pricing
+2. Compare Pro ($99/mo) vs Business ($1320/mo) capabilities
+3. Specifically: search for "Custom LLM" availability in Pro tier
+4. If unclear → contact 11labs sales OR sign up trial (Free) to verify Pro features in dashboard
+5. **DO NOT subscribe Pro until verified Custom LLM available — иначе apparently придётся апгрейдиться на Business что сразу blower budget**
+
+### Step 2 — 11labs аккаунт + Pro подписка
+1. Sign up на https://elevenlabs.io/sign-up через email
+2. Setup payment method:
+   - **Option A**: нерезидентская карта (если есть)
+   - **Option B**: посредник типа Wise USD, Payoneer (если карта не работает напрямую)
+   - **Option C**: friend's foreign card (last resort)
+3. Subscribe to Pro tier — $99/mo recurring
+4. Verify Custom LLM endpoint feature available в dashboard
+
+### Step 3 — API key + voice ID
+1. 11labs Dashboard → Profile → API Keys → Create
+2. Copy key → save в `.env.local`:
+   ```
+   ELEVENLABS_API_KEY=el_...
+   ```
+3. Browse https://elevenlabs.io/voice-library — найти RU voices (filter: Russian)
+4. Прослушать 3-5 sample клипов on each candidate (особенно «Sergey», «Anna», и любые «multilingual v2»)
+5. Pick top 2 candidates → record IDs
+6. **Future child approval**: показать sample двум 9-11-летним детям (можно знакомым/родственникам) — пусть выберут «приятнее»
+
+### Step 4 — Hetzner server
+1. Sign up https://www.hetzner.com/cloud (если ещё нет аккаунта)
+2. Create new project «klassio»
+3. Provision server:
+   - Image: Ubuntu 22.04 LTS
+   - Type: **CCX13** (€10/мес, 2 vCPU AMD EPYC, 8 GB RAM)
+   - Location: **Falkenstein** или **Helsinki** (closer Frankfurt = Frankfurt-fsn1) — Falkenstein OK, или Frankfurt fsn1
+   - SSH keys: upload ваш public key
+   - Firewall: allow inbound 22 (SSH) + 443 (HTTPS) + 80 (HTTP for ACME)
+4. После provisioning — note public IP
+5. SSH connectivity test:
+   ```bash
+   ssh root@<PUBLIC_IP>
+   ```
+6. Записать в новый файл `.env.production` (gitignored): `HETZNER_HOST=<PUBLIC_IP>`
+
+### Step 5 — DNS + TLS для Hetzner
+1. Pick subdomain (e.g., `voice.klassio.app` если домен есть, или `voice.klassio-XXX.vercel.app` нет)
+2. Cloudflare DNS → A record `voice` → Hetzner public IP, **OFF cloud (grey, не проксируем — WebSocket требует прямой connection с TLS)**
+3. SSH к Hetzner → install certbot + nginx → request Let's Encrypt cert for `voice.<domain>`:
+   ```bash
+   apt update && apt install -y certbot nginx
+   certbot --nginx -d voice.<domain>
+   ```
+4. Test HTTPS: `curl https://voice.<domain>` → 200 (nginx welcome page)
+
+### Step 6 — Generate HMAC secret для Vercel ↔ Hetzner trust
+1. На local машине: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+2. Save в `.env.local`:
+   ```
+   VOICE_PROXY_HMAC_SECRET=<generated_64_chars>
+   ```
+3. Same key должен быть на Hetzner server. Поставим через `vercel env add` + `ssh hetzner "echo VOICE_PROXY_HMAC_SECRET=... >> /etc/klassio-voice/env"`
+
+### Step 7 — Подтвердить unblock
+Когда выполнил Steps 1-6 — сообщи Claude в чате:
+> «Phase 6 unblocked: 11labs Pro active, voice ID = `xyz`, Hetzner host = `<IP>`, HMAC done»
+
+Claude после этого:
+- Re-run discuss-phase 6 (refines CONTEXT.md с actual values)
+- Generates 3 plans:
+  - Plan 06-01: WS proxy code on Hetzner (Node + ws)
+  - Plan 06-02: Klassio voice panel integration (11labs Conversational AI client SDK)
+  - Plan 06-03: E2E voice flow + bus events wiring
+- Executes autonomously
+- Total ~3-4 hours work
+
+**ОЦЕНОЧНЫЕ COSTS Phase 6 monthly:**
+- 11labs Pro: $99/mo (~7800 ₽/мес at 80 ₽/$)
+- Hetzner CCX13: €10/mo (~900 ₽/мес at 90 ₽/€)
+- **Total +8700 ₽/мо** to fixed cost — главный financial milestone проекта
+
