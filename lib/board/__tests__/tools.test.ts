@@ -83,3 +83,67 @@ describe('drawTools schema', () => {
     expect(t.parameters.required).toEqual(expect.arrayContaining(['x', 'y', 'radius']))
   })
 })
+
+// ── Phase 5: allBoardTools (9 primitives + 15 scene tools + finish = 25) ──────
+
+describe('allBoardTools schema', () => {
+  it('exports allBoardTools with exactly 24 entries (9 primitives + 15 scenes)', async () => {
+    const { allBoardTools } = await import('../tools')
+    // 9 primitive tools (draw_text, draw_rectangle, draw_line, draw_circle, draw_arrow,
+    // highlight_region, wait, say, finish) + 15 explain_* scene tools = 24
+    expect(allBoardTools).toHaveLength(24)
+  })
+
+  it('exports sceneTools with exactly 15 entries', async () => {
+    const { sceneTools } = await import('../tools')
+    expect(sceneTools).toHaveLength(15)
+  })
+
+  it('allBoardTools contains all 15 scene names', async () => {
+    const { allBoardTools } = await import('../tools')
+    const names = allBoardTools.map((t) => t.name)
+    const sceneNames = [
+      'explain_column_addition',
+      'explain_column_subtraction',
+      'explain_multiplication_grid',
+      'explain_long_division',
+      'explain_fraction_addition',
+      'explain_fraction_subtraction',
+      'explain_fraction_comparison',
+      'explain_fraction_simplification',
+      'explain_decimal_addition',
+      'explain_decimal_multiplication',
+      'explain_percent_calculation',
+      'explain_rectangle_area',
+      'explain_rectangle_perimeter',
+      'explain_simple_equation',
+      'explain_arithmetic_mean',
+    ]
+    for (const name of sceneNames) {
+      expect(names).toContain(name)
+    }
+  })
+
+  it('each scene schema has a non-empty description (Russian text)', async () => {
+    const { sceneTools } = await import('../tools')
+    for (const t of sceneTools) {
+      expect(t.description.length).toBeGreaterThan(10)
+      // Should contain Cyrillic characters (Russian)
+      expect(/[а-яёА-ЯЁ]/.test(t.description)).toBe(true)
+    }
+  })
+
+  it('each scene schema has at least 1 required parameter', async () => {
+    const { sceneTools } = await import('../tools')
+    for (const t of sceneTools) {
+      expect(t.parameters.required.length).toBeGreaterThanOrEqual(1)
+    }
+  })
+
+  it('all scene tools have additionalProperties: false', async () => {
+    const { sceneTools } = await import('../tools')
+    for (const t of sceneTools) {
+      expect(t.parameters.additionalProperties).toBe(false)
+    }
+  })
+})

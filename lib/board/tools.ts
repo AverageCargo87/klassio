@@ -17,6 +17,25 @@ export type DrawToolName =
   | 'say'
   | 'finish'
 
+export type SceneToolName =
+  | 'explain_column_addition'
+  | 'explain_column_subtraction'
+  | 'explain_multiplication_grid'
+  | 'explain_long_division'
+  | 'explain_fraction_addition'
+  | 'explain_fraction_subtraction'
+  | 'explain_fraction_comparison'
+  | 'explain_fraction_simplification'
+  | 'explain_decimal_addition'
+  | 'explain_decimal_multiplication'
+  | 'explain_percent_calculation'
+  | 'explain_rectangle_area'
+  | 'explain_rectangle_perimeter'
+  | 'explain_simple_equation'
+  | 'explain_arithmetic_mean'
+
+export type BoardToolName = DrawToolName | SceneToolName
+
 export interface JSONSchemaProperty {
   type: 'string' | 'number' | 'boolean' | 'object' | 'array'
   description?: string
@@ -24,6 +43,17 @@ export interface JSONSchemaProperty {
 
 export interface DrawToolSchema {
   name: DrawToolName
+  description: string
+  parameters: {
+    type: 'object'
+    properties: Record<string, JSONSchemaProperty>
+    required: string[]
+    additionalProperties?: boolean
+  }
+}
+
+export interface SceneToolSchema {
+  name: SceneToolName
   description: string
   parameters: {
     type: 'object'
@@ -190,3 +220,228 @@ export const drawTools: DrawToolSchema[] = [
     },
   },
 ]
+
+// ── Scene tool schemas (15 explain_* tools for Phase 5) ────────────────────────
+// All descriptions in Russian to help the LLM choose the right scene.
+
+export const sceneTools: SceneToolSchema[] = [
+  {
+    name: 'explain_column_addition',
+    description:
+      'Объясни сложение двух натуральных чисел в столбик. Используй для тем «сложение многозначных чисел», «сложение в столбик». Подходит для чисел 2–5 знаков. Показывает запись чисел, черту, суммирование по разрядам с переносом, итоговый ответ.',
+    parameters: {
+      type: 'object',
+      properties: {
+        a: { type: 'number', description: 'Первое слагаемое (натуральное число)' },
+        b: { type: 'number', description: 'Второе слагаемое (натуральное число)' },
+      },
+      required: ['a', 'b'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_column_subtraction',
+    description:
+      'Объясни вычитание в столбик (a − b). Используй для тем «вычитание многозначных чисел», «вычитание в столбик». Показывает запись чисел, черту, вычитание по разрядам с заимствованием, итог.',
+    parameters: {
+      type: 'object',
+      properties: {
+        a: { type: 'number', description: 'Уменьшаемое' },
+        b: { type: 'number', description: 'Вычитаемое (b ≤ a)' },
+      },
+      required: ['a', 'b'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_multiplication_grid',
+    description:
+      'Объясни умножение в столбик (a × b). Используй для тем «умножение многозначных чисел», «умножение в столбик». Показывает запись, частичные произведения по каждой цифре множителя, их сдвиг и суммирование.',
+    parameters: {
+      type: 'object',
+      properties: {
+        a: { type: 'number', description: 'Множитель 1 (до 4 знаков)' },
+        b: { type: 'number', description: 'Множитель 2 (до 3 знаков)' },
+      },
+      required: ['a', 'b'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_long_division',
+    description:
+      'Объясни деление в столбик (dividend ÷ divisor). Используй для тем «деление в столбик», «деление с остатком». Показывает уголок, пошаговое деление, частное, остаток.',
+    parameters: {
+      type: 'object',
+      properties: {
+        dividend: { type: 'number', description: 'Делимое' },
+        divisor: { type: 'number', description: 'Делитель (≠ 0)' },
+      },
+      required: ['dividend', 'divisor'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_fraction_addition',
+    description:
+      'Объясни сложение дробей a/b + c/d с приведением к общему знаменателю. Используй для тем «сложение дробей с разными знаменателями».',
+    parameters: {
+      type: 'object',
+      properties: {
+        a: { type: 'number', description: 'Числитель первой дроби' },
+        b: { type: 'number', description: 'Знаменатель первой дроби (≠ 0)' },
+        c: { type: 'number', description: 'Числитель второй дроби' },
+        d: { type: 'number', description: 'Знаменатель второй дроби (≠ 0)' },
+      },
+      required: ['a', 'b', 'c', 'd'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_fraction_subtraction',
+    description:
+      'Объясни вычитание дробей a/b − c/d с приведением к общему знаменателю. Используй для тем «вычитание дробей».',
+    parameters: {
+      type: 'object',
+      properties: {
+        a: { type: 'number', description: 'Числитель уменьшаемой дроби' },
+        b: { type: 'number', description: 'Знаменатель уменьшаемой дроби (≠ 0)' },
+        c: { type: 'number', description: 'Числитель вычитаемой дроби' },
+        d: { type: 'number', description: 'Знаменатель вычитаемой дроби (≠ 0)' },
+      },
+      required: ['a', 'b', 'c', 'd'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_fraction_comparison',
+    description:
+      'Объясни сравнение дробей a/b и c/d (через приведение к общему знаменателю). Используй для тем «сравнение дробей».',
+    parameters: {
+      type: 'object',
+      properties: {
+        a: { type: 'number', description: 'Числитель первой дроби' },
+        b: { type: 'number', description: 'Знаменатель первой дроби (≠ 0)' },
+        c: { type: 'number', description: 'Числитель второй дроби' },
+        d: { type: 'number', description: 'Знаменатель второй дроби (≠ 0)' },
+      },
+      required: ['a', 'b', 'c', 'd'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_fraction_simplification',
+    description:
+      'Объясни сокращение дроби numerator/denominator через нахождение НОД. Используй для тем «сокращение дробей», «несократимые дроби».',
+    parameters: {
+      type: 'object',
+      properties: {
+        numerator: { type: 'number', description: 'Числитель дроби' },
+        denominator: { type: 'number', description: 'Знаменатель дроби (≠ 0)' },
+      },
+      required: ['numerator', 'denominator'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_decimal_addition',
+    description:
+      'Объясни сложение десятичных дробей (a + b) с выравниванием запятых. Используй для тем «сложение десятичных дробей».',
+    parameters: {
+      type: 'object',
+      properties: {
+        a: { type: 'number', description: 'Первое слагаемое (десятичное)' },
+        b: { type: 'number', description: 'Второе слагаемое (десятичное)' },
+      },
+      required: ['a', 'b'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_decimal_multiplication',
+    description:
+      'Объясни умножение десятичных дробей (a × b): умножение как целые числа, затем постановка запятой по сумме десятичных разрядов.',
+    parameters: {
+      type: 'object',
+      properties: {
+        a: { type: 'number', description: 'Первый множитель (десятичный)' },
+        b: { type: 'number', description: 'Второй множитель (десятичный)' },
+      },
+      required: ['a', 'b'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_percent_calculation',
+    description:
+      'Объясни нахождение percent% от числа value. Например: «Найди 15% от 200». Показывает формулу: value × percent / 100.',
+    parameters: {
+      type: 'object',
+      properties: {
+        value: { type: 'number', description: 'Число, от которого ищем процент' },
+        percent: { type: 'number', description: 'Процент (например, 15 для 15%)' },
+      },
+      required: ['value', 'percent'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_rectangle_area',
+    description:
+      'Объясни нахождение площади прямоугольника S = width × height. Рисует прямоугольник, подписывает стороны, формулу и результат.',
+    parameters: {
+      type: 'object',
+      properties: {
+        width: { type: 'number', description: 'Ширина прямоугольника' },
+        height: { type: 'number', description: 'Высота прямоугольника' },
+      },
+      required: ['width', 'height'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_rectangle_perimeter',
+    description:
+      'Объясни нахождение периметра прямоугольника P = 2 × (width + height). Рисует прямоугольник, подписывает стороны, формулу, результат.',
+    parameters: {
+      type: 'object',
+      properties: {
+        width: { type: 'number', description: 'Ширина прямоугольника' },
+        height: { type: 'number', description: 'Высота прямоугольника' },
+      },
+      required: ['width', 'height'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_simple_equation',
+    description:
+      'Объясни решение простого уравнения вида «coefficient × x = value» или «x + coefficient = value». Показывает уравнение, шаги нахождения x, проверку.',
+    parameters: {
+      type: 'object',
+      properties: {
+        coefficient: { type: 'number', description: 'Коэффициент (≠ 0)' },
+        value: { type: 'number', description: 'Правая часть уравнения' },
+        type: { type: 'string', description: '«multiply» для c·x=v, «add» для x+c=v' },
+      },
+      required: ['coefficient', 'value', 'type'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_arithmetic_mean',
+    description:
+      'Объясни нахождение среднего арифметического набора чисел: сумма всех / количество. Записывает числа, подсчёт суммы, деление, результат.',
+    parameters: {
+      type: 'object',
+      properties: {
+        numbers: { type: 'array', description: 'Массив чисел (от 2 до 8 элементов)' },
+      },
+      required: ['numbers'],
+      additionalProperties: false,
+    },
+  },
+]
+
+// Combined tool list: 9 primitives + 15 scenes = 24 tools + finish (already in drawTools) = 25 total
+export const allBoardTools: (DrawToolSchema | SceneToolSchema)[] = [...drawTools, ...sceneTools]
