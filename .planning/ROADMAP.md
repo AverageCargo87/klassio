@@ -142,7 +142,10 @@ Plans:
   3. На QA-промптах из программы 5 класса бот предпочитает сцены над примитивами (system prompt поощряет использование сцен).
   4. Стоимость одного разбора через сцену остаётся в watermark (`CON-board-cost` ~22 копейки на gpt-4o-mini, рост допустим, но не порядка).
   5. Текущие 9 примитивов сохранены и работают как fallback для тем, на которые сцены ещё не написаны.
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 05-01-PLAN.md — Scene arch + 8 simpler scenes (column ops, fractions, decimals, percent)
+- [ ] 05-02-PLAN.md — 7 remaining scenes (multiplication grid, long division, geometry, equations, mean) + all 15 scenes wired into route.ts
 
 ---
 
@@ -302,7 +305,7 @@ Cross-cutting invariants (INV-01, INV-02) attached to the phase where their firs
 | 2. Расписание уроков + admin путь для заведения | 0/3 | Plans created | - |
 | 3. Lesson page shell — три-панельный layout + event bus | 0/3 | Plans created | - |
 | 4. Production deploy + порт прототипа доски в Klassio | 0/0 | Not started | - |
-| 5. Сцены — методические `explain_*` tools | 0/0 | Not started | - |
+| 5. Сцены — методические `explain_*` tools | 0/2 | Plans created | - |
 | 6. Голос — 11labs Conversational AI через Hetzner WS-прокси | 0/0 | Not started | - |
 | 7. HTML-тренажёр — контракт data-атрибутов + event bus | 0/0 | Not started | - |
 | 8. Двухуровневая LLM + проактивные триггеры | 0/0 | Not started | - |
