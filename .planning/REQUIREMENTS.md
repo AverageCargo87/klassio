@@ -306,7 +306,7 @@
 | ACC-02 | Phase 1 | Pending |
 | ACC-03 | Phase 2 | Pending |
 | ACC-04 | Phase 2 | Complete (02-01) |
-| LES-01 | Phase 3 | Pending |
+| LES-01 | Phase 3 | In Progress (03-01 schema, 03-02 event bus — 03-03 pending) |
 | LES-02 | Phase 11 | Pending |
 | BRD-01 | Phase 4 | Pending |
 | BRD-02 | Phase 5 | Pending |

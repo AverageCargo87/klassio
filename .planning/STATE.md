@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: in_progress
-last_updated: "2026-05-10T04:42:00.000Z"
+status: unknown
+last_updated: "2026-05-10T04:47:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 12
-  completed_plans: 10
-  percent: 83
+  completed_plans: 11
+  percent: 92
 ---
 
 # Klassio — STATE
@@ -36,15 +36,17 @@ progress:
 ## Current Position
 
 Phase: 3
-Plan: 2 (03-01 complete, 03-02 next)
+Plan: 3 (03-01 complete, 03-02 complete, 03-03 next)
 
 - **Current phase**: Phase 3 — Lesson Shell (страница урока + статус-машина).
-- **Current plan**: Plan 03-01 complete. LES-01 satisfied (actual_start_at + actual_end_at on Neon).
-- **Status**: **Phase 3 in progress** (1/3 plans, 66 unit tests green).
-- **Progress (overall v1)**: `[██████████] Phase 3 underway. Plan 03-02 next.`.
-- **Resume file**: None — 03-02 is next plan.
+- **Current plan**: Plan 03-02 complete. LessonBus core built (events + bus + provider + hooks). 76 unit tests green.
+- **Status**: **Phase 3 in progress** (2/3 plans, 76 unit tests green).
+- **Progress (overall v1)**: `[██████████] Phase 3 underway. Plan 03-03 next.`.
+- **Resume file**: None — 03-03 is next plan.
 
 ### Recent transitions
+
+- **2026-05-10 (#12 — execute 03-02)**: Plan 03-02 (Event bus core) executed in ~7 min. 2 tasks, 2 commits (c69c740, 96386b3). LessonBus class (Map pub/sub, on/off/emit/clear), LessonBusEvent discriminated union (3 variants), LessonBusProvider (React Context), useLessonBus() + useLessonBusEvent() hooks. 10 new tests (6 bus + 4 hooks), 76 total green. Zero external deps. No deviations.
 
 - **2026-05-10 (#11 — execute 03-01)**: Plan 03-01 (Lesson timestamps schema migration) executed in ~10 min. 2 tasks, 2 commits (4edbb85, 9d4ffdb). Added actual_start_at + actual_end_at nullable timestamp columns to Neon lesson table. TDD: RED→GREEN cycle confirmed. Migration applied via scripts/apply-0002-migration.ts (pg + IF NOT EXISTS). 66 tests all green. LES-01 complete. Auto-fix: updated 3 lesson fixtures in 2 test files (TypeScript type error after schema extension).
 
@@ -88,6 +90,7 @@ Plan: 2 (03-01 complete, 03-02 next)
 | Phase 02-admin P02-03 | 35 | 2 tasks | 4 files |
 | Phase 03-lesson-shell P03-01 | 10 | 2 tasks | 8 files |
 | Phase 03 P03-01 | 10 | 2 tasks | 8 files |
+| Phase 03-lesson-shell P03-02 | 7 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -126,6 +129,14 @@ Plan: 2 (03-01 complete, 03-02 next)
 3. **Проактивный, не реактивный бот** (PED-02 в Phase 8).
 4. **Юзер не должен ставить ничего** (INV-01 в Phase 1, foundational).
 5. **Ощущение живого учителя у доски** (BRD-03 в Phase 11).
+
+### Plan 03-02 decisions (executor — 2026-05-10)
+
+- **LessonBus as class (not factory)**: `new LessonBus()` in `useMemo` is idiomatic React; class gives clean TypeScript type for Context value.
+- **useMemo for bus instantiation (not useState)**: both stable per mount; useMemo signals "derived, stable reference" without the setter noise.
+- **AnyHandler internal cast**: typed public API (generic `on/off/emit`) requires `any` cast internally to store handlers in `Map<string, Set>` — eslint-disable comment added.
+- **EventPayload<E> exported**: consumers narrow types with `EventPayload<'lesson:test'>` without re-importing Extract<> utility.
+- **Zero new npm packages**: bus implemented with Map + Set — no mitt, no Zustand, no RxJS.
 
 ### Plan 03-01 decisions (executor — 2026-05-10)
 

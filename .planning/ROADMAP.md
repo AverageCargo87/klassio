@@ -105,8 +105,8 @@ Plans:
   5. После урока кнопка «Завершить урок» возвращает ребёнка в ЛК.
 **Plans**: 3 plans
 Plans:
-- [ ] 03-01-PLAN.md — Schema migration (actual_start_at + actual_end_at nullable timestamps on lesson table)
-- [ ] 03-02-PLAN.md — Event bus core: lib/lesson-bus/ (events.ts, bus.ts, provider.tsx, hooks.ts) + 10 Vitest tests
+- [x] 03-01-PLAN.md — Schema migration (actual_start_at + actual_end_at nullable timestamps on lesson table)
+- [x] 03-02-PLAN.md — Event bus core: lib/lesson-bus/ (events.ts, bus.ts, provider.tsx, hooks.ts) + 10 Vitest tests
 - [ ] 03-03-PLAN.md — Lesson page server component + 3 panel placeholders + LessonShell + E2E spec
 **UI hint**: yes
 
