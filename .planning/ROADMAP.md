@@ -123,7 +123,11 @@ Plans:
   4. Каждый разбор генерится ботом с нуля под конкретные числа (не предзаписан) — PED-01 подтверждено: разные промпты дают разные разборы.
   5. Все critical constraints соблюдены: `outputFileTracingRoot` в `next.config.ts`, `serverExternalPackages: ['undici']`, `tool_choice: 'required'`, fallback `JSON.parse(arguments)`, tldraw v3 quirks (richText vs text), instrumentation.ts — корректно no-op'ит в проде.
   6. Env vars в Vercel: только `OPENAI_API_KEY` (никаких HTTPS_PROXY).
-**Plans**: TBD
+**Plans**: 3 plans (implementation complete; deploy deferred to user — see MANUAL-ACTIONS.md)
+Plans:
+- [ ] 04-01-PLAN.md — deps + config + lib port (tldraw/openai/undici exact-pinned, next.config.ts, instrumentation.ts, lib/board/)
+- [ ] 04-02-PLAN.md — /api/draw SSE endpoint (auth guard + lessonId ownership + agent loop)
+- [ ] 04-03-PLAN.md — BoardPanel UI + board:say bus stub + E2E smoke spec
 **UI hint**: yes
 
 ---
