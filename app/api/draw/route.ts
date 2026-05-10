@@ -5,6 +5,10 @@
 // Ownership check (D-07, D-08): validates lessonId belongs to session.user.id.
 // Agent loop: tool_choice:'required' + finish tool exit signal + JSON.parse fallback (D-12, D-13).
 // SSE contract: data: {JSON}\n\n per event; last event is { type:'done', ... }.
+//
+// Phase 5: Scene interception (D-02) — when LLM calls explain_* scene, server expands it
+// to primitives server-side and emits them as individual tool_use events.
+// Client never receives raw scene names — only primitive tool_use events.
 
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
@@ -16,7 +20,18 @@ import { auth } from '@/auth'
 import { db } from '@/lib/db'
 import { lessons } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
-import { drawTools } from '@/lib/board'
+import { allBoardTools, isSceneName, getScene } from '@/lib/board'
+
+// Phase 5: Side-effect imports to register Wave-1 scenes in the registry.
+// Wave 2 scenes will be imported here in plan 05-02.
+import '@/lib/board/scenes/explain-column-addition'
+import '@/lib/board/scenes/explain-column-subtraction'
+import '@/lib/board/scenes/explain-fraction-addition'
+import '@/lib/board/scenes/explain-fraction-subtraction'
+import '@/lib/board/scenes/explain-fraction-comparison'
+import '@/lib/board/scenes/explain-fraction-simplification'
+import '@/lib/board/scenes/explain-decimal-addition'
+import '@/lib/board/scenes/explain-percent-calculation'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -101,7 +116,11 @@ highlight_region на ответе: x=295, y=305, w=180, h=45, color="#a5f3fc", 
 - highlight_region — короткие подсветки на 1.2-2 секунды, цвета мягкие пастельные через hex.
 - Боковые пояснения арифметики (вроде "5+4=9") — fontSize 18-22, color "grey", справа от основной записи (x ≥ 520).
 - Не используй emoji.
-- Заверши без лишнего комментария когда объяснение готово.`
+- Заверши без лишнего комментария когда объяснение готово.
+
+═══ СЦЕНЫ (методические шаблоны) ═══
+Для тем программы 5 класса предпочитай вызывать сцены explain_* — они автоматически разворачиваются в правильный пошаговый разбор с нужными координатами и паузами. Используй примитивы только если: (а) запрошенная тема не покрыта сценой, (б) ребёнок просит специфическую модификацию что не покрывается сценой.
+Доступные сцены: explain_column_addition, explain_column_subtraction, explain_multiplication_grid, explain_long_division, explain_fraction_addition, explain_fraction_subtraction, explain_fraction_comparison, explain_fraction_simplification, explain_decimal_addition, explain_decimal_multiplication, explain_percent_calculation, explain_rectangle_area, explain_rectangle_perimeter, explain_simple_equation, explain_arithmetic_mean.`
 
 // gpt-4o-mini — ~17x cheaper than gpt-4o ($0.15/$0.60 vs $2.50/$10 per 1M tokens).
 // Tool calling quality is sufficient for our coordinate + rhythm task.
@@ -113,7 +132,8 @@ const MODEL = 'gpt-4o-mini'
 const MAX_AGENT_TURNS = 30
 
 // Adapt our provider-agnostic tool schemas to OpenAI function calling format.
-const openaiTools: ChatCompletionTool[] = drawTools.map((t) => ({
+// Phase 5: uses allBoardTools (24 tools = 9 primitives + 15 scenes) instead of drawTools (9).
+const openaiTools: ChatCompletionTool[] = allBoardTools.map((t) => ({
   type: 'function',
   function: {
     name: t.name,
@@ -211,6 +231,10 @@ export async function POST(req: NextRequest) {
       let finishedExplicitly = false
       let totalToolCalls = 0
 
+      // Phase 5 (D-17): Track which scene was used in this request.
+      // Phase 5: track first scene used; Phase 8 may extend to multi-scene tracking.
+      let sceneUsed: string | null = null
+
       try {
         for (let turn = 0; turn < MAX_AGENT_TURNS; turn++) {
           // T-04-02-03: tool_choice:'required' — model MUST call tools; cannot reply with plain text.
@@ -230,8 +254,6 @@ export async function POST(req: NextRequest) {
               return
             }
 
-            totalToolCalls++
-
             // D-13 / CON-openai-sdk-quirks: structured output may arrive as parsed object
             // or as a JSON string — guard both forms.
             let input: unknown = e.parsed_arguments
@@ -243,6 +265,39 @@ export async function POST(req: NextRequest) {
               }
             }
 
+            // Phase 5 — Scene interception (D-02):
+            // When LLM calls an explain_* scene, expand it server-side into primitive tool_use events.
+            // Client never receives the raw scene name — only the individual primitive calls.
+            if (isSceneName(e.name)) {
+              // Track first scene used for cost monitoring (D-17)
+              if (sceneUsed === null) {
+                sceneUsed = e.name
+              }
+
+              const sceneFn = getScene(e.name)
+              if (sceneFn) {
+                try {
+                  for (const primitive of sceneFn(input)) {
+                    totalToolCalls++
+                    send({
+                      type: 'tool_use',
+                      id: `t${turn}_${e.index}_s${totalToolCalls}`,
+                      name: primitive.name,
+                      input: primitive.input,
+                    })
+                  }
+                } catch (sceneErr) {
+                  const msg = sceneErr instanceof Error ? sceneErr.message : String(sceneErr)
+                  console.error(`[draw] Scene ${e.name} error:`, msg)
+                  // Fall through — OpenAI still gets 'ok' back, can retry with different args
+                }
+              }
+              // scene call consumed; do NOT forward raw explain_* name to client
+              return
+            }
+
+            // Primitive pass-through (unchanged from Phase 4)
+            totalToolCalls++
             send({
               type: 'tool_use',
               id: `t${turn}_${e.index}`,
@@ -288,7 +343,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        console.log(`[draw] Agent loop complete — ${totalToolCalls} tools called, finishedExplicitly=${finishedExplicitly}`)
+        console.log(`[draw] Agent loop complete — ${totalToolCalls} tools called, finishedExplicitly=${finishedExplicitly}, sceneUsed=${sceneUsed}`)
 
         send({
           type: 'done',
@@ -297,6 +352,7 @@ export async function POST(req: NextRequest) {
             : lastFinishReason === 'tool_calls'
               ? 'max_turns'
               : lastFinishReason,
+          scene_used: sceneUsed,  // Phase 5 (D-17): which scene was used (null if none)
           usage: {
             prompt_tokens: totalPromptTokens,
             completion_tokens: totalCompletionTokens,

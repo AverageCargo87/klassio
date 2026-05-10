@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { NextRequest } from 'next/server'
 
 // ─── Mock auth ─────────────────────────────────────────────────────────────
@@ -20,11 +20,12 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...args: unknown[]) => args),
 }))
 
-// ─── Mock OpenAI ────────────────────────────────────────────────────────────
-// Default mock: stream with no tool calls → agent exits after one turn.
-// Must use a class-style function (not arrow) so `new OpenAI()` works.
-vi.mock('openai', () => {
-  const makeMockStream = () => ({
+// ─── Shared mock stream factory ─────────────────────────────────────────────
+// We use a module-level variable so individual tests can override stream behavior.
+let _streamFactory: () => unknown = () => makeDefaultStream()
+
+function makeDefaultStream() {
+  return {
     on: vi.fn().mockReturnThis(),
     finalChatCompletion: vi.fn().mockResolvedValue({
       choices: [
@@ -35,12 +36,18 @@ vi.mock('openai', () => {
       ],
       usage: { prompt_tokens: 100, completion_tokens: 20 },
     }),
-  })
+  }
+}
+
+// ─── Mock OpenAI ────────────────────────────────────────────────────────────
+// Default mock: stream with no tool calls → agent exits after one turn.
+// Must use a class-style function (not arrow) so `new OpenAI()` works.
+vi.mock('openai', () => {
   function MockOpenAI() {
     return {
       chat: {
         completions: {
-          stream: vi.fn().mockReturnValue(makeMockStream()),
+          stream: vi.fn().mockImplementation(() => _streamFactory()),
         },
       },
     }
@@ -70,11 +77,72 @@ function makeDbChain(rows: unknown[]) {
   }
 }
 
+/** Helper to read full SSE stream body from a Response */
+async function readSSEEvents(res: Response): Promise<Array<Record<string, unknown>>> {
+  const text = await res.text()
+  const events: Array<Record<string, unknown>> = []
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim()
+    if (trimmed.startsWith('data: ')) {
+      try {
+        events.push(JSON.parse(trimmed.slice(6)) as Record<string, unknown>)
+      } catch {
+        // ignore non-JSON lines
+      }
+    }
+  }
+  return events
+}
+
+/** Creates a mock stream that emits one tool call then stop */
+function makeToolCallStream(toolName: string, toolArgs: string) {
+  type DoneCallback = (e: { name: string; arguments: string; parsed_arguments: unknown; index: number }) => void
+
+  let savedCb: DoneCallback | null = null
+
+  const stream = {
+    on: vi.fn().mockImplementation((event: string, cb: DoneCallback) => {
+      if (event === 'tool_calls.function.arguments.done') {
+        savedCb = cb
+      }
+      return stream
+    }),
+    finalChatCompletion: vi.fn().mockImplementation(async () => {
+      // Fire the callback before resolving (simulating the streaming behavior)
+      if (savedCb) {
+        await Promise.resolve()
+        savedCb({
+          name: toolName,
+          arguments: toolArgs,
+          parsed_arguments: JSON.parse(toolArgs) as unknown,
+          index: 0,
+        })
+        await Promise.resolve()
+      }
+      return {
+        choices: [
+          {
+            message: {
+              tool_calls: [
+                { id: 'tc_0', type: 'function', function: { name: toolName, arguments: toolArgs } },
+              ],
+            },
+            finish_reason: 'tool_calls',
+          },
+        ],
+        usage: { prompt_tokens: 200, completion_tokens: 40 },
+      }
+    }),
+  }
+  return stream
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────────
 describe('POST /api/draw', () => {
   beforeEach(() => {
     vi.mocked(auth).mockReset()
     vi.mocked(db.select).mockReset()
+    _streamFactory = () => makeDefaultStream()  // reset to default
   })
 
   // ── Auth guard ─────────────────────────────────────────────────────────
@@ -137,6 +205,88 @@ describe('POST /api/draw', () => {
     const res = await POST(makeRequest({ prompt: 'тест', lessonId: 'uuid-1' }))
     expect(res.status).toBe(200)
     expect(res.headers.get('Cache-Control')).toContain('no-cache')
+    delete process.env.OPENAI_API_KEY
+  })
+})
+
+// ── Phase 5: Scene expansion integration tests ───────────────────────────────
+
+describe('POST /api/draw — scene expansion (Phase 5)', () => {
+  beforeAll(async () => {
+    // Ensure scene files are imported so the registry is populated
+    await import('@/lib/board/scenes/explain-column-addition')
+    await import('@/lib/board/scenes/explain-fraction-simplification')
+    await import('@/lib/board/scenes/explain-percent-calculation')
+  })
+
+  beforeEach(() => {
+    vi.mocked(auth).mockReset()
+    vi.mocked(db.select).mockReset()
+    process.env.OPENAI_API_KEY = 'sk-test-key-for-unit-tests'
+    vi.mocked(auth).mockResolvedValue({ user: { id: 'user-1' } } as never)
+    vi.mocked(db.select).mockReturnValue(makeDbChain([{ id: 'uuid-1' }]) as never)
+  })
+
+  it('scene explain_column_addition is expanded: client receives primitive tool_use events, not the scene name', async () => {
+    _streamFactory = () => makeToolCallStream('explain_column_addition', '{"a":245,"b":874}')
+
+    const res = await POST(makeRequest({ prompt: 'объясни сложение 245 и 874', lessonId: 'uuid-1' }))
+    expect(res.status).toBe(200)
+
+    const events = await readSSEEvents(res)
+
+    // Should have at least one tool_use event
+    const toolUseEvents = events.filter((e) => e.type === 'tool_use')
+    expect(toolUseEvents.length).toBeGreaterThanOrEqual(1)
+
+    // None of the tool_use events should have name 'explain_column_addition' — scene is expanded
+    const sceneForwardEvents = toolUseEvents.filter((e) => e.name === 'explain_column_addition')
+    expect(sceneForwardEvents).toHaveLength(0)
+
+    // At least one event should have a primitive name (say, draw_text, wait, etc.)
+    const primitiveNames = ['say', 'draw_text', 'draw_line', 'wait', 'highlight_region', 'draw_rectangle', 'draw_circle', 'draw_arrow']
+    const primitiveEvents = toolUseEvents.filter((e) => primitiveNames.includes(e.name as string))
+    expect(primitiveEvents.length).toBeGreaterThanOrEqual(1)
+
+    // Final done event should have scene_used: 'explain_column_addition'
+    const doneEvent = events.find((e) => e.type === 'done')
+    expect(doneEvent).toBeDefined()
+    expect(doneEvent?.scene_used).toBe('explain_column_addition')
+
+    delete process.env.OPENAI_API_KEY
+  })
+
+  it('done event has scene_used: null when only primitive tools are called', async () => {
+    _streamFactory = () => makeDefaultStream()
+
+    const res = await POST(makeRequest({ prompt: 'просто нарисуй точку', lessonId: 'uuid-1' }))
+    expect(res.status).toBe(200)
+
+    const events = await readSSEEvents(res)
+    const doneEvent = events.find((e) => e.type === 'done')
+    expect(doneEvent).toBeDefined()
+    expect(doneEvent?.scene_used).toBeNull()
+
+    delete process.env.OPENAI_API_KEY
+  })
+
+  it('scene explain_percent_calculation is expanded: emits primitive tool_use events only', async () => {
+    _streamFactory = () => makeToolCallStream('explain_percent_calculation', '{"value":200,"percent":15}')
+
+    const res = await POST(makeRequest({ prompt: 'объясни 15% от 200', lessonId: 'uuid-1' }))
+    expect(res.status).toBe(200)
+
+    const events = await readSSEEvents(res)
+    const toolUseEvents = events.filter((e) => e.type === 'tool_use')
+
+    // Scene should be expanded — no raw scene name forwarded
+    const sceneForwardEvents = toolUseEvents.filter((e) => e.name === 'explain_percent_calculation')
+    expect(sceneForwardEvents).toHaveLength(0)
+
+    // Done event has scene_used
+    const doneEvent = events.find((e) => e.type === 'done')
+    expect(doneEvent?.scene_used).toBe('explain_percent_calculation')
+
     delete process.env.OPENAI_API_KEY
   })
 })
