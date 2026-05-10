@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-10T00:37:26.167Z"
+last_updated: "2026-05-10T01:16:20.883Z"
 progress:
   total_phases: 12
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 9
-  completed_plans: 8
-  percent: 89
+  completed_plans: 9
+  percent: 100
 ---
 
 # Klassio — STATE
@@ -35,16 +35,18 @@ progress:
 
 ## Current Position
 
-Phase: 01 (account-shell) — IMPLEMENTATION COMPLETE (deploy deferred)
-Plan: 6 of 6 — all plans implemented
+Phase: 02 (admin) — COMPLETE (3/3 plans done)
+Plan: 3 of 3 — all plans implemented
 
-- **Current phase**: Phase 1 — ЛК — оболочка, авторизация, список уроков.
-- **Current plan**: All 6/6 plans implemented. Production deploy deferred to user manual action — see `.planning/MANUAL-ACTIONS.md` Phase 1 Wave 6 Task 3.
-- **Status**: **Phase 1 implementation complete** (6/6 plans, 43 tests all green locally). Awaiting user to complete production deploy + RU email test.
-- **Progress (overall v1)**: `[██████████] 100% · 6/6 plans complete in Phase 1 (deploy pending user)`.
-- **Resume file**: None — awaiting user deploy action per `.planning/MANUAL-ACTIONS.md`.
+- **Current phase**: Phase 2 — Расписание уроков + admin путь для заведения.
+- **Current plan**: All 3/3 plans complete. ACC-03 (schedule UI) + ACC-04 (admin CLI + docs) both satisfied.
+- **Status**: **Phase 2 COMPLETE** (3/3 plans, 15 E2E + 64 unit tests green, admin-guide.md delivered).
+- **Progress (overall v1)**: `[██████████] 100% · Phase 2 complete. Phase 3 next.`.
+- **Resume file**: None — Phase 2 done. Phase 3 (next) is unplanned.
 
 ### Recent transitions
+
+- **2026-05-10 (#10 — execute 02-03)**: Plan 02-03 (Admin guide + Schedule E2E) executed in ~35 min. 2 tasks, 2 commits (d831e69, e76630c). docs/admin-guide.md (RU, quickstart + 4 CLI commands + FAQ + troubleshooting). README.md created. e2e/schedule-grouping.spec.ts (5 tests: heading, week header, smart date, past collapsed/expanded). Fixed stale heading selector in login-happy-path.spec.ts. 15 E2E tests all green. ACC-03 + ACC-04 complete.
 
 - **2026-05-10 (#9 — execute 02-01)**: Plan 02-01 (Schema migration + admin CLI) executed in ~10 min. 2 tasks, 2 commits (1add440, 9c001a2). 3 nullable lesson columns added to Neon (recording_url, transcript_url, html_trainer_path). 4 admin CLI scripts: create-user (idempotent), create-lesson, list-users, list-lessons. 43 tests total (was 35). ACC-04 complete. Migration applied via scripts/apply-0001-migration.ts (pg + IF NOT EXISTS, Neon-safe). Smoke tests passed against live Neon.
 
@@ -81,6 +83,7 @@ Plan: 6 of 6 — all plans implemented
 | Phase 01-account-shell P01-04 | 12min | 2 tasks | 13 files |
 | Phase 01-account-shell P05 | 7 | 3 tasks | 18 files |
 | Phase 02-admin P02 | 7 | 2 tasks | 8 files |
+| Phase 02-admin P02-03 | 35 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -125,6 +128,12 @@ Plan: 6 of 6 — all plans implemented
 - **Migration via scripts/apply-0001-migration.ts (not db-push.ts)**: db-push.ts applies ALL .sql files including already-applied 0000 — hangs on postgres.js awaiting CREATE TABLE responses. One-shot pg script with IF NOT EXISTS is Neon-safe.
 - **parseArgs exported from create-user.ts, inlined in others**: plan requires no separate module; each script self-contained; unit tests import from create-user.
 - **T-02-04 mitigated**: --date validated with YYYY-MM-DD regex before timestamp construction.
+
+### Plan 02-03 decisions (executor — 2026-05-10)
+
+- **login-once-in-beforeAll with addCookies**: E2E suites sharing one email must authenticate once in `beforeAll` with `chromium.launch()`, save `context.cookies()`, and inject via `page.context().addCookies()` per test. Avoids single-use magic link token exhaustion when N tests share one email address.
+- **Explicit goto timeout (8s) + retry in goToLessons**: Neon Free tier cold-start causes `ERR_ABORTED` on `/lessons` page load (Drizzle select ECONNRESET). Tests stall at 35s on default 30s timeout. Fix: explicit 8s timeout + 3 retries with 2.5s wait. `/api/auth/session` warmup hit before navigation (mirrors global-setup.ts pattern).
+- **docs/ directory created**: Product-side docs separate from `.planning/` (process docs). `docs/admin-guide.md` is the first file. Future product docs go here.
 
 ### Plan 01-01 decisions (executor — 2026-05-09)
 
