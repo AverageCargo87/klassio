@@ -153,17 +153,18 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
         return
       }
       const data = (await res.json()) as { signedUrl: string; topic: string }
-      // STEP 3: start the session. Use topic from RESPONSE (defense-in-depth,
-      // RESEARCH Open Q4) — fall back to prop only if response.topic is empty.
-      const effectiveTopic = data.topic || topic
+      // STEP 3: start the session.
+      // NOTE (2026-05-11 UAT): overrides.agent.firstMessage temporarily REMOVED
+      // because UAT showed WS getting closed by 11labs server ~1.6s after
+      // handshake. Suspected schema mismatch (firstMessage vs first_message)
+      // or server-side overrides validation failure. Without override, the
+      // agent uses its built-in First Message ("Привет! Я Учитель..."), which
+      // is good enough for baseline UAT. Topic injection — Phase 6 follow-up.
+      void topic
+      void data.topic
       conversation.startSession({
         signedUrl: data.signedUrl,
         connectionType: 'websocket', // CRITICAL — RESEARCH Pitfall 3
-        overrides: {
-          agent: {
-            firstMessage: `Привет! Сегодня у нас тема: ${effectiveTopic}. Тебя как зовут?`,
-          },
-        },
       })
     } catch (err) {
       console.error('[voice-panel] start failed:', err)
