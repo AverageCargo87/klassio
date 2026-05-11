@@ -219,14 +219,15 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col gap-4 min-h-0">
+      <CardContent className="flex-1 flex flex-col gap-2 min-h-0 overflow-hidden">
         {/* TOP HALF — Avatar (Phase 9 contract unchanged) */}
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 min-h-0 flex items-center justify-center">
           <Avatar state={avatarState} />
         </div>
 
-        {/* BOTTOM HALF — Voice controls */}
-        <div className="flex flex-col items-center gap-2 pb-2">
+        {/* BOTTOM HALF — Voice controls. shrink-0 prevents Avatar (flex-1) from
+            squashing them to 0 height when the right column is short (Phase 6 fix). */}
+        <div className="flex flex-col items-center gap-2 pb-2 shrink-0">
           <span className="text-xs text-muted-foreground">{statusText}</span>
 
           {!isActive && (
