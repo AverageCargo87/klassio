@@ -89,30 +89,38 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
 
   // ── Stable SDK callbacks (Pitfall 4 — prevents stale closures) ──────────
   // bus.emit is the only dep; bus itself is from React context (stable).
-  const handleConnect = useCallback(() => {
+  const handleConnect = useCallback((props?: unknown) => {
+    console.log('[voice-panel] 🟢 onConnect', props)
     // RESEARCH Open Q3 — emit 'idle' until first onModeChange fires.
     bus.emit('voice:state', { state: 'idle' })
   }, [bus])
 
   const handleModeChange = useCallback(
-    ({ mode }: { mode: 'speaking' | 'listening' }) => {
-      bus.emit('voice:state', { state: mode })
+    (prop: { mode: 'speaking' | 'listening' }) => {
+      console.log('[voice-panel] 🔄 onModeChange', prop)
+      bus.emit('voice:state', { state: prop.mode })
     },
     [bus],
   )
 
-  const handleDisconnect = useCallback(() => {
+  const handleDisconnect = useCallback((details?: unknown) => {
+    console.log('[voice-panel] 🔴 onDisconnect', details)
     bus.emit('voice:state', { state: 'idle' })
   }, [bus])
 
   const handleError = useCallback(
-    (message: string, _context?: unknown) => {
-      console.error('[voice-panel] SDK error:', message, _context)
+    (message: string, context?: unknown) => {
+      console.error('[voice-panel] ❌ onError:', message, context)
       bus.emit('voice:state', { state: 'idle' }) // fail-safe — avatar back to 🙂
-      setError('Ошибка голосового сервиса. Попробуйте снова.')
+      setError(`Ошибка: ${message}`)
     },
     [bus],
   )
+
+  // Optional: log message events to see WHAT bot says (or doesn't)
+  const handleMessage = useCallback((msg: unknown) => {
+    console.log('[voice-panel] 💬 onMessage', msg)
+  }, [])
 
   // ── The SDK hook — useConversation auto-registers our callbacks with the
   //    surrounding ConversationProvider (see SDK comment "Callbacks ... are also
@@ -123,6 +131,7 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
     onDisconnect: handleDisconnect,
     onModeChange: handleModeChange,
     onError: handleError,
+    onMessage: handleMessage,
   })
 
   // Avatar consumes bus state via Phase 9 contract — call AFTER the SDK hook
@@ -131,43 +140,43 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
 
   // ── Start handler ───────────────────────────────────────────────────────
   const handleStart = useCallback(async () => {
-    if (isStartingRef.current) return
+    console.log('[voice-panel] ▶ handleStart fired')
+    if (isStartingRef.current) {
+      console.log('[voice-panel] ⏭ already starting, skip')
+      return
+    }
     isStartingRef.current = true
     setError(null)
     try {
-      // STEP 1: mic permission BEFORE anything else (RESEARCH Pitfall 1).
+      console.log('[voice-panel] 1️⃣ requesting mic permission...')
       const mic = await requestMicPermission()
+      console.log('[voice-panel] 1️⃣ mic result:', mic)
       if (!mic.ok) {
         setError(mic.message)
         return
       }
-      // STEP 2: fresh signed URL — fetch inside click handler so we always
-      // have a non-expired URL (Pitfall 2 — 15-min TTL).
+      console.log('[voice-panel] 2️⃣ fetching signed-url for lesson', lessonId)
       const res = await fetch('/api/voice/signed-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lessonId }),
       })
+      console.log('[voice-panel] 2️⃣ signed-url response status:', res.status)
       if (!res.ok) {
         setError('Не удалось получить ссылку. Попробуйте снова.')
         return
       }
       const data = (await res.json()) as { signedUrl: string; topic: string }
-      // STEP 3: start the session.
-      // NOTE (2026-05-11 UAT): overrides.agent.firstMessage temporarily REMOVED
-      // because UAT showed WS getting closed by 11labs server ~1.6s after
-      // handshake. Suspected schema mismatch (firstMessage vs first_message)
-      // or server-side overrides validation failure. Without override, the
-      // agent uses its built-in First Message ("Привет! Я Учитель..."), which
-      // is good enough for baseline UAT. Topic injection — Phase 6 follow-up.
+      console.log('[voice-panel] 2️⃣ got signedUrl, length:', data.signedUrl?.length, 'topic:', data.topic)
       void topic
-      void data.topic
+      console.log('[voice-panel] 3️⃣ calling conversation.startSession...')
       conversation.startSession({
         signedUrl: data.signedUrl,
-        connectionType: 'websocket', // CRITICAL — RESEARCH Pitfall 3
+        connectionType: 'websocket',
       })
+      console.log('[voice-panel] 3️⃣ startSession returned (fire-and-forget)')
     } catch (err) {
-      console.error('[voice-panel] start failed:', err)
+      console.error('[voice-panel] ❌ start failed:', err)
       setError('Ошибка голосового сервиса. Попробуйте снова.')
     } finally {
       isStartingRef.current = false
