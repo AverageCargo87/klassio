@@ -31,14 +31,24 @@ async function withPg<T>(fn: (client: InstanceType<typeof Client>) => Promise<T>
 
 export default async function LessonPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ test?: string }>
 }) {
   const { id } = await params
+  const { test } = await searchParams
 
   // 1. Auth — middleware already protects, but defensive double-check per pattern (T-03-03-01)
   const session = await auth()
   if (!session?.user?.id) redirect('/login')
+
+  // DEV BYPASS — allow whitelisted admin to open any lesson with ?test=1
+  // (bypasses canStart guard and terminal status guard). Phase 6 UAT helper.
+  // Safe: only the admin email (SEED_ADMIN_EMAIL) gets through.
+  const isAdminTestBypass =
+    test === '1' &&
+    session.user.email === process.env.SEED_ADMIN_EMAIL
 
   // 2. Ownership check (T-03-03-02, D-11 step 2)
   const rows = await db
@@ -50,7 +60,7 @@ export default async function LessonPage({
   const lesson = rows[0]
 
   // 3. Terminal status — lesson already over (D-11 step 4)
-  if (lesson.status === 'completed' || lesson.status === 'cancelled') {
+  if (!isAdminTestBypass && (lesson.status === 'completed' || lesson.status === 'cancelled')) {
     const endDate = lesson.actualEndAt
       ? new Intl.DateTimeFormat('ru-RU', {
           day: 'numeric',
@@ -75,7 +85,7 @@ export default async function LessonPage({
   const now = new Date()
 
   // 4. canStart guard (D-11 step 5) — lesson not yet openable
-  if (lesson.status === 'scheduled' && !canStartLesson(lesson.scheduledAt, lesson.durationMin, now)) {
+  if (!isAdminTestBypass && lesson.status === 'scheduled' && !canStartLesson(lesson.scheduledAt, lesson.durationMin, now)) {
     const opensAt = new Intl.DateTimeFormat('ru-RU', {
       hour: '2-digit',
       minute: '2-digit',
