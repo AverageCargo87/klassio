@@ -20,13 +20,24 @@ export async function getSignedUrl(agentId: string, apiKey: string): Promise<str
 
   const response = await fetch(url.toString(), {
     method: 'GET',
-    headers: { 'xi-api-key': apiKey },
+    headers: {
+      'xi-api-key': apiKey,
+      // 11labs API sits behind Cloudflare bot management. Node.js fetch sends
+      // an empty/`node` UA by default which Cloudflare flags as a bot and
+      // intermittently returns a 403 + "Just a moment..." JS challenge HTML.
+      // Sending a normal browser-shaped UA + Accept header lets us through
+      // reliably. curl works because it sends curl/X.Y UA by default.
+      // Long-term fix (Phase 6.5): route through Hetzner WS proxy outside RU.
+      'User-Agent':
+        'Mozilla/5.0 (compatible; Klassio/1.0; +https://klassio-one.vercel.app)',
+      Accept: 'application/json',
+    },
     cache: 'no-store',
   })
 
   if (!response.ok) {
     const text = await response.text().catch(() => '')
-    throw new Error(`11labs get-signed-url failed: HTTP ${response.status} ${text}`)
+    throw new Error(`11labs get-signed-url failed: HTTP ${response.status} ${text.slice(0, 200)}`)
   }
 
   const data = (await response.json()) as { signed_url?: string }
