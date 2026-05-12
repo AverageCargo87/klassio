@@ -66,23 +66,26 @@ async function main() {
   })
   console.log(`[evergreen] Admin user.id = ${userId}`)
 
-  // 2. Upsert evergreen lesson. Reset status to 'scheduled' on every run so
-  //    the bookmark stays in a known initial state even if the previous test
-  //    session left it as in_progress / completed.
+  // 2. Upsert evergreen lesson. We set status='in_progress' (not 'scheduled')
+  //    so the canStart guard in app/lesson/[id]/page.tsx step 4 is skipped —
+  //    that guard only fires when status='scheduled'. This keeps the bookmark
+  //    working even without ?test=1 bypass and even without SEED_ADMIN_EMAIL
+  //    in Vercel env vars.
+  //    actual_start_at is set to a fixed past date so the lesson is "running".
   await withClient(async (client) => {
     await client.query(
       `INSERT INTO lesson
          (id, user_id, scheduled_at, topic, duration_min, html_trainer_path, status,
           actual_start_at, actual_end_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'scheduled', NULL, NULL)
+       VALUES ($1, $2, $3, $4, $5, $6, 'in_progress', '2026-01-01T00:00:00Z', NULL)
        ON CONFLICT (id) DO UPDATE
          SET user_id = EXCLUDED.user_id,
              scheduled_at = EXCLUDED.scheduled_at,
              topic = EXCLUDED.topic,
              duration_min = EXCLUDED.duration_min,
              html_trainer_path = EXCLUDED.html_trainer_path,
-             status = 'scheduled',
-             actual_start_at = NULL,
+             status = 'in_progress',
+             actual_start_at = '2026-01-01T00:00:00Z',
              actual_end_at = NULL`,
       [
         EVERGREEN_LESSON_ID,
