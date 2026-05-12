@@ -180,20 +180,32 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
   }, [conversation])
 
   // ── Cleanup effect (Pitfall 7 — mic indicator stays red on unmount) ─────
+  // Phase 6.5 bugfix: previously this effect had `[conversation]` in its deps.
+  // `conversation` is a React object whose identity changes on EVERY status/mode
+  // update from the SDK. So the moment SDK fires onConnect → status flips
+  // 'connecting' → 'connected', React detects a new `conversation` reference,
+  // runs the PRIOR cleanup (which sees status==='connecting'/'connected') and
+  // immediately calls endSession() — killing the WS ~625ms after open. The bug
+  // existed since Phase 6 but stayed invisible because Cloudflare cut the WS
+  // before onConnect ever fired. With the proxy in place we finally see it.
+  //
+  // Fix: latch the latest conversation into a ref and run cleanup ONLY on real
+  // unmount with empty deps. The ref dodges the stale-closure trap.
+  const conversationRef = useRef(conversation)
+  conversationRef.current = conversation
   useEffect(() => {
     return () => {
-      if (
-        conversation.status === 'connected' ||
-        conversation.status === 'connecting'
-      ) {
+      const c = conversationRef.current
+      if (c.status === 'connected' || c.status === 'connecting') {
         try {
-          conversation.endSession()
+          c.endSession()
         } catch (err) {
           console.error('[voice-panel] cleanup endSession:', err)
         }
       }
     }
-  }, [conversation])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Derive UI state ─────────────────────────────────────────────────────
   const isActive =
