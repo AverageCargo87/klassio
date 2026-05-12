@@ -12,6 +12,7 @@ import { useTransition } from 'react'
 import { LessonBusProvider } from '@/lib/lesson-bus'
 import { BoardPanel } from '@/components/panels/board-panel'
 import { VoicePanel } from '@/components/panels/voice-panel'
+import { TranscriptPanel } from '@/components/panels/transcript-panel'
 import { TrainerPanel } from '@/components/panels/trainer-panel'
 import type { TrainerConfig } from '@/lib/trainer/config-schema'
 import {
@@ -103,20 +104,28 @@ export function LessonShell({ lessonId, topic, trainerConfig }: LessonShellProps
             // right col is separate div below)
           }}
         >
-          {/* Board: tall on tablet (60vh), fills height on desktop */}
-          <div className="min-h-0 h-[60vh] lg:h-full">
+          {/* Board: tablet height trimmed 60vh → 40vh in Phase 6.5 to make room
+              for the new Transcript block in the right column (which stacks under
+              Voice on tablet). Desktop layout (lg+) uses CSS Grid so this number
+              is irrelevant there. */}
+          <div className="min-h-0 h-[40vh] lg:h-full">
             <BoardPanel lessonId={lessonId} />
           </div>
 
-          {/* Right column: voice (15vh tablet / 12rem desktop) + trainer (fills rest) */}
-          <div
-            className="flex flex-col gap-2 min-h-0"
-            style={{ gridTemplateRows: '12rem 1fr', display: 'flex' }}
-          >
-            <div className="min-h-0 h-[22vh] lg:h-72 shrink-0">
+          {/* Right column (Phase 6.5): voice (top) + transcript (middle, NEW) + trainer (bottom).
+              Layout proportions on desktop (right col ~24rem wide):
+                Voice:      lg:h-64  (256px — was lg:h-72/288px, trimmed -32px to make room)
+                Transcript: lg:h-56  (224px — new chat block)
+                Trainer:    flex-1   (whatever's left after the two above)
+              Tablet stack uses vh-based heights so the trio fits within ~60vh of column space. */}
+          <div className="flex flex-col gap-2 min-h-0">
+            <div className="min-h-0 h-[20vh] lg:h-64 shrink-0">
               <VoicePanel lessonId={lessonId} topic={topic} />
             </div>
-            <div className="min-h-0 flex-1 h-[25vh] lg:h-auto">
+            <div className="min-h-0 h-[18vh] lg:h-56 shrink-0">
+              <TranscriptPanel lessonId={lessonId} />
+            </div>
+            <div className="min-h-0 flex-1 h-[22vh] lg:h-auto">
               <TrainerPanel lessonId={lessonId} trainerConfig={trainerConfig} />
             </div>
           </div>

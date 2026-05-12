@@ -28,6 +28,10 @@ export type TrainerGotoTaskPayload   = { taskId: string }
 export type VoiceStatePayload  = { state: 'idle' | 'listening' | 'speaking' | 'thinking' }
 // avatar:emotion: emitted by Phase 8 Pedagogical LLM; subscribed by AvatarPanel (D-06)
 export type AvatarEmotionPayload = { emotion: 'neutral' | 'happy' | 'sad' | 'thinking' }
+// Phase 6.5 — Voice transcript stream (emitted by VoicePanel on each 11labs onMessage,
+// subscribed by TranscriptPanel that renders the chat-style transcript).
+// Role values match the 11labs SDK Role type — 'agent' (teacher) | 'user' (child).
+export type VoiceTranscriptPayload = { text: string; role: 'user' | 'agent'; timestamp: number }
 
 export type LessonBusEvent =
   | { type: 'lesson:test';  payload: LessonTestPayload }
@@ -46,6 +50,8 @@ export type LessonBusEvent =
   // Phase 9 — Avatar/voice events (D-06)
   | { type: 'voice:state';    payload: VoiceStatePayload }
   | { type: 'avatar:emotion'; payload: AvatarEmotionPayload }
+  // Phase 6.5 — Voice transcript (one event per agent or user message)
+  | { type: 'voice:transcript'; payload: VoiceTranscriptPayload }
 
 // Helper: extract payload type for a given event type string.
 // Usage: EventPayload<'lesson:test'> → { source: string; counter: number }

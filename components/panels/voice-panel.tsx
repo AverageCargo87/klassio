@@ -114,6 +114,18 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
     [bus],
   )
 
+  // Phase 6.5: surface each agent/user message on the bus so TranscriptPanel
+  // can show a chat-style log. The SDK's MessagePayload has `role: 'user'|'agent'`
+  // (and deprecated `source: 'user'|'ai'`). Empty messages are skipped.
+  const handleMessage = useCallback(
+    (payload: { message: string; role: 'user' | 'agent' }) => {
+      const text = (payload?.message ?? '').trim()
+      if (!text) return
+      bus.emit('voice:transcript', { text, role: payload.role, timestamp: Date.now() })
+    },
+    [bus],
+  )
+
   // ── The SDK hook — useConversation auto-registers our callbacks with the
   //    surrounding ConversationProvider (see SDK comment "Callbacks ... are also
   //    registered with the provider so they stay up-to-date across re-renders").
@@ -122,6 +134,7 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
     onConnect: handleConnect,
     onDisconnect: handleDisconnect,
     onModeChange: handleModeChange,
+    onMessage: handleMessage,
     onError: handleError,
   })
 
