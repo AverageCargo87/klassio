@@ -2,22 +2,24 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: phase_6_implementation_complete_phase_6_5_pending_user
-last_updated: "2026-05-11T19:30:00Z"
+status: phase_6_5_complete_voice_works_in_browser_with_vpn
+last_updated: "2026-05-12T18:00:00Z"
 progress:
   total_phases: 12
-  completed_phases: 8
+  completed_phases: 9
   active_phase: null
-  blocked_phases: 4   # 8, 10, 11, 12 (Phase 6 done, Phase 6.5 + Phase 8 next; 10/11/12 still depend)
+  blocked_phases: 3   # 10, 11, 12 (Phase 8 now unblocked; Phase 6.5 ✓)
   total_plans: 23
   completed_plans: 23
-  percent: 67
+  percent: 75
 production_url: "https://klassio-one.vercel.app"
+voice_proxy_host: "87.120.93.35.nip.io"  # h2.nexus Frankfurt VPS, Phase 6.5
+admin_test_url: "https://klassio-one.vercel.app/lesson/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
 deploy_status:
   phase_1: "DEPLOYED ✓ — auth flow end-to-end works (Resend magic link → /lessons). Known UX bug: client-side exception on form submit (email still sent, non-blocking)."
-  phase_4: "DEPLOYED ✓ — board renders explanations correctly. Camera auto-fit fix applied (a36f87d). First-byte SSE flush + 'Бот думает…' indicator (15a7bd6). Speed and animation tweaks deferred per user."
-  phase_6: "IMPLEMENTATION COMPLETE (2026-05-10) — both plans shipped. Plan 06-01: SDK install + lib/elevenlabs/ + POST /api/voice/signed-url (21 unit tests). Plan 06-02: VoicePanel rewrite (ConversationProvider + useConversation + mic-first flow + 4 Russian mic-error messages + bus wiring) + 17 component tests + 11 E2E tests. 338/338 unit tests green, tsc clean, build clean. Vercel env vars выставлены 2026-05-11. Manual UAT 2026-05-11 BLOCKED: 11labs Cloudflare режет RU IPs даже с VPN. 5 follow-up fixes shipped: VoicePanel layout (h-72+shrink-0), suppressHydrationWarning для extensions, UA header для Cloudflare, firstMessage override removed (Phase 6.5 вернёт через dynamic_variables), ?test=1 admin bypass для canStart. Real-voice UAT — DEFERRED until Phase 6.5."
-  phase_6_5: "PENDING USER (2026-05-11) — Hetzner WS proxy в Frankfurt разблокирует RU-юзеров без VPN. User action ~30-40 мин (account, SSH key, CCX13 server, DNS). Затем Claude ~1.5-2 часа (research + plan + execute deploy + frontend wiring + final UAT). Detail: SESSION-2026-05-11-WRAPUP.md + MANUAL-ACTIONS.md § Update #5. Resume guide: SESSION-2026-05-11-WRAPUP.md."
+  phase_4: "DEPLOYED ✓ — board renders explanations correctly. Phase 6.5 added pacing fix (FADE_IN 900→1500ms, highlight dedup, killed scene+template duplicate path in system prompt) — column-addition now visibly slower and one-pass."
+  phase_6: "DEPLOYED ✓ — voice works in browser through Phase 6.5 proxy (user-confirmed 2026-05-12 with VPN). 11labs agent spec restored via scripts/restore-agent-config.mjs after demo-template drift. Cleanup-effect bug (existed since Phase 6, masked by CF cut) fixed in c261fb0."
+  phase_6_5: "DEPLOYED ✓ (2026-05-12) — h2.nexus Frankfurt VPS (NOT Hetzner — banned, NOT DO — rejected card; landed on h2.nexus via SBP). Node WS-proxy via nginx + Let's Encrypt + systemd. HMAC handshake. End-to-end test: 380 KB audio over 20 sec. Browser UAT with VPN: 40+ sec stable. Without-VPN UAT pending user re-test. Transcript chat UI added in same phase per user request."
 ---
 
 # Klassio — STATE
