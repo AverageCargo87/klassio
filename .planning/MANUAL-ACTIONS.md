@@ -456,3 +456,126 @@ Pre-flight check (можно сделать прямо сейчас, инфор�
 - Можно сразу `/gsd-plan-phase 7` (Phase 7 trainer уже implemented, нужны UX fixes) или `/gsd-plan-phase 8` (Pedagogical LLM tier)
 - Или Phase 6.5 setup для Hetzner
 
+
+## Update 2026-05-11 #5 (Phase 6.5 — Hetzner setup, USER ACTION)
+
+### Контекст
+
+Phase 6 manual UAT 2026-05-11 показал что **из РФ-IP голос не работает даже с VPN** — 11labs API защищён Cloudflare bot-management, режет российские IP и VPN exit-ноды flaky way. Это было предусмотрено архитектурно (DEC-deploy-architecture) — нужен Hetzner-сервер во Франкфурте как WS-прокси. Активируем сейчас как Phase 6.5.
+
+После завершения Phase 6.5 → ты сможешь открыть https://klassio-one.vercel.app **без VPN из РФ** и пройти voice UAT.
+
+### Что Claude НЕ может сделать сам (твоя работа, ~30-40 минут)
+
+#### Шаг 1 — Hetzner Cloud аккаунт (~10 мин)
+
+1. Открой https://www.hetzner.com/cloud → **Sign up**
+2. Email + пароль → подтверждение по email
+3. Способ оплаты:
+   - **Лучший вариант**: твоя нерезидентская карта (если есть)
+   - **Если нет**: Wise / Payoneer / Revolut — заводят валютную карту для нерезидентов РФ
+   - **Last resort**: карта знакомого за рубежом
+4. После добавления карты — пройди identity verification (документ, обычно автоматически за 5-10 мин)
+
+#### Шаг 2 — SSH ключ (~3 мин)
+
+В PowerShell:
+```powershell
+ssh-keygen -t ed25519 -C "klassio-voice-proxy" -f $env:USERPROFILE\.ssh\klassio_hetzner
+```
+- На вопрос про passphrase → жми Enter (пустой)
+- Создастся два файла: `klassio_hetzner` (приватный — НЕ показывать никому) и `klassio_hetzner.pub` (публичный — этот в Hetzner)
+
+Покажи публичный ключ:
+```powershell
+type $env:USERPROFILE\.ssh\klassio_hetzner.pub
+```
+Скопируй вывод (одна строка `ssh-ed25519 AAAA...`).
+
+#### Шаг 3 — Создать сервер в Hetzner (~5 мин)
+
+1. Hetzner Console → Projects → **New project** → имя «klassio»
+2. В проекте → **Servers** → **Add server**
+3. Настройки:
+   - **Location**: **Falkenstein** (FSN1) — дешевле и ближе к РФ
+   - **Image**: **Ubuntu 24.04**
+   - **Type**: **CCX13** (€10.07/мес, 2 vCPU AMD EPYC, 8 GB RAM) — раздел «Dedicated vCPU»
+   - **Networking**: оставь по умолчанию (Public IPv4 + IPv6)
+   - **SSH keys**: жми **+ Add SSH key** → вставь публичный ключ из Шага 2 → имя «krato-windows»
+   - **Firewalls**: создай новый **klassio-voice-fw** с правилами:
+     - Inbound TCP **22** (SSH) — Source: any IPv4/IPv6
+     - Inbound TCP **80** (HTTP for Let's Encrypt) — Source: any
+     - Inbound TCP **443** (HTTPS + WSS) — Source: any
+     - Outbound: всё разрешено
+   - **Name**: `klassio-voice-proxy`
+4. **Create & Buy now**
+5. Через ~30 сек сервер готов. Запиши **Public IPv4** (e.g., `49.12.34.56`).
+
+#### Шаг 4 — Проверь SSH-доступ (~2 мин)
+
+В PowerShell (замени `<IP>` на твой):
+```powershell
+ssh -i $env:USERPROFILE\.ssh\klassio_hetzner root@<IP>
+```
+- При первом подключении спросит «Are you sure you want to continue?» → пиши **yes**
+- Должна открыться сессия `root@klassio-voice-proxy:~#`
+- Проверь: `cat /etc/os-release` → должен показать Ubuntu 24.04
+- Выходи: `exit`
+
+Если ssh ругается «Permission denied» → SSH ключ не подцепился, проверь Шаг 2-3.
+
+#### Шаг 5 — Домен / поддомен (~5 мин — самый гибкий шаг)
+
+Voice WS-прокси должен жить на HTTPS-домене (нужен TLS для WSS). Варианты:
+
+**Вариант A — у тебя есть свой домен** (e.g., `klassio.app` через Namecheap/Reg.ru/Cloudflare DNS):
+- В DNS-провайдере добавь **A-record**: `voice` → `<IP сервера Hetzner>`
+- **Cloudflare proxy = OFF** (серое облако, не оранжевое) — WS требует прямое TCP, без Cloudflare WAF
+- В итоге `voice.klassio.app` будет указывать на Hetzner
+
+**Вариант B — нет своего домена, не хочешь покупать**:
+- Используй **sslip.io** (бесплатный wildcard DNS) — твой URL будет вида `49-12-34-56.sslip.io`
+- Никакой настройки не нужно — sslip.io сам резолвит IP из имени
+- Минус: некрасивый URL, но для backend-сервиса это не страшно
+
+**Вариант C — promo-домен**:
+- Можно купить дешёвый `.app` или `.dev` домен за $10–15/год в Cloudflare Registrar или Namecheap
+- Любой `klassio-voice.app` или подобный
+
+Рекомендую **A** если есть свой домен (для будущего frontend deploy на свой домен тоже пригодится). Если нет — **B** (sslip.io), это быстро и не блокер.
+
+#### Шаг 6 — Подтвердить готовность
+
+Когда Шаги 1-5 выполнены — сообщи мне в чате:
+
+```
+Hetzner готов:
+- Server IP: <IP>
+- SSH key path: ~/.ssh/klassio_hetzner
+- Domain: voice.<твой-домен>.app  (или 49-12-34-56.sslip.io)
+- Hetzner project: klassio
+```
+
+После этого:
+- Я запущу `/gsd-plan-phase 6.5` → research (Hetzner WS-proxy patterns, nginx config, PM2 setup) + planner создаст PLAN.md
+- Я выполню deploy WS-proxy кода на сервер через SSH (через Bash в моём worker'е)
+- Я обновлю Klassio frontend чтобы использовал `voice.<domain>` вместо api.elevenlabs.io напрямую
+- Я подниму nginx + Let's Encrypt + PM2 на Hetzner
+- В итоге ты сможешь открыть Vercel сайт **без VPN** и протестить голос
+
+Estimate моей работы — 1.5-2 часа после твоих 30 мин.
+
+### Что я СДЕЛАЮ автоматом (готовлю прямо сейчас, без твоего участия)
+
+Сегодня вечером пока ты спишь:
+- Зафиксирую Phase 6.5 в ROADMAP ✅ (уже сделано)
+- Откачу мой UAT-debugging hack (verbose `console.log` в VoicePanel) чтобы prod-код был чистый
+- `?test=1` dev-bypass для admin **оставлю** — полезно
+- Закоммичу всё чисто
+
+Утром (если ты ещё не сделал Hetzner) я могу:
+- Запустить researcher агента который изучит best practices Hetzner-deploy для Node WS-прокси
+- Подготовить шаблоны кода (PM2, nginx, Let's Encrypt automation)
+
+Так что когда ты вернёшься с Hetzner-готовым — execution будет быстрая.
+

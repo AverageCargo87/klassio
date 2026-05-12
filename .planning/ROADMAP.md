@@ -42,6 +42,7 @@
 - [x] **Phase 4: Production deploy + порт прототипа доски в Klassio** — Доска tldraw + OpenAI работает в Klassio в проде на Vercel + Cloudflare; РФ-юзер открывает без VPN. (Implementation COMPLETE 2026-05-10; 3/3 plans done, BRD-01+PED-01 implementation satisfied; production deploy DEFERRED to user — see MANUAL-ACTIONS.md)
 - [x] **Phase 5: Сцены — методические `explain_*` tools** — Бот объясняет темы 5 класса через 15 высокоуровневых сцен, не только примитивы. (Implementation complete 2026-05-10; all 15 scenes registered; 233 tests green)
 - [x] **Phase 6: Голос — 11labs Conversational AI (VPN-path)** — Голосовой учитель говорит по-русски в браузере dev-юзера через VPN (Hetzner WS-прокси для РФ-без-VPN отложен на Phase 6.5 per D-02). (Implementation COMPLETE 2026-05-10: 2/2 plans done, VOI-01 implementation satisfied; manual UAT — D-09 #1–9 — DEFERRED to user)
+- [ ] **Phase 6.5: Hetzner WS-прокси (Frankfurt) — РФ-юзеры без VPN** — WebSocket-прокси на Hetzner CCX13 принимает соединения от РФ-браузера и проксирует к `wss://api.elevenlabs.io`. Также server-side `getSignedUrl` идёт через тот же прокси, чтобы обойти Cloudflare bot-блок для РФ-IP. **Разблокирует Phase 6 UAT и продакшн использование без VPN.**
 - [x] **Phase 7: HTML-тренажёр — контракт data-атрибутов + event bus** — Ребёнок решает задания, бот видит ввод и подсвечивает элементы.
 - [ ] **Phase 8: Двухуровневая LLM (Pedagogical + Realtime) + проактивные триггеры** — Slow planner следит за стратегией урока, fast actor исполняет; бот сам подключается на молчании/уходе.
 - [x] **Phase 9: 2D Lottie аватар учителя** — На странице урока виден живой аватар, переключающий состояния по событиям голосового агента.
@@ -165,6 +166,25 @@ Plans:
 - [x] 06-01-PLAN.md — SDK install + lib/elevenlabs/ (types + getSignedUrl) + POST /api/voice/signed-url + unit tests (Wave 1, autonomous, VOI-01-A..H) ✅ 2026-05-10 (21 tests green, see 06-01-SUMMARY.md)
 - [x] 06-02-PLAN.md — VoicePanel rewrite + LessonShell topic prop + component tests + E2E (bus-driven avatar + bundle-leak scan) + manual smoke note for Open Q1 allowlist (Wave 2, autonomous, VOI-01-I..T) ✅ 2026-05-10 (17 component tests + 11 E2E tests, 338 total, see 06-02-SUMMARY.md; one Rule 1 deviation for SDK v1.6.0 API drift resolved inline)
 **UI hint**: yes
+
+---
+
+### Phase 6.5: Hetzner WS-прокси (Frankfurt) — РФ-юзеры без VPN
+**Goal**: Российский ребёнок открывает Klassio в обычном браузере без VPN и проходит голосовой урок. Hetzner-сервер во Франкфурте принимает WebSocket от РФ-браузера и проксирует к `wss://api.elevenlabs.io`. Тот же сервер проксирует server-side REST-запрос `getSignedUrl` чтобы обойти Cloudflare bot-block для РФ-IP.
+**Depends on**: Phase 6 (frontend + signed-url endpoint уже есть и работают через VPN).
+**Requirements**: VOI-01 (acceptance criterion #3 — «РФ-юзер без VPN»), DEP-01 (Cloudflare CDN страховка).
+**Discovered during**: Phase 6 manual UAT (2026-05-11) показал что без proxy голос не работает с РФ IP — 11labs CDN (Cloudflare) режет соединение даже с VPN flaky-way. Заложено в архитектуре с начала проекта как DEC-deploy-architecture, активируется сейчас.
+**Success Criteria**:
+  1. Hetzner CCX13 во Франкфурте поднят с Ubuntu 24.04, SSH-доступ, firewall (22+80+443).
+  2. Subdomain (e.g., `voice.klassio.app`) указывает на Hetzner IP через DNS A-record (Cloudflare proxy=OFF — WS требует прямого соединения).
+  3. Let's Encrypt TLS-сертификат на subdomain, валиден.
+  4. Node.js WebSocket proxy запущен под PM2 (или Docker) — принимает `wss://voice.<domain>/...` от клиента, проксирует на `wss://api.elevenlabs.io/v1/convai/conversation`.
+  5. HMAC handshake между Vercel и Hetzner: Vercel передаёт signed token в WS-headers, Hetzner валидирует и пропускает только legitimate-сессии (защита от чужих юзеров).
+  6. Server-side getSignedUrl (Vercel) идёт **через Hetzner-прокси** для consistent path (один маршрут вместо двух).
+  7. Klassio frontend (VoicePanel) подключается к `wss://voice.<domain>` вместо `wss://api.elevenlabs.io` напрямую.
+  8. Real UAT: dev-юзер из РФ **БЕЗ VPN** открывает https://klassio-one.vercel.app → жмёт «Запустить голос» → слышит учительницу → conversation длится 45 мин без обрывов.
+**Plans**: TBD (создадим через `/gsd-plan-phase 6.5` когда Hetzner будет готов)
+**Cost impact**: +€10/мес (~900 ₽/мес) fixed — see COSTS.md.
 
 ---
 
