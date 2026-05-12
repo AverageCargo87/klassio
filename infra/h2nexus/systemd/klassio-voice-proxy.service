@@ -1,0 +1,29 @@
+[Unit]
+Description=Klassio Voice WS Proxy (passthrough to ElevenLabs Conversational AI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/klassio-voice-proxy
+EnvironmentFile=/opt/klassio-voice-proxy/.env
+ExecStart=/usr/bin/node /opt/klassio-voice-proxy/index.mjs
+
+# Auto-restart on crash, with backoff to avoid tight loops.
+Restart=always
+RestartSec=5s
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# Modest resource ceilings — proxy is lightweight; if it spikes, something's wrong.
+MemoryMax=512M
+TasksMax=200
+
+# Log to journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=klassio-voice-proxy
+
+[Install]
+WantedBy=multi-user.target

@@ -25,6 +25,7 @@ import { db } from '@/lib/db'
 import { lessons } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { getSignedUrl } from '@/lib/elevenlabs/get-signed-url'
+import { wrapSignedUrl } from '@/lib/elevenlabs/proxy-url'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -87,10 +88,17 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Step 5: Upstream call wrapped in 502 (T-06-01-05) ─────────────────
+  // Phase 6.5: if VOICE_PROXY_HOST is set in env, we wrap the upstream signed_url
+  // into a token-protected proxy URL pointing at our Frankfurt VPS. The browser
+  // never connects to api.elevenlabs.io directly — see lib/elevenlabs/proxy-url.ts.
   try {
-    const signedUrl = await getSignedUrl(agentId, apiKey)
+    const upstreamUrl = await getSignedUrl(agentId, apiKey)
+    const { url: signedUrl, proxied } = wrapSignedUrl(upstreamUrl, {
+      VOICE_PROXY_HOST: process.env.VOICE_PROXY_HOST,
+      VOICE_PROXY_HMAC_SECRET: process.env.VOICE_PROXY_HMAC_SECRET,
+    })
     return new Response(
-      JSON.stringify({ signedUrl, topic: lesson.topic }),
+      JSON.stringify({ signedUrl, topic: lesson.topic, proxied }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     )
   } catch (err) {

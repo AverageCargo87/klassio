@@ -169,9 +169,16 @@ describe('POST /api/voice/signed-url', () => {
   })
 
   // ── VOI-01-H: Happy path ────────────────────────────────────────────────
-  it('VOI-01-H: returns 200 with { signedUrl, topic } JSON on success', async () => {
+  // Phase 6.5 update: response now includes `proxied: boolean` indicating
+  // whether the URL was wrapped through our Frankfurt WS-proxy. When
+  // VOICE_PROXY_HOST / _HMAC_SECRET are unset (this test), proxied=false
+  // and signedUrl is the raw upstream URL.
+  it('VOI-01-H: returns 200 with { signedUrl, topic, proxied } JSON on success (no proxy configured)', async () => {
     process.env.ELEVENLABS_API_KEY = 'sk_unit_test'
     process.env.ELEVENLABS_AGENT_ID = 'agent_unit_test'
+    // Ensure proxy env is NOT set for this test — fallback path.
+    delete process.env.VOICE_PROXY_HOST
+    delete process.env.VOICE_PROXY_HMAC_SECRET
     vi.mocked(auth).mockResolvedValue({ user: { id: 'user-1' } } as never)
     vi.mocked(db.select).mockReturnValue(
       makeDbChain([{ id: 'lid', topic: 'Сложение в столбик' }]) as never,
@@ -182,7 +189,37 @@ describe('POST /api/voice/signed-url', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toContain('application/json')
     const body = await res.json()
-    expect(body).toEqual({ signedUrl: 'wss://mock/sign', topic: 'Сложение в столбик' })
+    expect(body).toEqual({ signedUrl: 'wss://mock/sign', topic: 'Сложение в столбик', proxied: false })
+  })
+
+  // ── VOI-01-H2: Phase 6.5 happy path — proxy configured ─────────────────
+  it('VOI-01-H2: wraps signed_url through proxy when VOICE_PROXY_HOST and HMAC_SECRET are set', async () => {
+    process.env.ELEVENLABS_API_KEY = 'sk_unit_test'
+    process.env.ELEVENLABS_AGENT_ID = 'agent_unit_test'
+    process.env.VOICE_PROXY_HOST = '87.120.93.35.nip.io'
+    process.env.VOICE_PROXY_HMAC_SECRET = 'a'.repeat(64)
+
+    vi.mocked(auth).mockResolvedValue({ user: { id: 'user-1' } } as never)
+    vi.mocked(db.select).mockReturnValue(
+      makeDbChain([{ id: 'lid', topic: 'Сложение в столбик' }]) as never,
+    )
+    // Upstream URL must look like a real 11labs URL — proxy-url.ts whitelists it.
+    vi.mocked(getSignedUrl).mockResolvedValue(
+      'wss://api.elevenlabs.io/v1/convai/conversation?agent_id=ag&conversation_signature=sig',
+    )
+
+    const res = await POST(makeRequest({ lessonId: 'lid' }))
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { signedUrl: string; topic: string; proxied: boolean }
+    expect(body.proxied).toBe(true)
+    expect(body.topic).toBe('Сложение в столбик')
+    expect(body.signedUrl.startsWith('wss://87.120.93.35.nip.io/?u=')).toBe(true)
+    expect(body.signedUrl).toContain('&t=')
+    expect(body.signedUrl).toContain('&s=')
+
+    // Clean up so other tests in the suite get the unset baseline.
+    delete process.env.VOICE_PROXY_HOST
+    delete process.env.VOICE_PROXY_HMAC_SECRET
   })
 
   // ── 502: upstream failure wrap ─────────────────────────────────────────
