@@ -40,7 +40,7 @@ export function* explainColumnAddition(args: unknown): Generator<PrimitiveCall> 
       color: 'black',
     },
   }
-  yield { name: 'wait', input: { ms: 700 } }
+  yield { name: 'wait', input: { ms: 3000 } }
 
   // Step 2: Write first number (right-aligned)
   yield { name: 'say', input: { text: 'Записываем первое число.' } }
@@ -53,7 +53,7 @@ export function* explainColumnAddition(args: unknown): Generator<PrimitiveCall> 
       fontSize: 32,
     },
   }
-  yield { name: 'wait', input: { ms: 600 } }
+  yield { name: 'wait', input: { ms: 3000 } }
 
   // Step 3: Write + sign and second number
   yield { name: 'say', input: { text: 'Под ним — второе число, разряды под разрядами.' } }
@@ -76,7 +76,7 @@ export function* explainColumnAddition(args: unknown): Generator<PrimitiveCall> 
       fontSize: 32,
     },
   }
-  yield { name: 'wait', input: { ms: 700 } }
+  yield { name: 'wait', input: { ms: 3500 } }
 
   // Step 4: Horizontal line
   yield { name: 'say', input: { text: 'Подводим черту.' } }
@@ -84,7 +84,7 @@ export function* explainColumnAddition(args: unknown): Generator<PrimitiveCall> 
     name: 'draw_line',
     input: { x1: Math.max(0, lineX1), y1: LINE_Y, x2: Math.min(800, lineX2), y2: LINE_Y, stroke: 'black', strokeWidth: 2 },
   }
-  yield { name: 'wait', input: { ms: 500 } }
+  yield { name: 'wait', input: { ms: 3000 } }
 
   // Step 5: Add digit by digit from right (units → tens → hundreds ...)
   const paddedA = strA.padStart(maxLen, '0')
@@ -111,20 +111,25 @@ export function* explainColumnAddition(args: unknown): Generator<PrimitiveCall> 
       },
     }
 
-    // Highlight current column
-    const highlightX = Math.max(0, COL_X - (maxLen - i) * DIGIT_W)
+    // Highlight current column. Width slightly less than DIGIT_W so adjacent
+    // column highlights don't touch borders. Active-highlight dedup in
+    // executor (lib/board/executor.ts highlight_region case) also ensures
+    // only one highlight is on the canvas at a time — defence in depth.
+    const highlightX = Math.max(0, COL_X - (maxLen - i) * DIGIT_W) + 2
     yield {
       name: 'highlight_region',
       input: {
         x: highlightX,
         y: ROW_Y1 - 10,
-        w: DIGIT_W,
+        w: DIGIT_W - 4,
         h: RES_Y - ROW_Y1 + DIGIT_W + 10,
         color: '#fff59d',
-        duration_ms: 2000,
+        duration_ms: 4000,
       },
     }
-    yield { name: 'wait', input: { ms: 400 } }
+    // Wait must outlast highlight duration so child reads the column before
+    // the next one lights up. 4500ms > 4000ms duration_ms.
+    yield { name: 'wait', input: { ms: 4500 } }
 
     // Show carry digit above next column if needed
     if (newCarry > 0 && i > 0) {
@@ -133,6 +138,7 @@ export function* explainColumnAddition(args: unknown): Generator<PrimitiveCall> 
         name: 'draw_text',
         input: { x: carryX, y: ROW_Y1 - 30, text: '1', fontSize: 20, color: 'red' },
       }
+      yield { name: 'wait', input: { ms: 2500 } }
     }
 
     // Write result digit
@@ -141,7 +147,7 @@ export function* explainColumnAddition(args: unknown): Generator<PrimitiveCall> 
       name: 'draw_text',
       input: { x: Math.max(0, resX), y: RES_Y, text: String(digit), fontSize: 32 },
     }
-    yield { name: 'wait', input: { ms: 600 } }
+    yield { name: 'wait', input: { ms: 3500 } }
 
     resultDigits.unshift(String(digit))
     carry = newCarry
@@ -155,7 +161,7 @@ export function* explainColumnAddition(args: unknown): Generator<PrimitiveCall> 
       input: { x: Math.max(0, COL_X - (maxLen + 1) * DIGIT_W), y: RES_Y, text: String(carry), fontSize: 32 },
     }
     resultDigits.unshift(String(carry))
-    yield { name: 'wait', input: { ms: 600 } }
+    yield { name: 'wait', input: { ms: 3500 } }
   }
 
   // Write the full result as a separate text for easy testing assertion
@@ -179,10 +185,10 @@ export function* explainColumnAddition(args: unknown): Generator<PrimitiveCall> 
       w: strSum.length * DIGIT_W + 20,
       h: 45,
       color: '#a5f3fc',
-      duration_ms: 3000,
+      duration_ms: 5000,
     },
   }
-  yield { name: 'wait', input: { ms: 800 } }
+  yield { name: 'wait', input: { ms: 3000 } }
 }
 
 registerScene('explain_column_addition', explainColumnAddition as (args: unknown) => Generator<PrimitiveCall>)

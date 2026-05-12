@@ -141,10 +141,12 @@ export interface ExecuteResult {
 // Ease-out cubic, fire-and-forget — не блокирует следующий tool call,
 // но wait в system prompt обычно >= этого значения, чтобы шейп успел проявиться
 // до начала следующего шага.
-const FADE_IN_MS = 900
+// Увеличено с 900 → 1500ms: даём ребёнку время «увидеть» каждый новый шейп.
+const FADE_IN_MS = 1500
 
 // Задержка между появлением соседних цифр в одной staggered-строке.
-const DIGIT_STAGGER_MS = 280
+// Увеличено с 280 → 450ms: цифры одного числа проступают одна за другой не торопясь.
+const DIGIT_STAGGER_MS = 450
 
 interface FadeInOpts {
   delayMs?: number
@@ -405,6 +407,21 @@ export async function executeToolCall(
       }
 
       case 'highlight_region': {
+        // Dedup active highlights — only ONE highlight on the canvas at a time.
+        // Without this, two adjacent column highlights (units → tens) overlap
+        // by their dashed borders and the user sees two pink frames touching.
+        // We tag each highlight with meta.kind='highlight' and sweep prior ones.
+        for (const existingId of Array.from(editor.getCurrentPageShapeIds())) {
+          const shape = editor.getShape(existingId)
+          if (shape?.meta?.kind === 'highlight') {
+            try {
+              editor.deleteShape(existingId)
+            } catch {
+              /* may have been auto-cleared already — fine */
+            }
+          }
+        }
+
         const id = createShapeId()
         const colorName = mapColor(p.color, 'yellow')
         editor.createShape({
@@ -413,6 +430,7 @@ export async function executeToolCall(
           x: asNum(p.x, 0),
           y: asNum(p.y, 0),
           opacity: 0,
+          meta: { kind: 'highlight' },
           props: {
             geo: 'rectangle',
             w: Math.max(1, asNum(p.w, 100)),
@@ -427,7 +445,9 @@ export async function executeToolCall(
         // Сама пунктирная рамка тоже полупрозрачная, чтобы быть мягким акцентом,
         // а не «жирной обводкой».
         fadeInShape(editor, id, 'geo', { targetOpacity: 0.65 })
-        const dur = Math.max(0, asNum(p.duration_ms, 1500))
+        // Default duration bumped 1500 → 4000ms: highlight should linger long
+        // enough for the child to read the side annotation it points at.
+        const dur = Math.max(0, asNum(p.duration_ms, 4000))
         if (dur > 0) {
           setTimeout(() => {
             try {
