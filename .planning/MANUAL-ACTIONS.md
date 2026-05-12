@@ -14,7 +14,9 @@ last_updated: 2026-05-10
 
 ## Phase 1, Wave 6, Task 3 — Production deploy + RU email deliverability
 
-**Status:** PENDING (added 2026-05-10 during autonomous run)
+**Status:** ✅ DONE 2026-05-10. Production live at https://klassio-one.vercel.app, env vars выставлены, auth flow работает (см. STATE.md transitions #21). Инструкции ниже сохранены как историческая справка — не выполнять заново.
+
+> ⚠️ ИГНОРИРОВАТЬ при чтении в новых сессиях — этот блок выполнен в Phase 4 deploy session.
 
 **Что нужно сделать:**
 
@@ -64,7 +66,9 @@ last_updated: 2026-05-10
 
 ## Phase 4 — Production deploy + Cloudflare CDN
 
-**Status:** PENDING (added 2026-05-10 during autonomous run, after board port)
+**Status:** ✅ PARTIALLY DONE 2026-05-10. Vercel deploy live, `OPENAI_API_KEY` выставлен. Cloudflare CDN — отложен до момента когда купишь свой домен (сейчас на дефолтном `klassio-one.vercel.app`). RU smoke test — DEFERRED, проверим после Phase 6.5 (тогда РФ-юзер сможет открыть без VPN).
+
+> ⚠️ ИГНОРИРОВАТЬ Vercel deploy steps ниже — выполнено. Cloudflare CDN setup делать только если купишь свой домен.
 
 **Что нужно сделать:**
 
@@ -114,7 +118,9 @@ last_updated: 2026-05-10
 
 ## Phase 6 — 11labs voice + Hetzner WS proxy (FULLY BLOCKED for autonomous run)
 
-**Status:** PENDING (added 2026-05-10 — Phase 6 contains $-significant decisions Claude cannot make)
+**Status:** ✅ DONE 2026-05-10/11. 11labs Creator $22 active, agent сконфигурирован и протестирован в Test Agent UI, Klassio frontend implementation complete (2 plans, 338 tests). Hetzner WS proxy — отдельная Phase 6.5 (см. ниже).
+
+> ⚠️ ИГНОРИРОВАТЬ Steps 1-7 ниже — Phase 6 setup закончен. Hetzner steps теперь живут в Phase 6.5 § Update #5.
 
 **Why Claude skipped:**
 - $99/мо 11labs Pro = significant fixed cost (~7800 ₽/мо). Главный watermark по COSTS.md.

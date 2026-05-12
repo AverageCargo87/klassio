@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: phase_6_complete
-last_updated: "2026-05-10T22:33:00Z"
+status: phase_6_implementation_complete_phase_6_5_pending_user
+last_updated: "2026-05-11T19:30:00Z"
 progress:
   total_phases: 12
   completed_phases: 8
@@ -16,7 +16,8 @@ production_url: "https://klassio-one.vercel.app"
 deploy_status:
   phase_1: "DEPLOYED ✓ — auth flow end-to-end works (Resend magic link → /lessons). Known UX bug: client-side exception on form submit (email still sent, non-blocking)."
   phase_4: "DEPLOYED ✓ — board renders explanations correctly. Camera auto-fit fix applied (a36f87d). First-byte SSE flush + 'Бот думает…' indicator (15a7bd6). Speed and animation tweaks deferred per user."
-  phase_6: "IMPLEMENTATION COMPLETE (2026-05-10) — both plans shipped. Plan 06-01: SDK install + lib/elevenlabs/ + POST /api/voice/signed-url (21 unit tests). Plan 06-02: VoicePanel rewrite (ConversationProvider + useConversation + mic-first flow + 4 Russian mic-error messages + bus wiring) + 17 component tests + 11 E2E tests (5 VOI-01-S bus-driven + 1 fetch-fail UI + 5 VOI-01-T bundle-leak scans). 338/338 unit tests green, tsc clean, build clean. Manual UAT (D-09 #1–9 + Open Q1 allowlist smoke) DEFERRED to developer — see 06-02-SUMMARY.md. Vercel env vars (ELEVENLABS_API_KEY/AGENT_ID) DEFERRED — see MANUAL-ACTIONS.md."
+  phase_6: "IMPLEMENTATION COMPLETE (2026-05-10) — both plans shipped. Plan 06-01: SDK install + lib/elevenlabs/ + POST /api/voice/signed-url (21 unit tests). Plan 06-02: VoicePanel rewrite (ConversationProvider + useConversation + mic-first flow + 4 Russian mic-error messages + bus wiring) + 17 component tests + 11 E2E tests. 338/338 unit tests green, tsc clean, build clean. Vercel env vars выставлены 2026-05-11. Manual UAT 2026-05-11 BLOCKED: 11labs Cloudflare режет RU IPs даже с VPN. 5 follow-up fixes shipped: VoicePanel layout (h-72+shrink-0), suppressHydrationWarning для extensions, UA header для Cloudflare, firstMessage override removed (Phase 6.5 вернёт через dynamic_variables), ?test=1 admin bypass для canStart. Real-voice UAT — DEFERRED until Phase 6.5."
+  phase_6_5: "PENDING USER (2026-05-11) — Hetzner WS proxy в Frankfurt разблокирует RU-юзеров без VPN. User action ~30-40 мин (account, SSH key, CCX13 server, DNS). Затем Claude ~1.5-2 часа (research + plan + execute deploy + frontend wiring + final UAT). Detail: SESSION-2026-05-11-WRAPUP.md + MANUAL-ACTIONS.md § Update #5. Resume guide: SESSION-2026-05-11-WRAPUP.md."
 ---
 
 # Klassio — STATE
@@ -42,7 +43,9 @@ deploy_status:
 
 ## Current Position
 
-**Phase 6 (Voice) — IMPLEMENTATION COMPLETE. Manual UAT отложено пользователю.**
+**Phase 6 IMPLEMENTATION COMPLETE. Phase 6.5 (Hetzner) — PENDING USER ACTION.**
+
+**👉 После /clear читай первым: [`.planning/SESSION-2026-05-11-WRAPUP.md`](.planning/SESSION-2026-05-11-WRAPUP.md)**
 
 - **Production URL**: https://klassio-one.vercel.app — DEPLOYED, working
 - **Phase 1 status**: ✅ DEPLOYED. Auth end-to-end works. Известный UX bug: client-side exception на form submit (email уходит, flow завершается) — non-blocking, отложен на полировку.
@@ -62,10 +65,12 @@ deploy_status:
   - ✅ **Plan 06-02 COMPLETE** (commits 8dc64de, ca87b0f, 5510696): VoicePanel rewrite (ConversationProvider + useConversation + mic-first + 4 Russian errors + bus wiring) + 17 component tests + 11 E2E tests (5 bus-driven + 1 fetch-fail UI + 5 bundle-leak scans). One Rule 1 deviation: SDK v1.6.0 API drift (useConversation now requires ConversationProvider; startSession/endSession return void). Resolved cleanly inside Task 1.
   - ⏳ **Next**: Manual UAT (D-09 #1–9) + Vercel env deploy (см. MANUAL-ACTIONS.md). Затем Phase 6.5 (Hetzner WS proxy) ИЛИ Phase 8 (Pedagogical LLM) ИЛИ Phase 10 (Recording).
 - **Phase 7 status**: ✅ shell deployed; UX bugs (no retry after wrong answer, jitter) — pending редизайн.
-- **Phases done implementation**: 1, 2, 3, 4, 5, 7, 9 (7 из 12). Phases 8, 10, 11, 12 — skeleton CONTEXTs (depend on Phase 6 completion + user decisions).
-- **Resume file для следующей сессии после /clear**: `.planning/PHASE-6-SETUP-2026-05-10.md` (главный) + `.planning/STATE.md` (этот файл) + `.planning/MANUAL-ACTIONS.md`.
+- **Phases done implementation**: 1, 2, 3, 4, 5, 6, 7, 9 (8 из 12). Phase 6.5 — PENDING user action (Hetzner). Phases 8, 10, 11, 12 — depend on Phase 6.5 + user decisions.
+- **Resume file для следующей сессии после /clear**: **`.planning/SESSION-2026-05-11-WRAPUP.md`** (главный — читать первым) + `.planning/STATE.md` (этот файл) + `.planning/MANUAL-ACTIONS.md` § Update #5.
 
 ### Recent transitions
+
+- **2026-05-11 (#26 — Phase 6 manual UAT + Phase 6.5 scaffold)**: Полный день UAT-debugging. Manual тест с реальным голосом не прошёл — 11labs Cloudflare режет RU IPs flaky way даже с VPN. Five fixes shipped along the way: (1) `599e98c` VoicePanel layout — Avatar `flex-1` сжимал controls до 0px, fix h-72 container + shrink-0 controls; (2) `c166f30` suppressHydrationWarning на root layout — Bybit/MetaMask extensions ломали hydration; (3) `c3e6eed` User-Agent header в getSignedUrl — Cloudflare bot-management возвращал 403 HTML "Just a moment..." для node fetch без UA; (4) `bb198a1` убрали firstMessage override — suspected schema mismatch (camelCase vs snake_case) обрывал WS через 1.6s после init; (5) `ab94aba` `?test=1` admin bypass для canStart + terminal-status guards — чтобы не пересоздавать lessons каждые 5 мин при UAT. Diagnostic logging `64b27de` добавлен временно, потом убран в `d5ce2f4`. Final findings: signed-url 200, WS handshake 101, init exchange success — но bot не начинает говорить, connection timeout через ~1.6s. Browser cross-test (Yandex.Browser + Chrome) показал что проблема не в браузере. Vercel deploy successful, env vars выставлены. Phase 6.5 (Hetzner WS proxy Frankfurt) inserted в ROADMAP как decimal phase between 6 и 7 с 8 success criteria; MANUAL-ACTIONS.md § Update #5 содержит пошаговую инструкцию (~30-40 мин user action). SESSION-2026-05-11-WRAPUP.md создан как главный resume guide для следующей сессии.
 
 - **2026-05-10 (#25 — execute 06-02)**: Plan 06-02 (VoicePanel UI + LessonShell topic prop + E2E + bundle-leak scan) executed in ~12 min. 2 TDD tasks, 3 commits (8dc64de RED, ca87b0f GREEN, 5510696 E2E). VoicePanel fully rewritten — ConversationProvider + useConversation, mic-first flow (navigator.mediaDevices.getUserMedia BEFORE POST /api/voice/signed-url), startSession with connectionType:'websocket' + firstMessage override using server-authoritative topic (defense-in-depth Open Q4), 4 SDK callbacks → bus.emit('voice:state', ...) wiring (onConnect → 'idle' per Open Q3, onModeChange → mode, onDisconnect → 'idle', onError → 'idle' + Russian error block), 4 distinct DOMException.name mapped Russian mic errors, cleanup useEffect calls endSession on unmount. LessonShell threads existing topic prop. 17 component tests green (TDD RED→GREEN). 11 Playwright tests landed (5 VOI-01-S bus-driven avatar + 1 fetch-fail UI + 5 VOI-01-T bundle-leak scans against page HTML + JS chunks). 338/338 full Vitest suite. tsc + build clean. **One Rule 1 deviation**: @elevenlabs/react@1.6.0 API drift — useConversation now requires ConversationProvider as ancestor (RESEARCH.md captured pre-1.6.0 standalone-hook API). startSession/endSession return void (not Promise). onConnect/onDisconnect/onError signatures changed. Resolved by wrapping VoicePanel in ConversationProvider (export wraps inner) + dropping await + updating handler signatures. UX behavior identical. Plus 3 minor sub-fixes (stale «Тест шины» smoke test pruned, stable-bus mock for callback-stability test, act() wrapping for async state updates). VOI-01 implementation satisfied. Manual UAT (D-09 #1–9 + Open Q1 allowlist smoke) DEFERRED to developer per plan critical_implementation_rules #11.
 
