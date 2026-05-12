@@ -94,6 +94,13 @@ export function BoardPanel({ lessonId }: BoardPanelProps) {
       const userPrompt = promptText.trim()
       if (!userPrompt) return
 
+      // Auto-clear board state on new prompt — prevents layering of new
+      // explanation on top of the previous one. Without this, repeated
+      // clicks produce overlapping shapes with chaotic fade-in cadence
+      // (new draws on top of still-animating shapes from prior run).
+      const existingIds = Array.from(editor.getCurrentPageShapeIds())
+      if (existingIds.length > 0) editor.deleteShapes(existingIds)
+
       setRunning(true)
       setError(null)
       setCalls([])
