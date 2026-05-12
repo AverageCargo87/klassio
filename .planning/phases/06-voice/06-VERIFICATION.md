@@ -54,7 +54,7 @@ Phase 6 готов к мерджу + закрытию **с одним блоко
 | 1 | Платформа: 11labs Agents (Путь A) | PASS | `@elevenlabs/react@^1.6.0` in `package.json:28`. `useConversation` imported on `components/panels/voice-panel.tsx:24`. SDK install integrity: `npm ls @elevenlabs/react @elevenlabs/client` → `@elevenlabs/react@1.6.0` + `@elevenlabs/client@1.7.0`. |
 | 2 | Транспорт: фронт → Hetzner → WS к 11labs | DEFERRED to 6.5 | CONTEXT.md D-02 lock. ROADMAP SC#2 modified ("отложен на Phase 6.5"). Текущий путь: dev-юзер ↔ 11labs напрямую через signed URL (с VPN-туннелем для OpenAI). |
 | 3 | Юзер без VPN | DEFERRED to 6.5 | Same as #2 — требует Hetzner WS-proxy. ROADMAP SC#3 modified to "Dev-юзер на VPN". |
-| 4 | API-ключи только на сервере | PASS | `grep -rE "NEXT_PUBLIC_ELEVENLABS"` в коде = no source matches (только в `.planning/` docs). `grep -rn "ELEVENLABS_API_KEY" components/` = no matches. Только `app/api/voice/signed-url/route.ts:80` + `lib/elevenlabs/get-signed-url.ts` читают env. Plus: built `.next/static/*.js` scan = no matches for `ELEVENLABS_API_KEY` / `ELEVENLABS_AGENT_ID` / `agent_7701kr9c...` / `sk_ec83844...` / `NEXT_PUBLIC_ELEVENLABS`. |
+| 4 | API-ключи только на сервере | PASS | `grep -rE "NEXT_PUBLIC_ELEVENLABS"` в коде = no source matches (только в `.planning/` docs). `grep -rn "ELEVENLABS_API_KEY" components/` = no matches. Только `app/api/voice/signed-url/route.ts:80` + `lib/elevenlabs/get-signed-url.ts` читают env. Plus: built `.next/static/*.js` scan = no matches for `ELEVENLABS_API_KEY` / `ELEVENLABS_AGENT_ID` / `agent_7701kr9c...` / `sk_<REDACTED-OLD-KEY>` / `NEXT_PUBLIC_ELEVENLABS`. |
 | 5 | Прямой клиент-к-11labs из РФ | DEFERRED to 6.5 | Same scope deferral as #2/#3. |
 | 6 | Голос: русский 11labs (Multilingual v2 / Flash v2.5), одобрен | PASS | PHASE-6-SETUP-2026-05-10.md § 0/3: Nataly (Youthful, Gentle and Soft) + Eleven Multilingual v2. Tested 2026-05-10 в 11labs Test Agent UI; v3 Alpha downgraded after global русского произношения. |
 | 7 | Платежи 11labs (Creator подписка активна) | PASS | STATE.md: "Creator subscription активирована" — out of dev scope per CONTEXT § D-01. |
@@ -83,13 +83,13 @@ Phase 6 готов к мерджу + закрытию **с одним блоко
 | Check | Command | Result | Status |
 |-------|---------|--------|--------|
 | 1. `NEXT_PUBLIC_ELEVENLABS` в коде | `grep -rE "NEXT_PUBLIC_ELEVENLABS" --include='*.{ts,tsx,js,jsx,json}' . \| grep -v node_modules \| grep -v .next/ \| grep -v .planning/` | NO code matches (только `.planning/phases/06-voice/*.md` — план/summary документация, корректно) | PASS |
-| 2. literal `sk_ec83844` в client коде | `grep -rn "sk_ec83844" components/ app/ lib/` | (no matches) | PASS |
+| 2. literal `sk_<REDACTED-OLD-KEY>` в client коде | `grep -rn "sk_<REDACTED-OLD-KEY>" components/ app/ lib/` | (no matches) | PASS |
 | 3. `ELEVENLABS_API_KEY` в `components/` | `grep -rn "ELEVENLABS_API_KEY" components/` | (no matches) | PASS |
 | 3b. `ELEVENLABS_API_KEY` где допустимо (server-only) | `grep -rn "ELEVENLABS_API_KEY" app/api/voice/signed-url/route.ts lib/elevenlabs/` | `route.ts:80` (process.env read) + `route.ts:8` (security comment) + `get-signed-url.ts:4` (security comment) — все server-side | PASS |
 | 4. literal Agent ID в `components/` или `app/` (кроме server route + tests) | `grep -rn "agent_7701kr9c2v7eev3tabzv4f2b0e8b" components/ app/ lib/` | `app/api/voice/signed-url/route.ts:4` — комментарий в server-only routem (не shipped to client). NO matches в components/ или lib/ | PASS |
 | 5. Built bundle: `ELEVENLABS_API_KEY` в `.next/static/` | `find .next/static -type f \( -name '*.js' -o -name '*.html' \) \| xargs grep -l "ELEVENLABS_API_KEY"` | (no matches) | PASS |
 | 5b. Built bundle: literal Agent ID в `.next/static/` | `find .next/static -type f \| xargs grep -l "agent_7701kr9c2v7eev3tabzv4f2b0e8b"` | (no matches) | PASS |
-| 5c. Built bundle: API key prefix `sk_ec83844` в `.next/static/` | `find .next/static -type f \| xargs grep -l "sk_ec83844"` | (no matches) | PASS |
+| 5c. Built bundle: API key prefix `sk_<REDACTED-OLD-KEY>` в `.next/static/` | `find .next/static -type f \| xargs grep -l "sk_<REDACTED-OLD-KEY>"` | (no matches) | PASS |
 | 5d. Built bundle: `NEXT_PUBLIC_ELEVENLABS` в `.next/static/` | `find .next/static -type f \| xargs grep -l "NEXT_PUBLIC_ELEVENLABS"` | (no matches) | PASS |
 
 **Verdict: D-05 ABSOLUTE PASS.** Ключи проверены на 3 уровнях — source code, generated build artifacts, AND через 5 автоматических E2E тестов (запускаются по требованию против running server).
@@ -240,7 +240,7 @@ The remaining 6 items in `human_verification` block need a developer with VPN + 
 ## Open Issues for Next Sessions
 
 1. **Awaiting:** Developer's manual UAT session (D-09 #5/#6/#7/#9 + Open Q1 + latency). Procedure copy-pasted in `06-02-SUMMARY.md`.
-2. **Awaiting:** API key rotation (per `MANUAL-ACTIONS.md` Step 2) — post-prod-deploy hygiene. Key `sk_ec83844...` оказался в чат-логах 2026-05-10 session.
+2. **Awaiting:** API key rotation (per `MANUAL-ACTIONS.md` Step 2) — post-prod-deploy hygiene. Key `sk_<REDACTED-OLD-KEY>` оказался в чат-логах 2026-05-10 session.
 3. **Tracking separately:** Phase 6.5 (Hetzner WS proxy) — required before first РФ-без-VPN beta user. Setup steps in `MANUAL-ACTIONS.md` lines 155-187.
 4. **Informational:** Latency optimization (Eagerness=High или Turbo v2.5) — measure first, optimize в 6.5 if > 3.5s budget.
 

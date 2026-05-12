@@ -66,7 +66,7 @@ status: Phase 6 implementation COMPLETE, Phase 6.5 PENDING user (Hetzner setup)
 
 ### USER ACTIONS pending
 
-- **API key rotation** — `sk_ec83844...` попал в чат-логи Claude 10 мая. Создать новый ключ в 11labs Settings → API Keys, заменить в Vercel + `.env.local`. ~5 мин.
+- **API key rotation** — `sk_<REDACTED-OLD-KEY>` попал в чат-логи Claude 10 мая. Создать новый ключ в 11labs Settings → API Keys, заменить в Vercel + `.env.local`. ~5 мин.
 - **Hetzner setup** — следующий шаг, подробности ниже.
 
 ### Известные TODO (отложены до Phase 6.5)

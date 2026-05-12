@@ -343,7 +343,7 @@ Voice ID:  не нужен (голос привязан к Agent ID)
 
 ```
 # 11labs Conversational AI (Phase 6)
-ELEVENLABS_API_KEY=sk_<REDACTED-OLD-KEY>
+ELEVENLABS_API_KEY=sk_<REDACTED-rotate-this-key-2026-05-12>
 ELEVENLABS_AGENT_ID=agent_7701kr9c2v7eev3tabzv4f2b0e8b
 ```
 
@@ -362,7 +362,7 @@ vercel env ls
 
 ### ⚠️ Phase 6, Step 2 — Ротация API Key (USER ACTION, ПОСЛЕ deploy)
 
-API key `sk_ec83844ed07112fbe33c55...` попал в чат-логи Claude (dev session 2026-05-10). После того как Phase 6 интеграция задеплоится и заработает в проде:
+API key `sk_<REDACTED-OLD-KEY>` попал в чат-логи Claude (dev session 2026-05-10). После того как Phase 6 интеграция задеплоится и заработает в проде:
 
 1. На 11labs → Settings → API Keys → **Create API Key** новый (те же permissions: ElevenAgents=Write, Voices=Read, History=Read)
 2. Положить новый ключ в `.env.local` + `vercel env add ELEVENLABS_API_KEY production` (можно `vercel env rm` старый сначала или `vercel env pull` для diff)
@@ -443,7 +443,7 @@ npm run dev
 
 ### ⚠️ Phase 6, Step 5 — Ротация API Key (USER ACTION, всё ещё PENDING)
 
-API key `sk_ec83844...` всё ещё в чат-логах. После того как Phase 6 задеплоится в прод и UAT пройдёт:
+API key `sk_<REDACTED-OLD-KEY>` всё ещё в чат-логах. После того как Phase 6 задеплоится в прод и UAT пройдёт:
 
 См. **Step 2 — Ротация API Key** выше — процедура та же.
 
