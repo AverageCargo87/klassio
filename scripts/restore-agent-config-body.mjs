@@ -1,36 +1,53 @@
 // scripts/restore-agent-config-body.mjs
 //
-// Pure body builder for the Phase 8 agent restore script. Factored out of
-// scripts/restore-agent-config.mjs so the PATCH payload shape (especially the
-// 6 client tool definitions per D-07) is unit-testable without invoking fetch.
+// Pure body builders for the Phase 8 agent restore script. Factored out of
+// scripts/restore-agent-config.mjs so the PATCH payload shape is unit-testable
+// without invoking fetch.
 //
-// CRITICAL: PATCH body key is `conversation_config` (snake_case, singular).
-// This is VERIFIED working in production from the Phase 6.5 restore. The 11labs
-// API reference confusingly shows the adjective-form key (with extra 'ational')
-// in some places, but the script in production uses the noun-form snake_case
-// key shown above and 11labs accepts it. Do NOT change this key without
-// re-verifying via live PATCH.
+// API migration note (2026-05-13 live PATCH attempt revealed):
+// ─────────────────────────────────────────────────────────────
+// 11labs deprecated inline `agent.prompt.tools[]` for custom client tools.
+// New model:
+//   1. POST /v1/convai/tools  — create each tool as a workspace resource,
+//      get back a tool_id.
+//   2. PATCH /v1/convai/agents/{id} with `agent.prompt.tool_ids[]` —
+//      attach the workspace tools to this agent.
+//
+// `agent.prompt.tools[]` is now read-only and contains only built-in tools
+// (end_call, language_detection). PATCHing custom client definitions there
+// silently fails: HTTP 200 but tools are dropped.
+//
+// This matches RESEARCH § Risk 6: "11labs API may change before phase ships".
+// It did. We adapt.
+
+// ─── Phase 6 baseline (constant across phases) ──────────────────────────────
+export const NATALY_VOICE_ID = 'NhY0kyTmsKuEpHvDMngm'
+export const TTS_MODEL_ID = 'eleven_multilingual_v2'
+export const LLM_MODEL = 'gpt-4.1-mini'
+export const LANGUAGE = 'ru'
 
 /**
- * Six client tool definitions per Phase 8 D-07.
- * - `type: 'client'`     — handler lives in browser, invoked via SDK callback
- * - `execution_mode: 'immediate'` — agent continues speaking while result is returned
- *                                   (supports INV-02 fire-and-forget per D-09)
- * - `expects_response: true` — Nataly will receive the ack/error string back and
- *                              can reason about success/failure of the tool call
- * - `response_timeout_secs: 20` — generous, since handlers themselves return in
- *                                  < 50ms (the fire-and-forget animation is decoupled)
+ * Six client tool definitions per Phase 8 D-07. These are the tool_config
+ * payloads passed to POST /v1/convai/tools to create the tools as workspace
+ * resources. The returned tool_ids are then attached to the agent.
  *
- * IMPORTANT: PATCH /v1/convai/agents/{id} OVERWRITES the entire tools array
- * (RESEARCH § 4). Whenever this script ships, it must include ALL tools the
- * agent needs across all phases — there is no merge.
+ * - `type: 'client'` — handler lives in browser, invoked via SDK callback.
+ * - `execution_mode: 'immediate'` — agent continues speaking while result returns
+ *   (supports INV-02 fire-and-forget per D-09).
+ * - `expects_response: true` — Nataly receives the ack/error string back.
+ * - `response_timeout_secs: 20` — generous; handlers return in < 50ms.
+ *
+ * Schema notes from live PATCH testing:
+ * - `enum` on `type: 'number'` is REJECTED by 11labs validator (HTTP 400 —
+ *   "Input should be a valid string"). Constraint moved from schema to handler
+ *   (see lib/client-tools/handlers.ts:143). LLM is steered via description.
  */
 export const PHASE_8_TOOLS = [
   {
     type: 'client',
     name: 'draw_explanation',
     description:
-      'Нарисовать математическое объяснение на доске. Зови когда вводишь новую тему или нужно визуально пояснить ошибку. Возвращается мгновенно — анимация идёт в фоне, ты можешь продолжать говорить.',
+      'Нарисовать математическое объяснение на доске. Зови когда вводишь новую тему или нужно визуально пояснить ошибку.',
     response_timeout_secs: 20,
     expects_response: true,
     execution_mode: 'immediate',
@@ -40,7 +57,7 @@ export const PHASE_8_TOOLS = [
         prompt: {
           type: 'string',
           description:
-            'Что нарисовать на русском. Пример: "сложение в столбик 245+874", "разбор дроби 3/8 на доске".',
+            'Что нарисовать на русском, например "сложение в столбик 245+874" или "разбор дроби 3/8".',
         },
       },
       required: ['prompt'],
@@ -50,9 +67,9 @@ export const PHASE_8_TOOLS = [
     type: 'client',
     name: 'clear_board',
     description:
-      'Очистить доску перед началом новой темы. Используй когда заканчиваешь объяснение и переходишь к практике, чтобы доска не была загромождена.',
-    response_timeout_secs: 20,
-    expects_response: true,
+      'Очистить доску. Зови перед переходом к новой теме или к практике в тренажёре.',
+    response_timeout_secs: 5,
+    expects_response: false,
     execution_mode: 'immediate',
     parameters: { type: 'object', properties: {} },
   },
@@ -60,7 +77,7 @@ export const PHASE_8_TOOLS = [
     type: 'client',
     name: 'goto_trainer_task',
     description:
-      'Переместить ребёнка к конкретной задаче в тренажёре. Используй когда нужно вернуть его к предыдущей задаче, перебросить вперёд или повторить.',
+      'Переместить ребёнка к конкретной задаче в тренажёре. Зови когда хочешь дать конкретное задание или вернуться к предыдущему.',
     response_timeout_secs: 20,
     expects_response: true,
     execution_mode: 'immediate',
@@ -69,7 +86,7 @@ export const PHASE_8_TOOLS = [
       properties: {
         taskId: {
           type: 'string',
-          description: 'ID задачи из конфигурации урока, например "task-1", "task-2".',
+          description: 'ID задачи формата "task-1", "task-2" и т.д.',
         },
       },
       required: ['taskId'],
@@ -79,7 +96,7 @@ export const PHASE_8_TOOLS = [
     type: 'client',
     name: 'highlight_trainer_task',
     description:
-      'Визуально подсветить задачу в тренажёре, БЕЗ переключения «текущей». Используй чтобы обратить внимание ребёнка на конкретное задание во время объяснения.',
+      'Визуально подсветить задачу в тренажёре без переключения текущей. Используй когда обсуждаешь задачу с ребёнком.',
     response_timeout_secs: 20,
     expects_response: true,
     execution_mode: 'immediate',
@@ -109,8 +126,8 @@ export const PHASE_8_TOOLS = [
         taskId: { type: 'string', description: 'ID задачи.' },
         hintLevel: {
           type: 'number',
-          enum: [1, 2, 3],
-          description: 'Уровень подсказки: 1 (мягкая), 2 (средняя), 3 (полное решение).',
+          description:
+            'Уровень подсказки. Допустимые значения: 1 (мягкая наводящая), 2 (средняя), 3 (полное решение). Передавай только 1, 2 или 3 — другие числа handler отклонит.',
         },
       },
       required: ['taskId', 'hintLevel'],
@@ -128,34 +145,47 @@ export const PHASE_8_TOOLS = [
   },
 ]
 
-// Phase 6 baseline values that stay constant across phases — voice + TTS model.
-export const NATALY_VOICE_ID = 'NhY0kyTmsKuEpHvDMngm'
-export const TTS_MODEL_ID = 'eleven_multilingual_v2'
-export const LLM_MODEL = 'gpt-4.1-mini'
-export const LANGUAGE = 'ru'
+/**
+ * Names of tools owned by Phase 8. Used to (a) match existing workspace tools
+ * for cleanup before re-creation, (b) verify the agent has all 6 attached after
+ * PATCH. Webhook/MCP tools in the workspace (e.g. send_to_makeAI, n8n-*) are
+ * NOT in this set and must NOT be touched by the restore script.
+ */
+export const PHASE_8_TOOL_NAMES = PHASE_8_TOOLS.map((t) => t.name)
 
 /**
- * Build the full PATCH body for /v1/convai/agents/{id}.
+ * Build the per-tool create body for POST /v1/convai/tools. Returns
+ *   { tool_config: <PHASE_8_TOOLS entry> }
  *
- * PATCH semantics: tools array is REPLACED, not merged (RESEARCH § 4).
- * Every call must pass ALL tools the agent should have post-PATCH.
+ * The 11labs API wraps the tool definition inside a `tool_config` envelope.
+ */
+export function buildToolCreateBody(toolDef) {
+  if (!toolDef || typeof toolDef !== 'object' || typeof toolDef.name !== 'string') {
+    throw new Error('buildToolCreateBody: toolDef must be an object with a name')
+  }
+  return { tool_config: toolDef }
+}
+
+/**
+ * Build the PATCH body for /v1/convai/agents/{id} — the agent-side update that
+ * sets prompt, first message, voice, LLM, and attaches workspace tools by ID.
  *
  * @param {object} args
- * @param {string} args.prompt        — full system prompt text (loaded from PROMPT_PATH)
- * @param {string} args.firstMessage  — first message Nataly speaks on session start
+ * @param {string} args.prompt        — full system prompt text
+ * @param {string} args.firstMessage  — first message Nataly speaks
  * @param {string} [args.voiceId]     — defaults to Nataly voice ID
- * @param {Array}  args.tools         — typically PHASE_8_TOOLS; explicit param so future phases can extend
- * @returns {object}                  — { conversation_config: { agent: {...}, tts: {...} } }
+ * @param {string[]} args.toolIds     — workspace tool IDs from POST /v1/convai/tools
+ * @returns {object}
  */
-export function buildAgentPatchBody({ prompt, firstMessage, voiceId, tools }) {
+export function buildAgentPatchBody({ prompt, firstMessage, voiceId, toolIds }) {
   if (typeof prompt !== 'string' || prompt.length === 0) {
     throw new Error('buildAgentPatchBody: prompt is required (non-empty string)')
   }
   if (typeof firstMessage !== 'string') {
     throw new Error('buildAgentPatchBody: firstMessage is required (string)')
   }
-  if (!Array.isArray(tools)) {
-    throw new Error('buildAgentPatchBody: tools must be an array')
+  if (!Array.isArray(toolIds)) {
+    throw new Error('buildAgentPatchBody: toolIds must be an array')
   }
   return {
     conversation_config: {
@@ -165,7 +195,7 @@ export function buildAgentPatchBody({ prompt, firstMessage, voiceId, tools }) {
         prompt: {
           prompt,
           llm: LLM_MODEL,
-          tools,
+          tool_ids: toolIds,
         },
       },
       tts: {
