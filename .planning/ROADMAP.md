@@ -223,7 +223,7 @@ Plans:
 Plans:
 - [x] 08-01-PLAN.md — Wave 0 RED test scaffolds + 2 new bus events (board:draw_request, board:clear_request)
 - [x] 08-02-PLAN.md — Wave 1 pure libs: lib/client-tools + lib/contextual-updates + lib/lesson-state
-- [ ] 08-03-PLAN.md — Wave 1 agent config: scripts/restore-agent-config-body.mjs + extended restore-agent-config.mjs + PHASE-6-SETUP § 9.5 Phase 8 addendum
+- [x] 08-03-PLAN.md — Wave 1 agent config: scripts/restore-agent-config-body.mjs + extended restore-agent-config.mjs + PHASE-6-SETUP § 9.5 Phase 8 addendum
 - [ ] 08-04-PLAN.md — Wave 2 VoicePanel wiring: clientTools + dynamicVariables + 3 trainer event subscriptions + state refs (Phase 6.5 cleanup-bug guard preserved)
 - [ ] 08-05-PLAN.md — Wave 2 BoardPanel + LessonShell: board:draw_request/board:clear_request subscriptions + trainerConfig thread to VoicePanel
 - [ ] 08-06-PLAN.md — Wave 3 periodic checkpoint: lib/periodic-checkpoint + VoicePanel useEffect on conversation.status
