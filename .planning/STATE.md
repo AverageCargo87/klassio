@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: milestone
-status: phase_6_5_complete_voice_works_in_browser_with_vpn
-last_updated: "2026-05-12T18:00:00Z"
+status: phase_8_context_gathered_ready_for_plan
+last_updated: "2026-05-13T00:00:00Z"
 progress:
   total_phases: 12
   completed_phases: 9
-  active_phase: null
+  active_phase: 8
   blocked_phases: 3   # 10, 11, 12 (Phase 8 now unblocked; Phase 6.5 ✓)
   total_plans: 23
   completed_plans: 23
@@ -20,6 +20,7 @@ deploy_status:
   phase_4: "DEPLOYED ✓ — board renders explanations correctly. Phase 6.5 added pacing fix (FADE_IN 900→1500ms, highlight dedup, killed scene+template duplicate path in system prompt) — column-addition now visibly slower and one-pass."
   phase_6: "DEPLOYED ✓ — voice works in browser through Phase 6.5 proxy (user-confirmed 2026-05-12 with VPN). 11labs agent spec restored via scripts/restore-agent-config.mjs after demo-template drift. Cleanup-effect bug (existed since Phase 6, masked by CF cut) fixed in c261fb0."
   phase_6_5: "DEPLOYED ✓ (2026-05-12) — h2.nexus Frankfurt VPS (NOT Hetzner — banned, NOT DO — rejected card; landed on h2.nexus via SBP). Node WS-proxy via nginx + Let's Encrypt + systemd. HMAC handshake. End-to-end test: 380 KB audio over 20 sec. Browser UAT with VPN: 40+ sec stable. Without-VPN UAT pending user re-test. Transcript chat UI added in same phase per user request."
+  phase_8: "CONTEXT GATHERED ✓ (2026-05-13) — discuss-phase 8 (agent-control redefined). 4 areas, 11 decisions captured in 08-CONTEXT.md. Plan-phase next."
 ---
 
 # Klassio — STATE
@@ -71,6 +72,8 @@ deploy_status:
 - **Resume file для следующей сессии после /clear**: **`.planning/SESSION-2026-05-11-WRAPUP.md`** (главный — читать первым) + `.planning/STATE.md` (этот файл) + `.planning/MANUAL-ACTIONS.md` § Update #5.
 
 ### Recent transitions
+
+- **2026-05-13 (#27 — discuss-phase 8 agent-control)**: Phase 8 редизайн (от 2026-05-12) обсуждён и зафиксирован. 4 области из user-authored `08-OPEN-QUESTIONS.md` пройдены: Flow модель тренажёра, Layout, Board-vs-Trainer для объяснений, Tool surface + event flow. 11 решений (D-01..D-11) в `.planning/phases/08-agent-control/08-CONTEXT.md`. Главные локи: (1) **Flow** = linear-by-default + Nataly override через `goto_trainer_task` (D-01); (2) **Progress UI** = подсветка текущей + лёгкий счётчик «N из M» без gamification (D-02); (3) **State ownership** = frontend canonical, Nataly performer — mini-recap при transitions + periodic checkpoint каждые ~10 мин + опциональный `get_lesson_state` tool как safety net (D-03), отвечает на user-флаг «контекст у LLM может протухнуть за 45-60 мин»; (4) **Lesson phases** = только нарратив в system prompt, никаких state machine (D-04); (5) **Layout** = Phase 8 НЕ трогает, redesign в Phase 11 (D-05); (6) **Board+Trainer** = гибрид, доска для анимаций через 15 готовых `explain_*` scenes (Phase 5), тренажёр для практики через 3 существующих task-типа (D-06); (7) **Client tools** = 4 baseline (`draw_explanation`, `clear_board`, `goto_trainer_task`, `highlight_trainer_task`) + 2 extensions (`show_hint`, `get_lesson_state`); deferred `set_lesson_phase` (D-07); (8) **Trainer→agent forwarding** = 3 significant events (answer_submitted, hint_opened, idle_15s) через `sendContextualUpdate`; task_focused остаётся internal (D-08); (9) **Tool semantics** = fire-and-forget с быстрым ack чтобы Nataly могла говорить параллельно с анимацией (поддерживает INV-02), errors как строки не throws (D-09); (10) **dynamic_variables** на старте — lesson_topic + total_tasks; task_summaries и child_name отложены (D-10); (11) **Agent config update** = расширяем `scripts/restore-agent-config.mjs` чтобы PATCH'ил tool definitions + новый system prompt (D-11). Файлы: `08-CONTEXT.md` (canonical, commit `2e3574f`), `08-DISCUSSION-LOG.md` (audit trail, same commit), `08-OPEN-QUESTIONS.md` (input, не изменялся). 12 deferred ideas каталогизированы. **Next**: `/gsd-plan-phase 8` для PLAN.md.
 
 - **2026-05-11 (#26 — Phase 6 manual UAT + Phase 6.5 scaffold)**: Полный день UAT-debugging. Manual тест с реальным голосом не прошёл — 11labs Cloudflare режет RU IPs flaky way даже с VPN. Five fixes shipped along the way: (1) `599e98c` VoicePanel layout — Avatar `flex-1` сжимал controls до 0px, fix h-72 container + shrink-0 controls; (2) `c166f30` suppressHydrationWarning на root layout — Bybit/MetaMask extensions ломали hydration; (3) `c3e6eed` User-Agent header в getSignedUrl — Cloudflare bot-management возвращал 403 HTML "Just a moment..." для node fetch без UA; (4) `bb198a1` убрали firstMessage override — suspected schema mismatch (camelCase vs snake_case) обрывал WS через 1.6s после init; (5) `ab94aba` `?test=1` admin bypass для canStart + terminal-status guards — чтобы не пересоздавать lessons каждые 5 мин при UAT. Diagnostic logging `64b27de` добавлен временно, потом убран в `d5ce2f4`. Final findings: signed-url 200, WS handshake 101, init exchange success — но bot не начинает говорить, connection timeout через ~1.6s. Browser cross-test (Yandex.Browser + Chrome) показал что проблема не в браузере. Vercel deploy successful, env vars выставлены. Phase 6.5 (Hetzner WS proxy Frankfurt) inserted в ROADMAP как decimal phase between 6 и 7 с 8 success criteria; MANUAL-ACTIONS.md § Update #5 содержит пошаговую инструкцию (~30-40 мин user action). SESSION-2026-05-11-WRAPUP.md создан как главный resume guide для следующей сессии.
 
