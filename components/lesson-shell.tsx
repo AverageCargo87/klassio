@@ -120,7 +120,7 @@ export function LessonShell({ lessonId, topic, trainerConfig }: LessonShellProps
               Tablet stack uses vh-based heights so the trio fits within ~60vh of column space. */}
           <div className="flex flex-col gap-2 min-h-0">
             <div className="min-h-0 h-[20vh] lg:h-64 shrink-0">
-              <VoicePanel lessonId={lessonId} topic={topic} />
+              <VoicePanel lessonId={lessonId} topic={topic} trainerConfig={trainerConfig} />
             </div>
             <div className="min-h-0 h-[18vh] lg:h-56 shrink-0">
               <TranscriptPanel lessonId={lessonId} />
