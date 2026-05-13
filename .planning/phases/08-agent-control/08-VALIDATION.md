@@ -2,8 +2,8 @@
 phase: 8
 slug: agent-control
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-13
 ---
 
@@ -19,7 +19,7 @@ created: 2026-05-13
 | Property | Value |
 |----------|-------|
 | **Framework** | vitest 4.x + Playwright 1.59 |
-| **Config file** | `tldraw-test/vitest.config.ts` (exists) + `tldraw-test/playwright.config.ts` (exists) |
+| **Config file** | `vitest.config.ts` (exists) + `playwright.config.ts` (exists) — executors run inside the `tldraw-test/` repo as working directory; paths are bare |
 | **Quick run command** | `npx vitest run --reporter=verbose` |
 | **Full suite command** | `npx vitest run --reporter=verbose && npx playwright test --project=chromium` |
 | **Estimated runtime** | ~45-90 seconds (vitest only ~15s; E2E adds ~30-75s depending on lesson session bootstrap) |
@@ -38,6 +38,7 @@ created: 2026-05-13
 ## Per-Task Verification Map
 
 > Planner fills final Task IDs after PLAN.md generation. Below is the **research-derived requirement → test mapping** that plans must cover.
+> All paths bare (no `tldraw-test/` prefix) — executors run inside the `tldraw-test/` repo as the working directory.
 
 | Req ID | Behavior | Wave | Test Type | Automated Command | File Exists |
 |--------|----------|------|-----------|-------------------|-------------|
@@ -55,6 +56,8 @@ created: 2026-05-13
 | PED-02 | `trainer:idle_15s` → `sendContextualUpdate("Ребёнок молчит 15 сек на task-N")` | 1 | unit | `vitest run lib/__tests__/contextual-update-formatters.test` | ❌ W0 |
 | PED-02 | `task_focused` event is **not** forwarded (allow-list discipline) | 1 | unit | `vitest run lib/__tests__/contextual-update-formatters.test` | ❌ W0 |
 | PED-02 | VoicePanel subscribes to forwarded trainer events without re-running on `conversation` ref change (Phase 6.5 cleanup-bug guard) | 2 | component | `vitest run components/panels/__tests__/voice-panel-subs.test` | ❌ W0 |
+| PED-02 | `visibilitychange` (document.hidden) → `sendContextualUpdate` via `lib/proactive-triggers/visibility.ts` | 6 | unit | `vitest run lib/__tests__/proactive-triggers-visibility.test` | ⬜ W0 stub → flips GREEN in Wave 6 (plan 08-08) |
+| PED-02 | Consecutive mistakes ≥ 2 → `sendContextualUpdate` via `lib/proactive-triggers/mistakes.ts` | 6 | unit | `vitest run lib/__tests__/proactive-triggers-mistakes.test` | ⬜ W0 stub → flips GREEN in Wave 6 (plan 08-08) |
 | HTM-01 | Before `goto_trainer_task` emit, frontend sends mini-recap update `"Переход task-A→task-B. Решено: …"` | 1 | unit | `vitest run lib/__tests__/client-tool-handlers.test` | ❌ W0 |
 | HTM-01 | Periodic checkpoint fires every ~10 min (fake timers): `"⏱ 10 мин урока. Решено: N/M, ошибок: K."` | 3 | unit | `vitest run lib/__tests__/periodic-checkpoint.test` | ❌ W0 |
 | HTM-01 | Progress UI in TrainerPanel: current task has visual ring/border + lightweight counter "N из M" | 4 | component | `vitest run components/panels/__tests__/trainer-panel-progress.test` | ❌ W0 |
@@ -92,16 +95,19 @@ Reference: Phase 6's `e2e/voice-flow.spec.ts` already mocks `useConversation` at
 ## Wave 0 Requirements
 
 All Wave 0 test files **must exist before any production code is written** (per planner heuristic — RED before GREEN).
+All paths bare (no `tldraw-test/` prefix) — executors run inside the `tldraw-test/` repo as the working directory.
 
-- [ ] `tldraw-test/lib/__tests__/client-tool-handlers.test.ts` — stubs for 6 client tools (LLM-01)
-- [ ] `tldraw-test/lib/__tests__/contextual-update-formatters.test.ts` — stubs for 3 event forwarders + allow-list (PED-02)
-- [ ] `tldraw-test/lib/__tests__/lesson-state.test.ts` — stubs for `get_lesson_state` compact format (LLM-01)
-- [ ] `tldraw-test/lib/__tests__/periodic-checkpoint.test.ts` — stubs with fake timers for 10-min cadence (HTM-01)
-- [ ] `tldraw-test/scripts/__tests__/restore-agent-config.test.ts` — stubs for tool definitions PATCH payload (LLM-01)
-- [ ] `tldraw-test/components/panels/__tests__/voice-panel-tools.test.tsx` — stubs for `clientTools` + `dynamicVariables` wiring (LLM-01)
-- [ ] `tldraw-test/components/panels/__tests__/voice-panel-subs.test.tsx` — stubs for Phase 6.5 cleanup-bug guard (PED-02)
-- [ ] `tldraw-test/components/panels/__tests__/trainer-panel-progress.test.tsx` — stubs for ring + counter + smooth-scroll (HTM-01)
-- [ ] `tldraw-test/e2e/voice-agent-tools.spec.ts` — E2E scaffold (LLM-01 + PED-02 + HTM-01)
+- [ ] `lib/__tests__/client-tool-handlers.test.ts` — stubs for 6 client tools (LLM-01)
+- [ ] `lib/__tests__/contextual-update-formatters.test.ts` — stubs for 3 event forwarders + allow-list (PED-02)
+- [ ] `lib/__tests__/lesson-state.test.ts` — stubs for `get_lesson_state` compact format (LLM-01)
+- [ ] `lib/__tests__/periodic-checkpoint.test.ts` — stubs with fake timers for 10-min cadence (HTM-01)
+- [ ] `lib/__tests__/proactive-triggers-visibility.test.ts` — RED stub for `lib/proactive-triggers/visibility.ts` (visibilitychange detector emits `voice:contextual_update` via `sendContextualUpdate` when `document.hidden` becomes true; latched-ref pattern; debounced) (PED-02)
+- [ ] `lib/__tests__/proactive-triggers-mistakes.test.ts` — RED stub for `lib/proactive-triggers/mistakes.ts` (consecutive ≥ 2 wrong answers triggers `sendContextualUpdate`; resets on correct or task-switch; fires once per streak) (PED-02)
+- [ ] `scripts/__tests__/restore-agent-config.test.ts` — stubs for tool definitions PATCH payload (LLM-01)
+- [ ] `components/panels/__tests__/voice-panel-tools.test.tsx` — stubs for `clientTools` + `dynamicVariables` wiring (LLM-01)
+- [ ] `components/panels/__tests__/voice-panel-subs.test.tsx` — stubs for Phase 6.5 cleanup-bug guard (PED-02)
+- [ ] `components/panels/__tests__/trainer-panel-progress.test.tsx` — stubs for ring + counter + smooth-scroll (HTM-01)
+- [ ] `e2e/voice-agent-tools.spec.ts` — E2E scaffold (LLM-01 + PED-02 + HTM-01)
 
 Framework already installed (vitest + Playwright from Phase 6); no install step required.
 
@@ -120,11 +126,11 @@ Framework already installed (vitest + Playwright from Phase 6); no install step 
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags (`vitest run`, not `vitest watch`; `playwright test`, not `--ui`)
-- [ ] Feedback latency < 30s for unit tier
-- [ ] `nyquist_compliant: true` set in frontmatter (after gsd-plan-checker validates)
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references (including PED-02 proactive-triggers visibilitychange + consecutive-mistakes scaffolds added in revision iteration 1)
+- [x] No watch-mode flags (`vitest run`, not `vitest watch`; `playwright test`, not `--ui`)
+- [x] Feedback latency < 30s for unit tier
+- [x] `nyquist_compliant: true` set in frontmatter (after gsd-plan-checker validates — revision iteration 1)
 
-**Approval:** pending
+**Approval:** approved (revision iteration 1 — plan-checker BLOCKER 2 + 3 resolved)

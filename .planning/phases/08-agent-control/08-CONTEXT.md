@@ -232,6 +232,8 @@ Nataly (11labs Conversational AI агент, `agent_7701kr9c2v7eev3tabzv4f2b0e8b
 - **`get_progress()` от тренажёра как pull** (альтернатива sendContextualUpdate push) — рассматривали в Q5(c), не выбираем для MVP (push простoy, надёжнее, симметричнее с D-03 frontend-canonical).
 - **`get_lesson_state` логика hardening** — если выяснится что Nataly слишком часто его зовёт «на всякий случай», ввести rate limit или throttle. Phase 12 polish.
 - **Возврат к Anthropic** для Pedagogical LLM — отдельный decision требует обхода CON-anthropic-rf-block (TLS-fingerprint blocking). Не в Phase 8.
+- **PED-02 trigger 4 — fast-poke detection (< 2 секунд между неправильными ответами)** — Phase 8.5 / Phase 12. Rationale: Low-priority signal для MVP; `consecutive_mistakes` уже покрывает «застрял» более надёжно. Fast-poke потребовал бы sub-second timing tracking на каждом answer submission — overhead не оправдан пока dry-run не покажет что он действительно нужен. REQUIREMENTS.md PED-02 acceptance #1 item 4 — отложен.
+- **PED-02 trigger 5 — кнопка «Помощь» в тренажёре** — Phase 11 (UI redesign). Rationale: В текущем TrainerPanel UI нет «Помощь»-кнопки; добавление это layout-решение, которое относится к Phase 11. В v1 ребёнок зовёт на помощь голосом («учительница, помоги»), и Nataly обрабатывает это через свой обычный voice / system-prompt цикл. REQUIREMENTS.md PED-02 acceptance #1 item 5 — отложен в Phase 11.
 
 </deferred>
 

@@ -726,11 +726,16 @@ The mocked `useConversation` pattern from Phase 6 `voice-flow.spec.ts` is the re
 
 ---
 
-## Open Questions for Planner
+## Open Questions for Planner (RESOLVED)
+
+> All 6 Open Questions raised during research are RESOLVED as of plan-checker iteration 1.
+> Each OQ has an inline `**RESOLVED:**` line specifying the chosen option and where it lands in the plan set.
 
 ### OQ-1: board:draw_request Bus Event vs BoardContext
 
-**Unresolved:** How does `draw_explanation` client tool handler access the tldraw Editor?
+**RESOLVED:** Option B — `board:draw_request` bus event; BoardPanel subscribes — see plan 08-01 Task 1 (event added) + 08-02 Task 2 (handler emits) + 08-05 Task 1 (BoardPanel subscribes)
+
+**Unresolved (original):** How does `draw_explanation` client tool handler access the tldraw Editor?
 - Option B (`board:draw_request` bus event) is recommended by research but adds a new bus event type
 - Option A (BoardContext React context) is more direct but adds context boilerplate
 - Option C (VoicePanel handles SSE directly with its own board:tool_use bus events) is complex
@@ -739,7 +744,9 @@ The mocked `useConversation` pattern from Phase 6 `voice-flow.spec.ts` is the re
 
 ### OQ-2: Lesson State Access in VoicePanel
 
-**Unresolved:** Where does VoicePanel read the current lesson state (currentTaskId, solvedSet, mistakes) for:
+**RESOLVED:** Option A — VoicePanel tracks its own `currentTaskIdRef` / `solvedTaskIdsRef` / `mistakesRef` — see plan 08-04 Task 1
+
+**Unresolved (original):** Where does VoicePanel read the current lesson state (currentTaskId, solvedSet, mistakes) for:
 1. `get_lesson_state` tool handler
 2. `mini-recap` in `goto_trainer_task` handler
 3. `periodic checkpoint` text
@@ -753,7 +760,9 @@ The mocked `useConversation` pattern from Phase 6 `voice-flow.spec.ts` is the re
 
 ### OQ-3: Trainer Progress UI State Management (D-02)
 
-**Unresolved:** Where does "N of M" counter + current task tracking live?
+**RESOLVED:** TrainerPanel-local progress refs (component owns its progress state) — see plan 08-07 Task 1
+
+**Unresolved (original):** Where does "N of M" counter + current task tracking live?
 - TrainerPanel reads trainerConfig (total tasks = M)
 - TrainerPanel could track solved count locally (via answer_submitted bus subscription)
 - Or LessonShell tracks it and passes to both VoicePanel (for recaps) and TrainerPanel (for UI)
@@ -762,19 +771,25 @@ The mocked `useConversation` pattern from Phase 6 `voice-flow.spec.ts` is the re
 
 ### OQ-4: LessonShell Threading for VoicePanel trainerConfig
 
-**Unresolved:** VoicePanel currently only receives `lessonId` and `topic`. Phase 8 needs it to also know `trainerConfig` (for get_lesson_state task topics and total_tasks). Currently LessonShell → VoicePanel doesn't pass trainerConfig.
+**RESOLVED:** `trainerConfig` threaded via LessonShell → VoicePanel prop — see plan 08-05 Task 2 (LessonShell wires) + 08-04 Task 1 (VoicePanel consumes)
+
+**Unresolved (original):** VoicePanel currently only receives `lessonId` and `topic`. Phase 8 needs it to also know `trainerConfig` (for get_lesson_state task topics and total_tasks). Currently LessonShell → VoicePanel doesn't pass trainerConfig.
 
 **Action:** Planner should add `trainerConfig?: TrainerConfig | null` prop to `VoicePanelProps` and thread from LessonShell (which already receives it from the RSC page and passes to TrainerPanel). This is a one-line change in each of LessonShell and VoicePanel.
 
 ### OQ-5: Restore Script — Embedded Tools vs External JSON
 
-**Unresolved:** Should the 6 tool definition objects be embedded inline in `restore-agent-config.mjs` or loaded from an external `agent-tools-config.json`?
+**RESOLVED:** Inline embedding via `scripts/restore-agent-config-body.mjs` testable builder + restore script imports it — see plan 08-03 Task 1 (builder) + Task 2 (script extension)
+
+**Unresolved (original):** Should the 6 tool definition objects be embedded inline in `restore-agent-config.mjs` or loaded from an external `agent-tools-config.json`?
 
 **Recommendation:** Embed inline in the script — the script is already a standalone Node.js file that must be portable (run from VPS). Loading an external file requires either bundling or path assumptions. Inline is simpler and matches the existing pattern (PROMPT is loaded from a file for historical reasons, but tool schemas are compact enough to embed directly).
 
 ### OQ-6: `board:draw_request` vs `board:clear` Event Naming
 
-**Unresolved:** The `clear_board` tool needs to clear the board. BoardPanel already has a `handleClear` function (board-panel.tsx line 77). Phase 8 can:
+**RESOLVED:** `board:clear_request` bus event (parallel to OQ-1) — see plan 08-01 Task 1 + 08-02 Task 2 + 08-05 Task 1
+
+**Unresolved (original):** The `clear_board` tool needs to clear the board. BoardPanel already has a `handleClear` function (board-panel.tsx line 77). Phase 8 can:
 - Add `board:clear_request` bus event (new) → BoardPanel subscribes
 - Or expose a `clear_board` function via BoardContext
 
