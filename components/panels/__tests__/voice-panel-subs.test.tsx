@@ -130,9 +130,21 @@ describe('VoicePanel — Phase 6.5 cleanup-bug guard for Phase 8 subscriptions (
     const filePath = path.resolve(process.cwd(), 'components/panels/voice-panel.tsx')
     const src = readFileSync(filePath, 'utf8')
     // Match `useEffect(...something...)`-style hook calls where the dep array is
-    // exactly `[conversation]`. Multiline-dotall regex catches multi-line bodies.
-    // useCallback / useMemo with `[conversation]` are SAFE and intentionally allowed.
-    const unsafeUseEffect = /useEffect\s*\([\s\S]*?\}\s*,\s*\[conversation\]\s*\)/g
+    // exactly `[conversation]`. The body span uses a tempered greedy token
+    // `(?:(?!\}\s*,\s*\[)[\s\S])*` so it CANNOT cross another hook's dep-array
+    // boundary (e.g. a downstream `useCallback(…, [conversation])`).
+    //
+    // Without the tempered token, the lazy dotall version `[\s\S]*?` was still
+    // too broad: starting at a benign `useEffect(…, [conversation.status, …])`,
+    // it would skip past that closing and latch onto a later `, [conversation])`
+    // belonging to a safe `useCallback(…, [conversation])` (e.g. handleStop).
+    // The Phase 6.5 cleanup-bug surface is specifically a useEffect whose OWN
+    // dep array equals `[conversation]` — not any useEffect that happens to be
+    // textually followed by a safe useCallback with that dep.
+    //
+    // useCallback / useMemo with `[conversation]` are SAFE and intentionally
+    // allowed by this check.
+    const unsafeUseEffect = /useEffect\s*\((?:(?!\}\s*,\s*\[)[\s\S])*\}\s*,\s*\[conversation\]\s*\)/g
     const occurrences = (src.match(unsafeUseEffect) || []).length
     expect(occurrences).toBe(0)
   })

@@ -48,7 +48,9 @@ import {
   formatAnswerSubmitted,
   formatHintOpened,
   formatIdle15s,
+  formatPeriodicCheckpoint,
 } from '@/lib/contextual-updates'
+import { startPeriodicCheckpoint } from '@/lib/periodic-checkpoint'
 
 interface VoicePanelProps {
   /** Required as of Phase 6 — lesson page passes it via LessonShell. */
@@ -326,6 +328,36 @@ function VoicePanelInner({ lessonId, topic, trainerConfig }: VoicePanelProps) {
     }
   }, [])
   useLessonBusEvent('trainer:idle_15s', handleIdle15s)
+
+  // ── Phase 8 D-03 channel #4: periodic checkpoint every ~10 minutes ──────
+  // Anchors fresh state at the tail of Nataly's context window. Runs only
+  // while the session is active — starts on 'connected', clears on disconnect.
+  //
+  // SAFETY: dep is conversation.STATUS (string primitive — 'disconnected' |
+  // 'connecting' | 'connected' | 'disconnecting'), NOT conversation (object).
+  // This is the ONLY useEffect in this file with conversation-derived deps;
+  // it is safe because string identity changes only on actual transitions,
+  // not on every SDK mode-change. Phase 6.5 cleanup-bug pattern preserved.
+  //
+  // The first tick fires at T+10min (NOT T+0) — no spammy welcome update.
+  // Reads from refs INSIDE the tick so latest counts are always seen
+  // (refs are reference-stable; closure captures the ref itself, not its value).
+  useEffect(() => {
+    if (conversation.status !== 'connected') return
+    const cleanup = startPeriodicCheckpoint(({ elapsedMinutes }) => {
+      try {
+        const totalTasks = trainerConfig?.tasks?.length ?? 0
+        const solvedCount = solvedTaskIdsRef.current.size
+        const mistakeCount = mistakesRef.current.length
+        convoCmdRef.current.sendContextualUpdate(
+          formatPeriodicCheckpoint({ elapsedMinutes, solvedCount, totalTasks, mistakeCount }),
+        )
+      } catch (err) {
+        console.error('[voice-panel] periodic checkpoint failed:', err)
+      }
+    })
+    return cleanup
+  }, [conversation.status, trainerConfig?.tasks?.length])
 
   // ── Start handler ───────────────────────────────────────────────────────
   const handleStart = useCallback(async () => {
