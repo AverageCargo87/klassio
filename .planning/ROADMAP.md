@@ -219,7 +219,16 @@ Plans:
   4. Ручная QA: тестовый ребёнок молчит 25 секунд → бот сам подключается с репликой; ребёнок уходит во вкладку → бот замечает; неправильные ответы 2 раза подряд → бот предлагает помощь.
   5. **НЕ Anthropic** для Pedagogical, если не принято отдельное decision (см. CON-anthropic-rf-block). По умолчанию обе модели — OpenAI.
   6. Стоимость одного 45-минутного урока (Pedagogical + Realtime + 11labs) измерена и зафиксирована как watermark для unit-экономики.
-**Plans**: TBD
+**Plans**: 8 plans (created 2026-05-13; per Phase 8 REDESIGN 2026-05-12 — see milestone overview line 47 and 08-CONTEXT.md for current scope)
+Plans:
+- [ ] 08-01-PLAN.md — Wave 0 RED test scaffolds + 2 new bus events (board:draw_request, board:clear_request)
+- [ ] 08-02-PLAN.md — Wave 1 pure libs: lib/client-tools + lib/contextual-updates + lib/lesson-state
+- [ ] 08-03-PLAN.md — Wave 1 agent config: scripts/restore-agent-config-body.mjs + extended restore-agent-config.mjs + PHASE-6-SETUP § 9.5 Phase 8 addendum
+- [ ] 08-04-PLAN.md — Wave 2 VoicePanel wiring: clientTools + dynamicVariables + 3 trainer event subscriptions + state refs (Phase 6.5 cleanup-bug guard preserved)
+- [ ] 08-05-PLAN.md — Wave 2 BoardPanel + LessonShell: board:draw_request/board:clear_request subscriptions + trainerConfig thread to VoicePanel
+- [ ] 08-06-PLAN.md — Wave 3 periodic checkpoint: lib/periodic-checkpoint + VoicePanel useEffect on conversation.status
+- [ ] 08-07-PLAN.md — Wave 4 TrainerPanel progress UI: current-task ring + "N из M" counter + checkmarks (D-02; HTM-01 extension)
+- [ ] 08-08-PLAN.md — Wave 5 PED-02 proactive triggers (visibility + consecutive mistakes) + E2E suite + manual checkpoint (operator runs restore script against live 11labs agent)
 
 ---
 
@@ -336,7 +345,7 @@ Cross-cutting invariants (INV-01, INV-02) attached to the phase where their firs
 | 5. Сцены — методические `explain_*` tools | 2/2 | Complete | 2026-05-10 |
 | 6. Голос — 11labs Conversational AI (frontend integration) | 0/2 | Plans created | - |
 | 7. HTML-тренажёр — контракт data-атрибутов + event bus | 0/2 | Plans created | - |
-| 8. Двухуровневая LLM + проактивные триггеры | 0/0 | Not started | - |
+| 8. Agent-control (11labs client tools + sendContextualUpdate) | 0/8 | Plans created | 2026-05-13 |
 | 9. 2D Lottie аватар учителя | 0/0 | Not started | - |
 | 10. Запись урока + транскрипт + модерация + 152-ФЗ | 0/0 | Not started | - |
 | 11. Stroke-drawing анимация + SSML-синхронизация | 0/0 | Not started | - |
