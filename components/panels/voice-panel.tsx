@@ -1,5 +1,5 @@
 'use client'
-// VoicePanel — Phase 6 rewrite (D-05/D-06/D-07, VOI-01).
+// VoicePanel — Phase 6 rewrite (D-05/D-06/D-07, VOI-01) + Phase 8 wiring (D-07/D-08/D-10).
 // Layout: Avatar (top half — Phase 9 contract unchanged) + voice control area (bottom half).
 // Bottom half: real mic Start/Stop button + status text + error block.
 // Flow: click Start → getUserMedia → POST /api/voice/signed-url → useConversation.startSession.
@@ -20,20 +20,44 @@
 //     onModeChange (prop:   { mode: 'speaking'|'listening' }) => void
 //     onError      (message: string, context?: any)     => void
 //   We thread our callbacks through ConversationProvider so they survive across sessions.
-import { useCallback, useEffect, useRef, useState } from 'react'
+//
+// Phase 8 additions (plan 08-04):
+//   - VoicePanelProps.trainerConfig — used for get_lesson_state + mini-recap topic + dynamicVariables.total_tasks (D-10).
+//   - clientTools registered via useConversation — 6 tool surface from buildClientTools (D-07).
+//   - dynamicVariables on startSession — { lesson_topic, total_tasks } (D-10).
+//   - 3 trainer event subscriptions forward to Nataly via sendContextualUpdate (D-08 allow-list):
+//       trainer:answer_submitted, trainer:hint_opened, trainer:idle_15s.
+//       trainer:task_focused is NOT subscribed (too noisy — D-08 anti-spec).
+//   - 3 state refs (currentTaskIdRef, solvedTaskIdsRef, mistakesRef) feed client tool handlers
+//     via injected getters, so handlers always read the latest state without re-registering on
+//     every render. Pattern: useRef for side-effect state (no visual output) per PATTERNS.md.
+//   - convoCmdRef latches conversation.sendContextualUpdate for stable access inside subscription
+//     handlers. Separate from the Phase 6.5 cleanup conversationRef (lines below) — DO NOT MERGE.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import { Mic } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useLessonBus } from '@/lib/lesson-bus'
+import { useLessonBus, useLessonBusEvent } from '@/lib/lesson-bus'
 import { Avatar } from '@/components/avatar/avatar'
 import { useAvatarState } from '@/components/avatar/use-avatar-state'
+import type { TrainerConfig } from '@/lib/trainer/config-schema'
+import { buildClientTools } from '@/lib/client-tools'
+import { getLessonStateSnapshot, type LessonMistake } from '@/lib/lesson-state'
+import {
+  formatAnswerSubmitted,
+  formatHintOpened,
+  formatIdle15s,
+} from '@/lib/contextual-updates'
 
 interface VoicePanelProps {
   /** Required as of Phase 6 — lesson page passes it via LessonShell. */
   lessonId: string
   /** Required as of Phase 6 — defense-in-depth fallback for firstMessage if response.topic is empty. */
   topic: string
+  /** Phase 8 (D-10 + OQ-4): used for get_lesson_state task topics + dynamicVariables total_tasks.
+   *  Null/undefined when the lesson has no trainer config — total_tasks falls back to 0. */
+  trainerConfig?: TrainerConfig | null
 }
 
 /**
@@ -82,10 +106,92 @@ async function requestMicPermission(): Promise<
  * Inner panel — must live inside ConversationProvider so useConversation works.
  * Holds the Start/Stop button, status text, error block, and SDK plumbing.
  */
-function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
+function VoicePanelInner({ lessonId, topic, trainerConfig }: VoicePanelProps) {
   const bus = useLessonBus()
   const [error, setError] = useState<string | null>(null)
   const isStartingRef = useRef(false)
+
+  // ── Phase 8: per-session state refs ─────────────────────────────────────
+  // Refs (not state) per PATTERNS.md § useRef for Side-Effect State —
+  // no re-renders triggered by mutations; client tool handlers read latest
+  // values on each invocation. Source of truth for `get_lesson_state` tool
+  // and for the contextual-update formatters reading currentTaskIdRef.
+  const currentTaskIdRef = useRef<string>('')
+  const solvedTaskIdsRef = useRef<Set<string>>(new Set<string>())
+  const mistakesRef = useRef<LessonMistake[]>([])
+
+  // ── Phase 8: latched sendContextualUpdate ref ───────────────────────────
+  // Separate from the Phase 6.5 `conversationRef` (cleanup) below — DO NOT MERGE.
+  // `conversationRef` is for endSession-on-unmount; `convoCmdRef` is for
+  // sendContextualUpdate access inside callbacks. Distinct concerns, distinct
+  // refs, so a future maintainer can't collapse one into the other.
+  // Seeded with a noop so very first render of useMemo (before useConversation
+  // assigns) doesn't crash if Nataly somehow calls a tool synchronously.
+  const convoCmdRef = useRef<{ sendContextualUpdate: (text: string) => void }>({
+    sendContextualUpdate: () => {},
+  })
+
+  // ── Phase 8: trainerConfig-derived helpers ──────────────────────────────
+  // Helper: get the canonical task topic string for a given taskId,
+  // reading from props. Empty string if unknown — handler falls back to taskId.
+  const getTaskTopic = useCallback((taskId: string): string => {
+    if (!trainerConfig?.tasks) return ''
+    const t = trainerConfig.tasks.find((x) => x.id === taskId)
+    return t?.prompt ?? ''
+  }, [trainerConfig])
+
+  // Helper: derive task type for contextual-update formatters from taskId.
+  // Returns 'numeric-input' as conservative default if unknown.
+  const getTaskType = useCallback(
+    (taskId: string): 'numeric-input' | 'single-choice' | 'matching' => {
+      return trainerConfig?.tasks.find((t) => t.id === taskId)?.type ?? 'numeric-input'
+    },
+    [trainerConfig],
+  )
+
+  // Helper: stringify the correct answer of a given task for the wrong-answer
+  // contextual update format. Matching/numeric/choice handled uniformly.
+  const getCorrectValue = useCallback(
+    (taskId: string): string | undefined => {
+      const correct = trainerConfig?.tasks.find((t) => t.id === taskId)?.correct
+      if (correct === undefined || correct === null) return undefined
+      if (Array.isArray(correct)) return correct.map((p) => p.join('→')).join(',')
+      return String(correct)
+    },
+    [trainerConfig],
+  )
+
+  // ── Phase 8: stable client tools ─────────────────────────────────────────
+  // Built once via useMemo so the identity stays the same across re-renders.
+  // The deps capture only `bus`, `lessonId`, helpers, and trainerConfig.tasks.length
+  // (primitive — not the array object, prevents unnecessary re-memoisation).
+  // sendContextualUpdate is accessed through the latched convoCmdRef so SDK
+  // identity churn doesn't force re-creation.
+  const clientTools = useMemo(
+    () =>
+      buildClientTools({
+        bus,
+        lessonId,
+        sendContextualUpdate: (text: string) => {
+          try {
+            convoCmdRef.current.sendContextualUpdate(text)
+          } catch (err) {
+            console.error('[voice-panel] sendContextualUpdate failed:', err)
+          }
+        },
+        getCurrentTaskId: () => currentTaskIdRef.current,
+        getSolvedTaskIds: () => solvedTaskIdsRef.current,
+        getTaskTopic,
+        getState: () =>
+          getLessonStateSnapshot(
+            currentTaskIdRef.current,
+            solvedTaskIdsRef.current,
+            mistakesRef.current,
+            trainerConfig?.tasks?.length ?? 0,
+          ),
+      }),
+    [bus, lessonId, getTaskTopic, trainerConfig?.tasks?.length],
+  )
 
   // ── Stable SDK callbacks (Pitfall 4 — prevents stale closures) ──────────
   // bus.emit is the only dep; bus itself is from React context (stable).
@@ -130,7 +236,10 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
   //    surrounding ConversationProvider (see SDK comment "Callbacks ... are also
   //    registered with the provider so they stay up-to-date across re-renders").
   //    We re-pass the same stable refs here so the test mock captures them.
+  //    Phase 8: clientTools passes the 6-tool surface — IDs must match the
+  //    agent config in scripts/restore-agent-config-body.mjs PHASE_8_TOOLS.
   const conversation = useConversation({
+    clientTools, // Phase 8 D-07 — 6 client tools registered with the SDK
     onConnect: handleConnect,
     onDisconnect: handleDisconnect,
     onModeChange: handleModeChange,
@@ -138,9 +247,85 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
     onError: handleError,
   })
 
+  // Latch latest conversation.sendContextualUpdate for use inside bus subscription
+  // handlers. Runs on every render — `convoCmdRef.current` is a value swap, not
+  // a re-subscribe, so it does NOT trigger the Phase 6.5 cleanup-bug pattern.
+  convoCmdRef.current = conversation as unknown as {
+    sendContextualUpdate: (text: string) => void
+  }
+
   // Avatar consumes bus state via Phase 9 contract — call AFTER the SDK hook
   // so the bus is wired by the time the avatar starts observing it.
   const avatarState = useAvatarState()
+
+  // ── Phase 8 D-08: trainer event forwarding to Nataly via sendContextualUpdate ──
+  // Allow-list (3 events): answer_submitted, hint_opened, idle_15s.
+  // NOT subscribing to task_focused per D-08 — too noisy (each click would fire).
+  // useLessonBusEvent (Phase 7 hook) wraps useEffect cleanly with deps [bus, event, handler];
+  // useCallback keeps handler identities stable so re-renders do not re-subscribe.
+
+  const handleAnswerSubmitted = useCallback(
+    ({ taskId, value, correct }: { taskId: string; value: string; correct: boolean }) => {
+      currentTaskIdRef.current = taskId
+      const taskType = getTaskType(taskId)
+      if (correct) {
+        // Promote into solved set (idempotent on duplicate emits).
+        solvedTaskIdsRef.current.add(taskId)
+        try {
+          convoCmdRef.current.sendContextualUpdate(
+            formatAnswerSubmitted({ taskId, value, correct: true }, taskType),
+          )
+        } catch (err) {
+          console.error('[voice-panel] forward answer (ok):', err)
+        }
+      } else {
+        const correctValue = getCorrectValue(taskId)
+        mistakesRef.current.push({ taskId, value, correct: correctValue ?? '?' })
+        // Trim to last 10 — formatter further trims to last 3, but keep
+        // the ref bounded to avoid unbounded growth across a 45-min lesson.
+        if (mistakesRef.current.length > 10) {
+          mistakesRef.current.splice(0, mistakesRef.current.length - 10)
+        }
+        try {
+          convoCmdRef.current.sendContextualUpdate(
+            formatAnswerSubmitted(
+              { taskId, value, correct: false },
+              taskType,
+              { correctValue },
+            ),
+          )
+        } catch (err) {
+          console.error('[voice-panel] forward answer (wrong):', err)
+        }
+      }
+    },
+    [getTaskType, getCorrectValue],
+  )
+  useLessonBusEvent('trainer:answer_submitted', handleAnswerSubmitted)
+
+  const handleHintOpened = useCallback(
+    ({ taskId, hintLevel }: { taskId: string; hintLevel: number }) => {
+      try {
+        convoCmdRef.current.sendContextualUpdate(
+          formatHintOpened({ taskId, hintLevel }),
+        )
+      } catch (err) {
+        console.error('[voice-panel] forward hint_opened:', err)
+      }
+    },
+    [],
+  )
+  useLessonBusEvent('trainer:hint_opened', handleHintOpened)
+
+  const handleIdle15s = useCallback(() => {
+    const taskId = currentTaskIdRef.current || '(start)'
+    try {
+      convoCmdRef.current.sendContextualUpdate(formatIdle15s({ taskId }))
+    } catch (err) {
+      console.error('[voice-panel] forward idle_15s:', err)
+    }
+  }, [])
+  useLessonBusEvent('trainer:idle_15s', handleIdle15s)
 
   // ── Start handler ───────────────────────────────────────────────────────
   const handleStart = useCallback(async () => {
@@ -174,6 +359,12 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
       conversation.startSession({
         signedUrl: data.signedUrl,
         connectionType: 'websocket', // CRITICAL — RESEARCH Pitfall 3
+        dynamicVariables: {
+          // D-10: only lesson_topic + total_tasks for v1. task_summaries deferred.
+          // child_name explicitly excluded per D-10 (whitelist model — no PII in v1).
+          lesson_topic: data.topic || topic,
+          total_tasks: trainerConfig?.tasks?.length ?? 0,
+        },
       })
     } catch (err) {
       console.error('[voice-panel] start failed:', err)
@@ -181,7 +372,7 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
     } finally {
       isStartingRef.current = false
     }
-  }, [conversation, lessonId, topic])
+  }, [conversation, lessonId, topic, trainerConfig])
 
   // ── Stop handler ────────────────────────────────────────────────────────
   const handleStop = useCallback(() => {
@@ -204,6 +395,10 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
   //
   // Fix: latch the latest conversation into a ref and run cleanup ONLY on real
   // unmount with empty deps. The ref dodges the stale-closure trap.
+  //
+  // DO NOT TOUCH — this is the locked latched-ref pattern from Phase 6.5.
+  // Phase 8 added a SEPARATE convoCmdRef for sendContextualUpdate access in
+  // callbacks (above) — distinct concerns, distinct refs.
   const conversationRef = useRef(conversation)
   conversationRef.current = conversation
   useEffect(() => {
@@ -281,10 +476,10 @@ function VoicePanelInner({ lessonId, topic }: VoicePanelProps) {
  * VoicePanel — public component. Wraps inner panel in ConversationProvider so
  * useConversation has the required context.
  */
-export function VoicePanel({ lessonId, topic }: VoicePanelProps) {
+export function VoicePanel({ lessonId, topic, trainerConfig }: VoicePanelProps) {
   return (
     <ConversationProvider>
-      <VoicePanelInner lessonId={lessonId} topic={topic} />
+      <VoicePanelInner lessonId={lessonId} topic={topic} trainerConfig={trainerConfig} />
     </ConversationProvider>
   )
 }
