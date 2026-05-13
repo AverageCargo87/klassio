@@ -61,7 +61,7 @@ export function BoardPanel({ lessonId }: BoardPanelProps) {
   const [hasShapes, setHasShapes] = useState(false)
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _bus = useLessonBus() // Phase 6 will use bus.emit('board:say', ...)
+  const bus = useLessonBus() // Phase 6 will use bus.emit('board:say', ...)
 
   const onMount = useCallback((editor: Editor) => {
     editorRef.current = editor
@@ -90,9 +90,18 @@ export function BoardPanel({ lessonId }: BoardPanelProps) {
   const executeDraw = useCallback(
     async (promptText: string) => {
       const editor = editorRef.current
-      if (!editor || running) return
+      if (!editor || running) {
+        // Bus subscribers waiting on draw_complete must not hang on a no-op call.
+        bus.emit('board:draw_complete', { lessonId, status: 'cancelled', reason: 'no-editor-or-already-running' })
+        return
+      }
       const userPrompt = promptText.trim()
-      if (!userPrompt) return
+      if (!userPrompt) {
+        bus.emit('board:draw_complete', { lessonId, status: 'cancelled', reason: 'empty-prompt' })
+        return
+      }
+      // Track whether we already emitted draw_complete so `finally` doesn't double-fire.
+      let completeEmitted = false
 
       // Auto-clear board state on new prompt — prevents layering of new
       // explanation on top of the previous one. Without this, repeated
@@ -166,7 +175,7 @@ export function BoardPanel({ lessonId }: BoardPanelProps) {
                     return isPlaceholder ? [{ text, spokenAt: Date.now() }] : [...prev, { text, spokenAt: Date.now() }]
                   })
                   // TODO Phase 6: emit board:say event when SSE includes 'say' tool
-                  //   _bus.emit('board:say', { text, timestamp: Date.now() })
+                  //   bus.emit('board:say', { text, timestamp: Date.now() })
                 }
               }
 
@@ -196,18 +205,37 @@ export function BoardPanel({ lessonId }: BoardPanelProps) {
               }
             } else if (evt.type === 'error') {
               setError(String(evt.error ?? 'Неизвестная ошибка'))
+              bus.emit('board:draw_complete', { lessonId, status: 'error', reason: String(evt.error ?? 'sse-error') })
+              completeEmitted = true
             } else if (evt.type === 'done') {
-              // Stream complete — running will be set false in finally
+              // Stream complete — unblock any voice-side handler waiting on this draw.
+              // Phase 8 UAT fix: draw_explanation client tool now awaits this event so
+              // Nataly stays silent during animation and starts narration only after the
+              // board has finished rendering. Fire BEFORE setRunning(false) so subscribers
+              // see the event while UI is still in 'running' state.
+              bus.emit('board:draw_complete', { lessonId, status: 'ok' })
+              completeEmitted = true
             }
           }
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Неизвестная ошибка')
+        const msg = e instanceof Error ? e.message : 'Неизвестная ошибка'
+        setError(msg)
+        if (!completeEmitted) {
+          bus.emit('board:draw_complete', { lessonId, status: 'error', reason: msg })
+          completeEmitted = true
+        }
       } finally {
         setRunning(false)
+        // Safety net — if the stream ended without 'done' AND without throwing
+        // (unusual but possible on AbortController), fire a cancelled event so
+        // waiters don't hang.
+        if (!completeEmitted) {
+          bus.emit('board:draw_complete', { lessonId, status: 'cancelled', reason: 'stream-ended-without-done' })
+        }
       }
     },
-    [running, lessonId],
+    [running, lessonId, bus],
   )
 
   const handleDraw = useCallback(() => {

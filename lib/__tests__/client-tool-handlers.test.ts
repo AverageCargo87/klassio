@@ -7,9 +7,24 @@ import type { LessonBus } from '@/lib/lesson-bus'
 const fetchMock = vi.hoisted(() => vi.fn())
 vi.stubGlobal('fetch', fetchMock)
 
+// "Live" bus mock — emit() delivers events to handlers registered via on().
+// Required because draw_explanation now uses bus.on('board:draw_complete', ...)
+// internally and awaits the resolution. A plain vi.fn() emit would never reach
+// the handler.
 function makeBus(): LessonBus & { emit: ReturnType<typeof vi.fn> } {
-  const emit = vi.fn()
-  return { emit, on: vi.fn(), off: vi.fn(), clear: vi.fn() } as unknown as
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handlers = new Map<string, Set<(p: any) => void>>()
+  const on = vi.fn((event: string, h: (p: unknown) => void) => {
+    if (!handlers.has(event)) handlers.set(event, new Set())
+    handlers.get(event)!.add(h)
+  })
+  const off = vi.fn((event: string, h: (p: unknown) => void) => {
+    handlers.get(event)?.delete(h)
+  })
+  const emit = vi.fn((event: string, payload: unknown) => {
+    handlers.get(event)?.forEach((h) => h(payload))
+  })
+  return { emit, on, off, clear: vi.fn() } as unknown as
     LessonBus & { emit: ReturnType<typeof vi.fn> }
 }
 
@@ -25,14 +40,53 @@ describe('buildClientTools — 6 client tools (LLM-01)', () => {
     ])
   })
 
-  it('draw_explanation emits board:draw_request and returns ack string within 50ms (fire-and-forget)', async () => {
+  it('draw_explanation is BLOCKING: emits board:draw_request immediately, awaits board:draw_complete before resolving (Phase 8 UAT fix)', async () => {
     const bus = makeBus()
     const tools = buildClientTools({ bus, lessonId: 'L1', getState: () => 'STATE:', sendContextualUpdate: vi.fn(), getCurrentTaskId: () => '', getSolvedTaskIds: () => new Set(), getTaskTopic: () => '' })
-    const start = Date.now()
-    const result = await tools.draw_explanation({ prompt: 'сложение в столбик 245+874' })
-    expect(Date.now() - start).toBeLessThan(50)
-    expect(typeof result).toBe('string')
+    // Kick off the call — do NOT await yet
+    const pending = tools.draw_explanation({ prompt: 'сложение в столбик 245+874' }) as Promise<string>
+    // Yield a microtask so the handler's emit/on calls run
+    await Promise.resolve()
+    // bus.emit should have been called with board:draw_request synchronously
     expect(bus.emit).toHaveBeenCalledWith('board:draw_request', { prompt: 'сложение в столбик 245+874', lessonId: 'L1' })
+    // Promise should still be pending (no board:draw_complete yet)
+    let resolved = false
+    pending.then(() => { resolved = true })
+    await Promise.resolve()
+    expect(resolved).toBe(false)
+    // Now simulate the board finishing
+    bus.emit('board:draw_complete', { lessonId: 'L1', status: 'ok' })
+    const result = await pending
+    expect(typeof result).toBe('string')
+    expect(result).toContain('complete')
+  })
+
+  it('draw_explanation: lessonId mismatch on draw_complete does NOT resolve (cross-lesson protection)', async () => {
+    const bus = makeBus()
+    const tools = buildClientTools({ bus, lessonId: 'L1', getState: () => '', sendContextualUpdate: vi.fn(), getCurrentTaskId: () => '', getSolvedTaskIds: () => new Set(), getTaskTopic: () => '' })
+    const pending = tools.draw_explanation({ prompt: 'тест' }) as Promise<string>
+    await Promise.resolve()
+    let resolved = false
+    pending.then(() => { resolved = true })
+    // Wrong lessonId — must be ignored
+    bus.emit('board:draw_complete', { lessonId: 'WRONG', status: 'ok' })
+    await Promise.resolve()
+    expect(resolved).toBe(false)
+    // Correct lessonId — resolves
+    bus.emit('board:draw_complete', { lessonId: 'L1', status: 'ok' })
+    await pending
+    expect(resolved).toBe(true)
+  })
+
+  it('draw_explanation: error status resolves with Error string (graceful fallback to verbal)', async () => {
+    const bus = makeBus()
+    const tools = buildClientTools({ bus, lessonId: 'L1', getState: () => '', sendContextualUpdate: vi.fn(), getCurrentTaskId: () => '', getSolvedTaskIds: () => new Set(), getTaskTopic: () => '' })
+    const pending = tools.draw_explanation({ prompt: 'тест' }) as Promise<string>
+    await Promise.resolve()
+    bus.emit('board:draw_complete', { lessonId: 'L1', status: 'error', reason: 'OPENAI_API_KEY missing' })
+    const result = await pending
+    expect(result).toMatch(/Error/)
+    expect(result).toContain('OPENAI_API_KEY')
   })
 
   it('clear_board emits board:clear_request and returns ack string', async () => {

@@ -74,8 +74,8 @@ export const PHASE_8_TOOLS = [
     type: 'client',
     name: 'draw_explanation',
     description:
-      'Нарисовать математическое объяснение на доске. Зови когда вводишь новую тему или нужно визуально пояснить ошибку.',
-    response_timeout_secs: 20,
+      'Нарисовать математическое объяснение на доске. ВАЖНО: эта функция BLOCKING — пока доска рисует (5-15 секунд), ты ОЖИДАЕШЬ ответа в тишине и НЕ говоришь. Когда вернётся "Board drawing complete" — начинай словесное объяснение того, что нарисовано на доске. Зови когда вводишь новую тему или нужно визуально пояснить ошибку.',
+    response_timeout_secs: 25,
     expects_response: true,
     execution_mode: 'immediate',
     parameters: {

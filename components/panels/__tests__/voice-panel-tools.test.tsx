@@ -35,8 +35,22 @@ vi.mock('@elevenlabs/react', () => ({
   },
 }))
 
-const mockEmit = vi.fn()
-const stableBus = { emit: mockEmit, on: vi.fn(), off: vi.fn() }
+// Live bus mock — emit() actually delivers to handlers registered via on().
+// Phase 8 UAT fix: draw_explanation now awaits 'board:draw_complete' via bus.on,
+// so a plain vi.fn() emit would never reach the handler and the test would hang.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const busHandlers = new Map<string, Set<(p: any) => void>>()
+const mockEmit = vi.fn((event: string, payload: unknown) => {
+  busHandlers.get(event)?.forEach((h) => h(payload))
+})
+const mockOn = vi.fn((event: string, h: (p: unknown) => void) => {
+  if (!busHandlers.has(event)) busHandlers.set(event, new Set())
+  busHandlers.get(event)!.add(h)
+})
+const mockOff = vi.fn((event: string, h: (p: unknown) => void) => {
+  busHandlers.get(event)?.delete(h)
+})
+const stableBus = { emit: mockEmit, on: mockOn, off: mockOff }
 vi.mock('@/lib/lesson-bus', () => ({
   useLessonBus: () => stableBus,
   useLessonBusEvent: vi.fn(),
@@ -72,6 +86,9 @@ beforeEach(() => {
   capturedDynamicVariables = undefined
   mockStartSession.mockClear()
   mockEmit.mockClear()
+  mockOn.mockClear()
+  mockOff.mockClear()
+  busHandlers.clear()
   fetchMock.mockReset()
   cleanup()
 })
@@ -105,13 +122,23 @@ describe('VoicePanel — Phase 8 clientTools + dynamicVariables wiring (LLM-01)'
     expect(capturedDynamicVariables).toEqual({ lesson_topic: 'T', total_tasks: 0 })
   })
 
-  it('draw_explanation tool returns a string ack within 50ms (fire-and-forget — INV-02)', async () => {
+  it('draw_explanation tool is BLOCKING: emits board:draw_request immediately, waits for board:draw_complete (Phase 8 UAT fix)', async () => {
     render(React.createElement(VoicePanel, { lessonId: 'L1', topic: 'T', trainerConfig: SAMPLE_CONFIG } as never))
-    const start = Date.now()
-    const result = await capturedClientTools!.draw_explanation({ prompt: 'сложение 245+874' })
-    expect(Date.now() - start).toBeLessThan(50)
-    expect(typeof result).toBe('string')
-    // Bus emit happens synchronously inside the handler
+    // Kick off — don't await yet
+    const pending = capturedClientTools!.draw_explanation({ prompt: 'сложение 245+874' }) as Promise<string>
+    // Let microtasks flush so the handler has a chance to emit + subscribe
+    await Promise.resolve()
+    // Bus emit happened synchronously inside the handler
     expect(mockEmit).toHaveBeenCalledWith('board:draw_request', { prompt: 'сложение 245+874', lessonId: 'L1' })
+    // Promise must still be pending — we have NOT emitted board:draw_complete yet
+    let resolved = false
+    pending.then(() => { resolved = true })
+    await Promise.resolve()
+    expect(resolved).toBe(false)
+    // Simulate the board reporting completion
+    mockEmit('board:draw_complete', { lessonId: 'L1', status: 'ok' })
+    const result = await pending
+    expect(typeof result).toBe('string')
+    expect(result).toContain('complete')
   })
 })

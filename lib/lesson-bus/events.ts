@@ -39,6 +39,13 @@ export type VoiceTranscriptPayload = { text: string; role: 'user' | 'agent'; tim
 // This avoids exposing tldraw Editor across the React tree (Option B per RESEARCH OQ-1).
 export type BoardDrawRequestPayload  = { prompt: string; lessonId: string }
 export type BoardClearRequestPayload = Record<string, never>
+// Phase 8 UAT fix — emitted by BoardPanel when executeDraw's SSE stream completes
+// (either 'done' or 'error' or early-return). Subscribed by VoicePanel's draw_explanation
+// client tool handler to resolve its Promise — this makes draw_explanation BLOCKING from
+// the LLM's perspective: Nataly waits silently while the board animates, then narrates
+// once the picture is complete. Avoids the UAT issue where voice raced ahead of drawing.
+// status: 'ok' on clean stream end, 'error' on stream error, 'cancelled' on early-return.
+export type BoardDrawCompletePayload = { lessonId: string; status: 'ok' | 'error' | 'cancelled'; reason?: string }
 
 export type LessonBusEvent =
   | { type: 'lesson:test';  payload: LessonTestPayload }
@@ -62,6 +69,7 @@ export type LessonBusEvent =
   // Phase 8 — Board control (D-07, OQ-1, OQ-6)
   | { type: 'board:draw_request';  payload: BoardDrawRequestPayload }
   | { type: 'board:clear_request'; payload: BoardClearRequestPayload }
+  | { type: 'board:draw_complete'; payload: BoardDrawCompletePayload }
 
 // Helper: extract payload type for a given event type string.
 // Usage: EventPayload<'lesson:test'> → { source: string; counter: number }
