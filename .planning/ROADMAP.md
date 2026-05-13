@@ -221,7 +221,7 @@ Plans:
   6. Стоимость одного 45-минутного урока (Pedagogical + Realtime + 11labs) измерена и зафиксирована как watermark для unit-экономики.
 **Plans**: 8 plans (created 2026-05-13; per Phase 8 REDESIGN 2026-05-12 — see milestone overview line 47 and 08-CONTEXT.md for current scope)
 Plans:
-- [ ] 08-01-PLAN.md — Wave 0 RED test scaffolds + 2 new bus events (board:draw_request, board:clear_request)
+- [x] 08-01-PLAN.md — Wave 0 RED test scaffolds + 2 new bus events (board:draw_request, board:clear_request)
 - [ ] 08-02-PLAN.md — Wave 1 pure libs: lib/client-tools + lib/contextual-updates + lib/lesson-state
 - [ ] 08-03-PLAN.md — Wave 1 agent config: scripts/restore-agent-config-body.mjs + extended restore-agent-config.mjs + PHASE-6-SETUP § 9.5 Phase 8 addendum
 - [ ] 08-04-PLAN.md — Wave 2 VoicePanel wiring: clientTools + dynamicVariables + 3 trainer event subscriptions + state refs (Phase 6.5 cleanup-bug guard preserved)
