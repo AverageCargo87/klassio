@@ -51,6 +51,10 @@ import {
   formatPeriodicCheckpoint,
 } from '@/lib/contextual-updates'
 import { startPeriodicCheckpoint } from '@/lib/periodic-checkpoint'
+import {
+  useVisibilityTrigger,
+  useConsecutiveMistakesTrigger,
+} from '@/lib/proactive-triggers'
 
 interface VoicePanelProps {
   /** Required as of Phase 6 — lesson page passes it via LessonShell. */
@@ -358,6 +362,48 @@ function VoicePanelInner({ lessonId, topic, trainerConfig }: VoicePanelProps) {
     })
     return cleanup
   }, [conversation.status, trainerConfig?.tasks?.length])
+
+  // ── Phase 8 PED-02: proactive trigger #1 — page-visibility change ────────
+  // Child switches tabs, minimises, or locks the screen → visibilityState
+  // becomes 'hidden'. We forward this to Nataly via sendContextualUpdate so
+  // she can call him back when she next reasons about her turn. Hook is
+  // mount-scoped (empty-deps useEffect inside the lib hook); fires regardless
+  // of conversation status. If the session is disconnected, the latched
+  // convoCmdRef.current.sendContextualUpdate is the seeded noop until SDK
+  // assigns the real fn — try/catch swallows any transient errors.
+  //
+  // Russian payload string matches the system-prompt addendum from plan 08-03
+  // § 9.5 verbatim — any drift means Nataly's behavioral rule won't match.
+  const handleVisibilityHidden = useCallback(() => {
+    try {
+      convoCmdRef.current.sendContextualUpdate('Ребёнок переключился на другую вкладку')
+    } catch (err) {
+      console.error('[voice-panel] visibility trigger:', err)
+    }
+  }, [])
+  useVisibilityTrigger(handleVisibilityHidden)
+
+  // ── Phase 8 PED-02: proactive trigger #2 — consecutive wrong answers ─────
+  // REQUIREMENTS.md PED-02 acceptance #1 item 3: "неправильные ответы подряд
+  // (≥ 2)". Hook subscribes to trainer:answer_submitted and tracks the streak
+  // per taskId via useRef. Fires ONCE per fresh threshold hit (latch flag
+  // inside the lib hook); resets on correct answer or task switch.
+  //
+  // Russian payload string matches plan 08-03 § 9.5 addendum verbatim: the
+  // double ✗✗ marker + "ошибки подряд" tells Nataly this is the 2-mistakes
+  // proactive trigger, distinct from the single-wrong-answer sendContextual
+  // forwarder above (which uses single ✗).
+  const handleMistakeStreak = useCallback(
+    ({ taskId, count }: { taskId: string; count: number }) => {
+      try {
+        convoCmdRef.current.sendContextualUpdate(`✗✗ ${taskId}: ${count} ошибки подряд`)
+      } catch (err) {
+        console.error('[voice-panel] mistake-streak trigger:', err)
+      }
+    },
+    [],
+  )
+  useConsecutiveMistakesTrigger(handleMistakeStreak)
 
   // ── Start handler ───────────────────────────────────────────────────────
   const handleStart = useCallback(async () => {
