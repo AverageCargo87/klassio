@@ -1,7 +1,7 @@
 // Phase 8 Wave 0 RED — Wave 4 plan 08-07 adds progress UI (current task ring + "N из M" counter + smooth-scroll).
 // Covers HTM-01 + D-02 progress UI.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, cleanup, screen } from '@testing-library/react'
+import { render, cleanup, screen, act } from '@testing-library/react'
 import React from 'react'
 
 const busHandlers: Record<string, (p: unknown) => void> = {}
@@ -45,8 +45,14 @@ describe('TrainerPanel — Phase 8 progress UI (HTM-01 + D-02)', () => {
     const scrollIntoViewSpy = vi.fn()
     Element.prototype.scrollIntoView = scrollIntoViewSpy
     const { container } = render(React.createElement(TrainerPanel, { lessonId: 'L1', trainerConfig: SAMPLE_CONFIG } as never))
-    // Fire bus event
-    busHandlers['trainer:goto_task']?.({ taskId: 'task-3' })
+    // Fire bus event inside act() so React flushes pending state updates from
+    // the handler's forceUpdate() before we assert. Phase 8 UAT fix removed
+    // flushSync() from inside the handler (it caused an infinite-loop browser
+    // freeze on Submit — see TrainerPanel comment block) so the counter now
+    // updates on the next React tick instead of synchronously.
+    act(() => {
+      busHandlers['trainer:goto_task']?.({ taskId: 'task-3' })
+    })
     const el = container.querySelector('[data-task-id="task-3"]')
     expect(el?.className).toMatch(/ring|border/)
     // Counter advances to "3 из 3"

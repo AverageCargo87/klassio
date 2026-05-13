@@ -13,8 +13,7 @@
 //   the Phase 7 yellow trainer:highlight ring so the two cues do not conflict visually
 // - solved tasks get a green ✓ checkmark glyph (DOM-mutated, XSS-safe via createElement+textContent)
 // - ANTI-SPEC (D-02): no gamification of any kind — no scoring, no progress meter, no timers
-import { useEffect, useRef, useReducer } from 'react'
-import { flushSync } from 'react-dom'
+import { useEffect, useRef, useReducer, useCallback } from 'react'
 import { BookOpen } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { useLessonBusEvent } from '@/lib/lesson-bus'
@@ -112,10 +111,26 @@ export function TrainerPanel({ lessonId: _lessonId, trainerConfig }: TrainerPane
     }
   }, [firstTaskId])
 
+  // CRITICAL — Phase 8 UAT fix (browser freeze on Submit button):
+  //
+  // ALL bus handlers below MUST use useCallback with stable deps. Without stable
+  // identities, useLessonBusEvent's useEffect (deps [bus, event, handler]) re-fires
+  // off(old)+on(new) on every render. That mutates the LessonBus's handler Set DURING
+  // an in-progress emit's `Set.forEach` iteration. Per JS spec, forEach visits values
+  // added during iteration — so the new handler gets called too, doing forceUpdate
+  // again → another render → another off+on → another visit. INFINITE RECURSION until
+  // the browser kills the page.
+  //
+  // Also REMOVED `flushSync(forceUpdate)` — the synchronous re-render inside the
+  // emit's handler loop is the catalyst that turned the subscription-churn into a
+  // hot loop. Plain forceUpdate schedules a re-render on the next tick — the UI
+  // counter updates within ~16ms which is imperceptible and fully sufficient for
+  // the "N из M" indicator.
+
   // trainer:highlight — adds Tailwind ring classes + trainer-highlight marker class for durationMs
   // elementId must match a data-task-id attribute in the rendered tasks (T-07-02-03: CSS class only)
   // NOTE: Phase 7 yellow ring; distinct from Phase 8 blue current-task ring (RING_CLASSES above).
-  useLessonBusEvent('trainer:highlight', ({ elementId, durationMs = 3000 }) => {
+  const handleHighlight = useCallback(({ elementId, durationMs = 3000 }: { elementId: string; durationMs?: number }) => {
     const el = containerRef.current?.querySelector<HTMLElement>(`[data-task-id="${elementId}"]`)
     if (!el) {
       console.warn(`[TrainerPanel] trainer:highlight — element '${elementId}' not found in DOM`)
@@ -125,21 +140,23 @@ export function TrainerPanel({ lessonId: _lessonId, trainerConfig }: TrainerPane
     setTimeout(() => {
       el.classList.remove('ring-2', 'ring-yellow-400', 'trainer-highlight')
     }, durationMs)
-  })
+  }, [])
+  useLessonBusEvent('trainer:highlight', handleHighlight)
 
   // trainer:show_hint — overrides hint level for a specific task; TrainerRenderer propagates via prop
-  useLessonBusEvent('trainer:show_hint', ({ taskId, hintLevel }) => {
+  const handleShowHint = useCallback(({ taskId, hintLevel }: { taskId: string; hintLevel: number }) => {
     if (hintLevel > 3) {
       console.warn(`[TrainerPanel] trainer:show_hint — hintLevel ${hintLevel} > 3, ignoring`)
       return
     }
     hintOverrides.current.set(taskId, hintLevel)
     forceUpdate()
-  })
+  }, [])
+  useLessonBusEvent('trainer:show_hint', handleShowHint)
 
   // trainer:goto_task — scrolls to task element, focuses first interactive child,
   // and (Phase 8 D-02) moves the current-task ring + advances the counter.
-  useLessonBusEvent('trainer:goto_task', ({ taskId }) => {
+  const handleGotoTask = useCallback(({ taskId }: { taskId: string }) => {
     const el = containerRef.current?.querySelector<HTMLElement>(`[data-task-id="${taskId}"]`)
     if (!el) {
       console.warn(`[TrainerPanel] trainer:goto_task — task '${taskId}' not found in DOM`)
@@ -150,23 +167,22 @@ export function TrainerPanel({ lessonId: _lessonId, trainerConfig }: TrainerPane
     const focusTarget = el.querySelector<HTMLElement>('input, button')
     focusTarget?.focus()
     // Phase 8 D-02 additions: update current-task ref + ring + counter.
-    // flushSync ensures the counter (rendered from currentTaskIdRef.current) re-renders
-    // synchronously in the same tick — required for predictable observation in event-driven
-    // tests and for consistent visual state when goto_task fires outside React batched events.
     currentTaskIdRef.current = taskId
     applyCurrentRing(containerRef.current, taskId)
-    flushSync(() => forceUpdate())
-  })
+    forceUpdate() // async — UI updates next tick; no flushSync (see top of section)
+  }, [])
+  useLessonBusEvent('trainer:goto_task', handleGotoTask)
 
   // Phase 8 D-02 + HTM-01 extension: track solved tasks for counter + visual checkmark.
   // Only correct answers are visualised in the panel; incorrect answers are a
   // sendContextualUpdate concern (D-08) handled outside TrainerPanel.
-  useLessonBusEvent('trainer:answer_submitted', ({ taskId, correct }) => {
+  const handleAnswerSubmitted = useCallback(({ taskId, correct }: { taskId: string; value: string; correct: boolean }) => {
     if (!correct) return
     solvedTaskIdsRef.current.add(taskId)
     markSolved(containerRef.current, taskId)
-    flushSync(() => forceUpdate())
-  })
+    forceUpdate() // async — UI counter/checkmark updates next tick
+  }, [])
+  useLessonBusEvent('trainer:answer_submitted', handleAnswerSubmitted)
 
   return (
     <Card className="h-full flex flex-col">

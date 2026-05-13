@@ -50,7 +50,7 @@ export function buildClientTools(deps: ClientToolsDeps): ClientTools {
      * BoardPanel subscribes to 'board:draw_request' (plan 08-05) and calls its
      * local executeDraw with the prompt.
      */
-    draw_explanation: async (parameters: Record<string, unknown>) => {
+    draw_explanation: (parameters: Record<string, unknown>) => {
       console.log('[client-tools] 🎨 draw_explanation CALLED', parameters)
       const promptRaw = parameters.prompt
       const text = typeof promptRaw === 'string' ? promptRaw.trim() : ''
@@ -58,51 +58,23 @@ export function buildClientTools(deps: ClientToolsDeps): ClientTools {
         console.warn('[client-tools] draw_explanation called with empty prompt')
         return 'Error: empty prompt, narrate verbally'
       }
-      // Phase 8 UAT fix: blocking draw. Handler awaits 'board:draw_complete' before
-      // returning the ack to the LLM. While the Promise is pending, 11labs SDK keeps
-      // Nataly silent (response_timeout_secs: 25 in tool definition gives ~25s budget).
-      // This way the voice DOES NOT race ahead of the board animation — natural
-      // teacher behaviour: write on board first, then narrate what's written.
-      //
-      // Timeout fallback: if the board never reports complete within 22s (e.g.
-      // /api/draw failure mode without a clean event), we resolve with an Error string
-      // so Nataly continues verbally instead of being stuck.
-      const HARD_TIMEOUT_MS = 22_000
-      return new Promise<string>((resolve) => {
-        let settled = false
-        // Define handler first so it can be passed to both bus.on and bus.off.
-        const completeHandler = (payload: { lessonId: string; status: 'ok' | 'error' | 'cancelled'; reason?: string }) => {
-          if (payload.lessonId !== lessonId) return
-          console.log('[client-tools] ✅ draw_explanation received board:draw_complete', payload)
-          if (payload.status === 'ok') {
-            settle('Board drawing complete. Now narrate what is shown — go through it step by step in your own pace.')
-          } else if (payload.status === 'error') {
-            settle(`Error: board drawing failed (${payload.reason ?? 'unknown'}), narrate verbally instead.`)
-          } else {
-            settle(`Error: board drawing cancelled (${payload.reason ?? 'unknown'}), narrate verbally instead.`)
-          }
-        }
-        const settle = (value: string) => {
-          if (settled) return
-          settled = true
-          bus.off('board:draw_complete', completeHandler)
-          clearTimeout(timer)
-          resolve(value)
-        }
-        bus.on('board:draw_complete', completeHandler)
-        const timer = setTimeout(() => {
-          console.warn('[client-tools] draw_explanation timeout after', HARD_TIMEOUT_MS, 'ms — resolving with error')
-          settle('Error: board drawing timed out, narrate verbally and we will retry later.')
-        }, HARD_TIMEOUT_MS)
-        try {
-          bus.emit('board:draw_request', { prompt: text, lessonId })
-          console.log('[client-tools] ⏳ draw_explanation awaiting board:draw_complete', { prompt: text, lessonId })
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : 'unknown error'
-          console.error('[client-tools] draw_explanation emit failed:', msg)
-          settle('Error: board unavailable, narrate verbally')
-        }
-      })
+      // D-09 fire-and-forget: handler returns ack IMMEDIATELY so the voice can
+      // continue narrating in parallel with the board animation. UAT (2026-05-13)
+      // explored a BLOCKING variant where the handler awaited 'board:draw_complete'
+      // before returning — but the operator preferred parallel speech-and-draw
+      // (it feels more like a live teacher who writes while talking). Speed is
+      // tuned at the board animation level (lib/draw-engine — animation duration
+      // shortened) rather than by blocking voice. See revert in board-panel.tsx
+      // and api/draw helpers for the tuning knobs.
+      try {
+        bus.emit('board:draw_request', { prompt: text, lessonId })
+        console.log('[client-tools] ✅ draw_explanation emitted board:draw_request', { prompt: text, lessonId })
+        return 'OK, drawing in parallel — keep narrating step by step at a slightly slowed pace so the visuals can keep up.'
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'unknown error'
+        console.error('[client-tools] draw_explanation emit failed:', msg)
+        return 'Error: board unavailable, narrate verbally'
+      }
     },
 
     /** D-07 baseline #2 — wipe canvas. */

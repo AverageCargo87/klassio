@@ -122,23 +122,13 @@ describe('VoicePanel — Phase 8 clientTools + dynamicVariables wiring (LLM-01)'
     expect(capturedDynamicVariables).toEqual({ lesson_topic: 'T', total_tasks: 0 })
   })
 
-  it('draw_explanation tool is BLOCKING: emits board:draw_request immediately, waits for board:draw_complete (Phase 8 UAT fix)', async () => {
+  it('draw_explanation tool returns a string ack within 50ms (fire-and-forget — INV-02, parallel voice+draw)', async () => {
     render(React.createElement(VoicePanel, { lessonId: 'L1', topic: 'T', trainerConfig: SAMPLE_CONFIG } as never))
-    // Kick off — don't await yet
-    const pending = capturedClientTools!.draw_explanation({ prompt: 'сложение 245+874' }) as Promise<string>
-    // Let microtasks flush so the handler has a chance to emit + subscribe
-    await Promise.resolve()
-    // Bus emit happened synchronously inside the handler
-    expect(mockEmit).toHaveBeenCalledWith('board:draw_request', { prompt: 'сложение 245+874', lessonId: 'L1' })
-    // Promise must still be pending — we have NOT emitted board:draw_complete yet
-    let resolved = false
-    pending.then(() => { resolved = true })
-    await Promise.resolve()
-    expect(resolved).toBe(false)
-    // Simulate the board reporting completion
-    mockEmit('board:draw_complete', { lessonId: 'L1', status: 'ok' })
-    const result = await pending
+    const start = Date.now()
+    const result = await capturedClientTools!.draw_explanation({ prompt: 'сложение 245+874' })
+    expect(Date.now() - start).toBeLessThan(50)
     expect(typeof result).toBe('string')
-    expect(result).toContain('complete')
+    // Bus emit happens synchronously inside the handler
+    expect(mockEmit).toHaveBeenCalledWith('board:draw_request', { prompt: 'сложение 245+874', lessonId: 'L1' })
   })
 })
