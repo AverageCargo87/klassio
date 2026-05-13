@@ -1,8 +1,6 @@
-// Phase 8 Wave 0 RED — Wave 3 plan 08-06 creates `lib/periodic-checkpoint` to flip GREEN.
+// Phase 8 Wave 3 GREEN — plan 08-06 creates `lib/periodic-checkpoint` to satisfy this contract.
 // Covers HTM-01 (10-min cadence, fake timers).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-// RED — Wave 3 plan 08-06 creates lib/periodic-checkpoint/index.ts.
-// @ts-expect-error — module not yet created (Wave 0 RED contract)
 import { startPeriodicCheckpoint } from '@/lib/periodic-checkpoint'
 
 describe('periodic checkpoint (HTM-01 + D-03)', () => {
