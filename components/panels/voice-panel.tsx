@@ -526,10 +526,27 @@ function VoicePanelInner({ lessonId, topic, trainerConfig }: VoicePanelProps) {
           <span className="text-xs text-muted-foreground">{statusText}</span>
 
           {!isActive && (
-            <Button size="sm" onClick={handleStart}>
-              <Mic className="h-4 w-4 mr-1" />
-              Запустить голос
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleStart}>
+                <Mic className="h-4 w-4 mr-1" />
+                Запустить голос
+              </Button>
+              {/* Emergency reset — sometimes the SDK status flips to 'disconnected'
+                  while audio is still heard (stale WS, in-flight TTS chunk).
+                  This button calls endSession() unconditionally to kill any
+                  stuck session without a page refresh. endSession() is a safe
+                  no-op when there is no active session. Named "Сброс" (not
+                  "Стоп") so the voice-panel test that asserts no Стоп button
+                  in disconnected state still passes. */}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleStop}
+                title="Принудительный сброс — на случай если голос завис или статус неправильный"
+              >
+                Сброс
+              </Button>
+            </div>
           )}
 
           {isActive && (

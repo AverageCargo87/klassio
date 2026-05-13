@@ -37,7 +37,11 @@ export const TTS_SPEED = 1.05               // slightly faster than default (б�
 
 // Phase 6 baseline conversation timing (PHASE-6-SETUP § 6)
 export const MAX_CONVERSATION_DURATION_SEC = 3600  // 60 min — 45-min lesson + buffer
-export const TURN_TIMEOUT_SEC = 10                 // дать ребёнку подумать перед next turn
+export const TURN_TIMEOUT_SEC = 25                 // 25s of silence before agent re-engages
+                                                    // (was 10 in Phase 6 baseline; bumped per
+                                                    // user feedback during Phase 8 UAT — Nataly
+                                                    // was interrupting child too early during
+                                                    // problem-solving thought process)
 export const TURN_EAGERNESS = 'normal'             // 'high' would cut child off
 
 // Phase 6 baseline ASR keywords for math vocabulary (PHASE-6-SETUP § 6 ASR)

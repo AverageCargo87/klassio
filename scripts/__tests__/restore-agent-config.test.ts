@@ -103,8 +103,9 @@ describe('restore-agent-config — Phase 8 tool definitions (LLM-01 + D-11)', ()
     const body = buildAgentPatchBody({ prompt: 'P', firstMessage: 'F', toolIds: [] })
     // Conversation max duration: 60 minutes (45-min lesson + buffer)
     expect(body.conversation_config.conversation.max_duration_seconds).toBe(3600)
-    // Turn timeout: 10s — gives the child time to think between turns
-    expect(body.conversation_config.turn.turn_timeout).toBe(10)
+    // Turn timeout: 25s — gives the child plenty of time to think between turns
+    // (raised from Phase 6 baseline 10s per UAT — Nataly was interrupting too early)
+    expect(body.conversation_config.turn.turn_timeout).toBe(25)
     expect(body.conversation_config.turn.turn_eagerness).toBe('normal')
     // ASR keywords for math vocabulary (Phase 6 § 6 ASR)
     expect(body.conversation_config.asr.keywords).toContain('дроби')

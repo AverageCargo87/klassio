@@ -51,6 +51,7 @@ export function buildClientTools(deps: ClientToolsDeps): ClientTools {
      * local executeDraw with the prompt.
      */
     draw_explanation: (parameters: Record<string, unknown>) => {
+      console.log('[client-tools] 🎨 draw_explanation CALLED', parameters)
       const promptRaw = parameters.prompt
       const text = typeof promptRaw === 'string' ? promptRaw.trim() : ''
       if (!text) {
@@ -59,6 +60,7 @@ export function buildClientTools(deps: ClientToolsDeps): ClientTools {
       }
       try {
         bus.emit('board:draw_request', { prompt: text, lessonId })
+        console.log('[client-tools] ✅ draw_explanation emitted board:draw_request', { prompt: text, lessonId })
         return 'OK, drawing explanation'
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'unknown error'
@@ -69,8 +71,10 @@ export function buildClientTools(deps: ClientToolsDeps): ClientTools {
 
     /** D-07 baseline #2 — wipe canvas. */
     clear_board: () => {
+      console.log('[client-tools] 🧹 clear_board CALLED')
       try {
         bus.emit('board:clear_request', {})
+        console.log('[client-tools] ✅ clear_board emitted board:clear_request')
         return 'Board cleared'
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'unknown error'
@@ -86,6 +90,7 @@ export function buildClientTools(deps: ClientToolsDeps): ClientTools {
      * load-bearing: contextual update must precede bus emit.
      */
     goto_trainer_task: (parameters: Record<string, unknown>) => {
+      console.log('[client-tools] 🎯 goto_trainer_task CALLED', parameters)
       const taskId = parameters.taskId
       if (typeof taskId !== 'string' || !TASK_ID_RE.test(taskId)) {
         console.warn('[client-tools] goto_trainer_task rejected invalid taskId:', taskId)
@@ -117,6 +122,7 @@ export function buildClientTools(deps: ClientToolsDeps): ClientTools {
      * (TrainerPanel maps elementId → data-task-id selector).
      */
     highlight_trainer_task: (parameters: Record<string, unknown>) => {
+      console.log('[client-tools] ✨ highlight_trainer_task CALLED', parameters)
       const taskId = parameters.taskId
       const durationMsRaw = parameters.durationMs
       if (typeof taskId !== 'string' || !TASK_ID_RE.test(taskId)) {
@@ -135,6 +141,7 @@ export function buildClientTools(deps: ClientToolsDeps): ClientTools {
 
     /** D-07 extension #1 — show a hint level (1/2/3). Reuses Phase 7 trainer:show_hint. */
     show_hint: (parameters: Record<string, unknown>) => {
+      console.log('[client-tools] 💡 show_hint CALLED', parameters)
       const taskId = parameters.taskId
       const hintLevel = parameters.hintLevel
       if (typeof taskId !== 'string' || !TASK_ID_RE.test(taskId)) {
@@ -159,6 +166,7 @@ export function buildClientTools(deps: ClientToolsDeps): ClientTools {
      * from the periodic checkpoint and mini-recap — consistent vocabulary.
      */
     get_lesson_state: () => {
+      console.log('[client-tools] 📊 get_lesson_state CALLED')
       try {
         return getState()
       } catch (err) {
