@@ -78,40 +78,68 @@ User requested after first successful voice UAT: "хотелось бы чтоб
 
 ---
 
-## 🔜 What to do next session
+## 🔜 What to do next session — UPDATED 2026-05-12 evening
 
-User said end-of-session: "сохрани текущий статус. какой следующий этап?"
+User reviewed status and locked in the next direction. Three tracks were laid out:
+- **Track A — agent drives board + trainer** (was Phase 8, redefined to 8-mini)
+- **Track B — content (5th-grade curriculum) for trainer** (new Phase 8.5)
+- **Track C — UI redesign + Lottie avatars** (Phase 11 expanded)
 
-### Option A — Final without-VPN UAT (15 min)
-Closes Phase 6.5 history fully. User toggles VPN off, opens admin URL, clicks "Запустить голос", confirms voice still flows (it should — we proved h2.nexus IP isn't on CF blacklist via curl test from the same RU desktop with VPN off way earlier in the session).
+User chose order **A → C → B** and approved the "Phase 8-mini" simplification
+(11labs Client Tools + sendContextualUpdate, no separate Pedagogical LLM tier).
+Polnaya двухуровневая LLM остаётся как possible future Phase 8.5+ если 8-mini
+окажется недостаточным.
 
-If for any reason CF starts cutting the proxy domain too, contingency: buy a real $10/year domain on Cloudflare Registrar, A-record to 87.120.93.35 (proxy=OFF), re-issue Let's Encrypt cert for that domain, change `VOICE_PROXY_HOST` env in Vercel. ~30 min.
+### IMMEDIATELY in next session — discuss-phase 8
 
-### Option B — Phase 8: Two-tier LLM (Pedagogical + Realtime) ★ recommended
-Largest value-unlock remaining. Architecture:
-- **Slow/smart**: GPT-4o server-side watcher that observes lesson state (board events, trainer answers, voice transcript, silence) and emits high-level pedagogical decisions
-- **Fast/realtime**: existing 11labs Conversational AI as the in-the-moment actor; receives contextual updates from the slow tier
+**FIRST** read `.planning/phases/08-agent-control/08-OPEN-QUESTIONS.md`. It contains
+7 open product/UX questions about the HTML trainer that user flagged today
+("не до конца понимаю где они будут интерфейсно и какой с ними будет функционал").
+Critical ones: Q1 (linear/parallel/adaptive flow), Q2 (where trainer lives in layout),
+Q5 (which trainer events go to agent), Q6 (board-vs-trainer for explanations).
 
-Scope per ROADMAP Phase 8:
-- Pedagogical decision schema
-- Trigger detector (silence, off-task, wrong-answer streak, tab switch)
-- Contextual update pipe to 11labs Conversational AI agent (`sendContextualUpdate` SDK method)
-- Cost: +$22-45/mo variable (4o tokens, depends on lesson length and verbosity)
+These need to be discussed BEFORE technical Phase 8 work — they shape the
+client-tool surface that the agent will get.
 
-**Estimated**: 8-12 hours of work. Spans 3-4 plans.
+```
+/clear                            # release context — this wrap-up resumes everything
+/gsd-discuss-phase 8              # surface the 7 trainer Qs first, then agent-tool architecture
+/gsd-plan-phase 8                 # ~30 min after discuss settles
+/gsd-execute-phase 8              # ~6-8 hours of work (down from 12-15 of full Phase 8)
+```
 
-Pre-flight checks before starting:
-- Phase 6.5 is done (voice unblocked) ✓
-- 11labs `sendContextualUpdate` exists in SDK ✓ (saw it in BaseConversation.d.ts today)
-- Lesson bus already carries trainer events + voice:transcript ✓ — Pedagogical can subscribe to all of them
+### Still pending action items (low priority, не блокеры)
 
-### Option C — Phase 10: Recording + transcript persistence + content moderation
-Now that transcript flows through the bus, persisting it is "easy". Bigger lift is 152-ФЗ content moderation + storage decisions (R2 vs S3 vs DB blob). User originally flagged this as needing a legal decision.
+- **Final without-VPN UAT** (5 min) — user toggles VPN off, opens evergreen URL,
+  confirms voice still flows. CF reputation of h2.nexus IP was confirmed clean
+  via curl earlier; this is a sanity check. If broken, ~30 min contingency:
+  buy $10 domain on Cloudflare Registrar, A-record to 87.120.93.35 (proxy=OFF),
+  re-issue Let's Encrypt cert, update `VOICE_PROXY_HOST` env.
+- **Rotate ELEVENLABS_API_KEY** in 11labs UI. Key was scrubbed from git history
+  via filter-repo (`3e0398b` is new HEAD; 145 commits all rewritten), but the
+  key still works upstream. Hygiene step.
 
-### Option D — Phase 11: Stroke-drawing animation + SSML sync
-Polish. Makes the "magic" feel of synchronized voice+drawing+text more visceral. Lower business value than Phase 8 but more impressive.
+### Phase 8 expected scope (preview, will be refined in discuss-phase)
 
-**Recommendation: A → B**. Confirm without-VPN UAT (10-15 min including pinging the user to retest), then start Phase 8 planning via `/gsd-discuss-phase 8`.
+1. **Client tools registered with 11labs agent:**
+   - `draw_explanation({ prompt: string })` → POST to /api/draw same as user-typed
+   - `clear_board()` → wipes canvas
+   - `highlight_trainer_task({ taskId })` → emits trainer:highlight on bus
+   - `goto_trainer_task({ taskId })` → emits trainer:goto_task on bus
+   - Maybe: `set_lesson_phase('intro'|'main'|'practice'|'review')` if Q7 lands on (b)
+
+2. **Trainer events piped INTO agent via sendContextualUpdate:**
+   - trainer:answer_submitted (right/wrong) → "Ребёнок только что ответил на задачу X: правильно/неправильно. Ответ был: ..."
+   - trainer:idle_15s → "Ребёнок молчит 15 секунд на задаче X"
+   - trainer:hint_opened → "Ребёнок открыл подсказку"
+
+3. **Agent system prompt updated** — Nataly knows she can call these tools and
+   should use them when relevant. Existing voice/persona unchanged.
+
+### Phase ordering reminder
+
+Per user 2026-05-12: **A (Phase 8) → C (Phase 11) → B (Phase 8.5 content)**.
+Tracks B (content) can run in parallel any time — it's methodology work, not code.
 
 ---
 
