@@ -1,8 +1,6 @@
-// Phase 8 Wave 0 RED — Wave 1 plan 08-02 creates `lib/client-tools` to flip GREEN.
+// Phase 8 Wave 1 GREEN — plan 08-02 flipped this from RED by implementing lib/client-tools.
 // Covers LLM-01 (6 client tools, fire-and-forget semantics, mini-recap before goto).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-// RED — these imports do not yet resolve. Wave 1 plan 08-02 creates the module.
-// @ts-expect-error — module not yet created (Wave 0 RED contract)
 import { buildClientTools } from '@/lib/client-tools'
 import type { LessonBus } from '@/lib/lesson-bus'
 
