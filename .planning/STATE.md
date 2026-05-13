@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.6.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-05-13T15:53:06.686Z"
+status: ready_to_plan
+last_updated: "2026-05-13T16:11:12.556Z"
 progress:
   total_phases: 14
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 29
   completed_plans: 30
-  percent: 100
+  percent: 57
 ---
 
 # Klassio — STATE
@@ -35,8 +35,8 @@ progress:
 
 ## Current Position
 
-Phase: 08 (agent-control) — EXECUTING
-Plan: 8 of 8
+Phase: 09
+Plan: Not started
 **Phase 6 IMPLEMENTATION COMPLETE. Phase 6.5 (Hetzner) — PENDING USER ACTION.**
 
 **👉 После /clear читай первым: [`.planning/SESSION-2026-05-11-WRAPUP.md`](.planning/SESSION-2026-05-11-WRAPUP.md)**
