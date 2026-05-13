@@ -1,14 +1,12 @@
-// Phase 8 Wave 0 RED — Wave 1 plan 08-02 creates `lib/contextual-updates` to flip GREEN.
+// Phase 8 Wave 1 GREEN — plan 08-02 flipped this from RED by implementing lib/contextual-updates.
 // Covers PED-02 + HTM-01 (3 events + mini-recap + periodic checkpoint + task_focused NOT forwarded).
 import { describe, it, expect } from 'vitest'
-// RED — Wave 1 plan 08-02 creates these formatters.
 import {
   formatAnswerSubmitted,
   formatHintOpened,
   formatIdle15s,
   formatMiniRecap,
   formatPeriodicCheckpoint,
-  // @ts-expect-error — module not yet created (Wave 0 RED contract)
 } from '@/lib/contextual-updates'
 
 describe('contextual-update formatters (PED-02 + HTM-01 + D-08)', () => {
@@ -58,7 +56,6 @@ describe('contextual-update formatters (PED-02 + HTM-01 + D-08)', () => {
 
   it('there is no formatter for task_focused (D-08 allow-list discipline)', async () => {
     // task_focused is internal-only per D-08 — verify no exported formatter exists
-    // @ts-expect-error — module not yet created (Wave 0 RED contract)
     const mod = await import('@/lib/contextual-updates')
     const exported = Object.keys(mod)
     expect(exported.find((k: string) => k.toLowerCase().includes('taskfocused'))).toBeUndefined()

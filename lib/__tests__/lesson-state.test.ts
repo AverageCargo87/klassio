@@ -1,8 +1,6 @@
-// Phase 8 Wave 0 RED — Wave 1 plan 08-02 creates `lib/lesson-state` to flip GREEN.
+// Phase 8 Wave 1 GREEN — plan 08-02 flipped this from RED by implementing lib/lesson-state.
 // Covers LLM-01 (get_lesson_state snapshot format).
 import { describe, it, expect } from 'vitest'
-// RED — Wave 1 plan 08-02 creates lib/lesson-state/index.ts.
-// @ts-expect-error — module not yet created (Wave 0 RED contract)
 import { getLessonStateSnapshot } from '@/lib/lesson-state'
 
 describe('getLessonStateSnapshot (LLM-01 + D-03)', () => {
