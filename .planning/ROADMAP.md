@@ -227,7 +227,7 @@ Plans:
 - [x] 08-04-PLAN.md — Wave 2 VoicePanel wiring: clientTools + dynamicVariables + 3 trainer event subscriptions + state refs (Phase 6.5 cleanup-bug guard preserved)
 - [ ] 08-05-PLAN.md — Wave 2 BoardPanel + LessonShell: board:draw_request/board:clear_request subscriptions + trainerConfig thread to VoicePanel
 - [ ] 08-06-PLAN.md — Wave 3 periodic checkpoint: lib/periodic-checkpoint + VoicePanel useEffect on conversation.status
-- [ ] 08-07-PLAN.md — Wave 4 TrainerPanel progress UI: current-task ring + "N из M" counter + checkmarks (D-02; HTM-01 extension)
+- [x] 08-07-PLAN.md — Wave 4 TrainerPanel progress UI: current-task ring + "N из M" counter + checkmarks (D-02; HTM-01 extension)
 - [ ] 08-08-PLAN.md — Wave 5 PED-02 proactive triggers (visibility + consecutive mistakes) + E2E suite + manual checkpoint (operator runs restore script against live 11labs agent)
 
 ---
