@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import 'tldraw/tldraw.css'
 import type { Editor } from 'tldraw'
 import { executeToolCall } from '@/lib/board'
-import { useLessonBus } from '@/lib/lesson-bus'
+import { useLessonBus, useLessonBusEvent } from '@/lib/lesson-bus'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -222,6 +222,35 @@ export function BoardPanel({ lessonId }: BoardPanelProps) {
     },
     [executeDraw],
   )
+
+  // ── Phase 8 D-07: bus-driven board control from Nataly's client tools ───
+  // VoicePanel's `draw_explanation` and `clear_board` client tool handlers
+  // emit these events (plan 08-04). BoardPanel reacts by invoking its existing
+  // local executeDraw / handleClear — same SSE consumption path as the textarea
+  // flow. No editor ref sharing across components (OQ-1 Option B).
+  //
+  // useLessonBusEvent (not bare useEffect + bus.on) — auto-cleanup, stable
+  // subscription. The handler dependency on executeDraw is intentional: when
+  // executeDraw is re-created (running/lessonId change), the subscription
+  // follows. This is safe because lessonId doesn't change mid-session and
+  // `running` flips ms-scale around an active draw.
+
+  useLessonBusEvent('board:draw_request', ({ prompt: requestPrompt, lessonId: requestLessonId }) => {
+    // Defense-in-depth: verify the request is for THIS lesson. lessonId mismatch
+    // would indicate a bus replay or test harness error — not a security threat
+    // (server /api/draw already auth + ownership-checks) but we log it.
+    if (requestLessonId !== lessonId) {
+      console.warn(`[BoardPanel] board:draw_request lessonId mismatch — expected ${lessonId}, got ${requestLessonId}`)
+      return
+    }
+    // Fire-and-forget — executeDraw is already async and consumes SSE in the
+    // background. The void here matches D-09 INV-02 semantics from VoicePanel.
+    void executeDraw(requestPrompt)
+  })
+
+  useLessonBusEvent('board:clear_request', () => {
+    handleClear()
+  })
 
   return (
     <Card className="h-full flex flex-col overflow-hidden">
