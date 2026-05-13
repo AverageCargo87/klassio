@@ -33,6 +33,13 @@ export type AvatarEmotionPayload = { emotion: 'neutral' | 'happy' | 'sad' | 'thi
 // Role values match the 11labs SDK Role type — 'agent' (teacher) | 'user' (child).
 export type VoiceTranscriptPayload = { text: string; role: 'user' | 'agent'; timestamp: number }
 
+// Phase 8 — Board control via Nataly client tools (D-07 + OQ-1 + OQ-6).
+// VoicePanel emits these from the draw_explanation / clear_board client tool handlers;
+// BoardPanel subscribes and calls its local executeDraw / handleClear functions.
+// This avoids exposing tldraw Editor across the React tree (Option B per RESEARCH OQ-1).
+export type BoardDrawRequestPayload  = { prompt: string; lessonId: string }
+export type BoardClearRequestPayload = Record<string, never>
+
 export type LessonBusEvent =
   | { type: 'lesson:test';  payload: LessonTestPayload }
   | { type: 'lesson:start'; payload: LessonStartPayload }
@@ -52,6 +59,9 @@ export type LessonBusEvent =
   | { type: 'avatar:emotion'; payload: AvatarEmotionPayload }
   // Phase 6.5 — Voice transcript (one event per agent or user message)
   | { type: 'voice:transcript'; payload: VoiceTranscriptPayload }
+  // Phase 8 — Board control (D-07, OQ-1, OQ-6)
+  | { type: 'board:draw_request';  payload: BoardDrawRequestPayload }
+  | { type: 'board:clear_request'; payload: BoardClearRequestPayload }
 
 // Helper: extract payload type for a given event type string.
 // Usage: EventPayload<'lesson:test'> → { source: string; counter: number }

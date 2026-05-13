@@ -18,6 +18,9 @@ export type {
   // Phase 9 — Avatar/voice payloads (D-06)
   VoiceStatePayload,
   AvatarEmotionPayload,
+  // Phase 8 — Board control payloads (D-07, OQ-1, OQ-6)
+  BoardDrawRequestPayload,
+  BoardClearRequestPayload,
 } from './events'
 export { LessonBus } from './bus'
 export { LessonBusProvider, LessonBusContext } from './provider'
