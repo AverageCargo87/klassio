@@ -92,6 +92,25 @@ describe('restore-agent-config — Phase 8 tool definitions (LLM-01 + D-11)', ()
     const body = buildAgentPatchBody({ prompt: 'P', firstMessage: 'F', voiceId: 'NhY0kyTmsKuEpHvDMngm', toolIds: [] })
     expect(body.conversation_config.tts.voice_id).toBe('NhY0kyTmsKuEpHvDMngm')
     expect(body.conversation_config.tts.model_id).toBe('eleven_multilingual_v2')
+    // 11labs PATCH is REPLACE-on-object: any TTS field not passed reverts to default.
+    // Phase 6 tuning must be passed explicitly every restore.
+    expect(body.conversation_config.tts.stability).toBe(0.30)
+    expect(body.conversation_config.tts.similarity_boost).toBe(0.75)
+    expect(body.conversation_config.tts.speed).toBe(1.05)
+  })
+
+  it('buildAgentPatchBody includes Phase 6 turn/conversation/asr baseline (REPLACE-on-object guard)', () => {
+    const body = buildAgentPatchBody({ prompt: 'P', firstMessage: 'F', toolIds: [] })
+    // Conversation max duration: 60 minutes (45-min lesson + buffer)
+    expect(body.conversation_config.conversation.max_duration_seconds).toBe(3600)
+    // Turn timeout: 10s — gives the child time to think between turns
+    expect(body.conversation_config.turn.turn_timeout).toBe(10)
+    expect(body.conversation_config.turn.turn_eagerness).toBe('normal')
+    // ASR keywords for math vocabulary (Phase 6 § 6 ASR)
+    expect(body.conversation_config.asr.keywords).toContain('дроби')
+    expect(body.conversation_config.asr.keywords).toContain('периметр')
+    expect(body.conversation_config.asr.keywords).toContain('столбиком')
+    expect(body.conversation_config.asr.keywords.length).toBeGreaterThanOrEqual(15)
   })
 
   it('buildAgentPatchBody rejects non-array toolIds', () => {

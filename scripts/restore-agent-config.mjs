@@ -145,10 +145,21 @@ console.log('[5/5] Re-fetching agent to confirm...')
   const agentTools = j.conversation_config?.agent?.prompt?.tools || []
   const customTools = agentTools.filter((t) => !t.params?.system_tool_type)
   const customNames = customTools.map((t) => t.name).filter(Boolean)
-  console.log('  voice_id      :', j.conversation_config?.tts?.voice_id)
-  console.log('  tts model     :', j.conversation_config?.tts?.model_id)
+  const tts = j.conversation_config?.tts || {}
+  const turn = j.conversation_config?.turn || {}
+  const conv = j.conversation_config?.conversation || {}
+  const asr = j.conversation_config?.asr || {}
+  console.log('  voice_id      :', tts.voice_id)
+  console.log('  tts model     :', tts.model_id)
+  console.log('  tts stability :', tts.stability, '(Phase 6 baseline: 0.30)')
+  console.log('  tts similarity:', tts.similarity_boost, '(Phase 6 baseline: 0.75)')
+  console.log('  tts speed     :', tts.speed, '(Phase 6 baseline: 1.05)')
   console.log('  language      :', j.conversation_config?.agent?.language)
   console.log('  llm           :', j.conversation_config?.agent?.prompt?.llm)
+  console.log('  max duration  :', conv.max_duration_seconds, 's (Phase 6 baseline: 3600)')
+  console.log('  turn timeout  :', turn.turn_timeout, 's (Phase 6 baseline: 10)')
+  console.log('  turn eagerness:', turn.turn_eagerness, '(Phase 6 baseline: normal)')
+  console.log('  asr keywords  :', asr.keywords?.length || 0, 'keywords (Phase 6 baseline: 18)')
   console.log('  first_message :', (j.conversation_config?.agent?.first_message || '').slice(0, 80))
   console.log('  prompt len    :', (j.conversation_config?.agent?.prompt?.prompt || '').length, 'chars')
   console.log('  prompt head   :', (j.conversation_config?.agent?.prompt?.prompt || '').slice(0, 80))

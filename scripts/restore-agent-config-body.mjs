@@ -21,10 +21,33 @@
 // It did. We adapt.
 
 // ─── Phase 6 baseline (constant across phases) ──────────────────────────────
+// CRITICAL: 11labs PATCH does REPLACE-on-object, not merge. Any field NOT
+// explicitly passed gets reset to default. See 2026-05-13 live test where
+// missing `turn.turn_timeout` reverted to 7 (default) instead of 10 (Phase 6).
+// Therefore buildAgentPatchBody passes ALL Phase 6 baseline fields every call.
 export const NATALY_VOICE_ID = 'NhY0kyTmsKuEpHvDMngm'
 export const TTS_MODEL_ID = 'eleven_multilingual_v2'
 export const LLM_MODEL = 'gpt-4.1-mini'
 export const LANGUAGE = 'ru'
+
+// Phase 6 baseline TTS voice tuning (PHASE-6-SETUP § 3)
+export const TTS_STABILITY = 0.30           // more expressive (slider left of center)
+export const TTS_SIMILARITY_BOOST = 0.75    // clear pronunciation
+export const TTS_SPEED = 1.05               // slightly faster than default (бодрее)
+
+// Phase 6 baseline conversation timing (PHASE-6-SETUP § 6)
+export const MAX_CONVERSATION_DURATION_SEC = 3600  // 60 min — 45-min lesson + buffer
+export const TURN_TIMEOUT_SEC = 10                 // дать ребёнку подумать перед next turn
+export const TURN_EAGERNESS = 'normal'             // 'high' would cut child off
+
+// Phase 6 baseline ASR keywords for math vocabulary (PHASE-6-SETUP § 6 ASR)
+export const ASR_KEYWORDS = [
+  'дробь', 'дроби', 'числитель', 'знаменатель',
+  'десятичная', 'столбиком', 'уравнение',
+  'периметр', 'площадь', 'прямоугольник',
+  'процент', 'проценты', 'среднее', 'арифметическое',
+  'умножение', 'деление', 'сложение', 'вычитание',
+]
 
 /**
  * Six client tool definitions per Phase 8 D-07. These are the tool_config
@@ -187,6 +210,10 @@ export function buildAgentPatchBody({ prompt, firstMessage, voiceId, toolIds }) 
   if (!Array.isArray(toolIds)) {
     throw new Error('buildAgentPatchBody: toolIds must be an array')
   }
+  // FULL Phase 6 baseline — REPLACE semantics in 11labs PATCH means every field
+  // not passed here will silently reset to 11labs default. This object holds the
+  // full known-good config; any future Phase that needs to add a field MUST add
+  // it both here AND to the test assertions.
   return {
     conversation_config: {
       agent: {
@@ -201,6 +228,20 @@ export function buildAgentPatchBody({ prompt, firstMessage, voiceId, toolIds }) 
       tts: {
         voice_id: voiceId || NATALY_VOICE_ID,
         model_id: TTS_MODEL_ID,
+        stability: TTS_STABILITY,
+        similarity_boost: TTS_SIMILARITY_BOOST,
+        speed: TTS_SPEED,
+      },
+      conversation: {
+        max_duration_seconds: MAX_CONVERSATION_DURATION_SEC,
+      },
+      turn: {
+        turn_timeout: TURN_TIMEOUT_SEC,
+        turn_eagerness: TURN_EAGERNESS,
+      },
+      asr: {
+        quality: 'high',
+        keywords: ASR_KEYWORDS,
       },
     },
   }
