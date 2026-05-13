@@ -1,26 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.5
+milestone: v1.6.0
 milestone_name: milestone
-status: phase_8_context_gathered_ready_for_plan
-last_updated: "2026-05-13T00:00:00Z"
+status: unknown
+last_updated: "2026-05-13T14:26:09.238Z"
 progress:
-  total_phases: 12
-  completed_phases: 9
-  active_phase: 8
-  blocked_phases: 3   # 10, 11, 12 (Phase 8 now unblocked; Phase 6.5 ✓)
-  total_plans: 23
+  total_phases: 14
+  completed_phases: 7
+  total_plans: 29
   completed_plans: 23
-  percent: 75
-production_url: "https://klassio-one.vercel.app"
-voice_proxy_host: "87.120.93.35.nip.io"  # h2.nexus Frankfurt VPS, Phase 6.5
-admin_test_url: "https://klassio-one.vercel.app/lesson/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
-deploy_status:
-  phase_1: "DEPLOYED ✓ — auth flow end-to-end works (Resend magic link → /lessons). Known UX bug: client-side exception on form submit (email still sent, non-blocking)."
-  phase_4: "DEPLOYED ✓ — board renders explanations correctly. Phase 6.5 added pacing fix (FADE_IN 900→1500ms, highlight dedup, killed scene+template duplicate path in system prompt) — column-addition now visibly slower and one-pass."
-  phase_6: "DEPLOYED ✓ — voice works in browser through Phase 6.5 proxy (user-confirmed 2026-05-12 with VPN). 11labs agent spec restored via scripts/restore-agent-config.mjs after demo-template drift. Cleanup-effect bug (existed since Phase 6, masked by CF cut) fixed in c261fb0."
-  phase_6_5: "DEPLOYED ✓ (2026-05-12) — h2.nexus Frankfurt VPS (NOT Hetzner — banned, NOT DO — rejected card; landed on h2.nexus via SBP). Node WS-proxy via nginx + Let's Encrypt + systemd. HMAC handshake. End-to-end test: 380 KB audio over 20 sec. Browser UAT with VPN: 40+ sec stable. Without-VPN UAT pending user re-test. Transcript chat UI added in same phase per user request."
-  phase_8: "CONTEXT GATHERED ✓ (2026-05-13) — discuss-phase 8 (agent-control redefined). 4 areas, 11 decisions captured in 08-CONTEXT.md. Plan-phase next."
+  percent: 79
 ---
 
 # Klassio — STATE
@@ -46,6 +35,8 @@ deploy_status:
 
 ## Current Position
 
+Phase: 08 (agent-control) — EXECUTING
+Plan: 1 of 8
 **Phase 6 IMPLEMENTATION COMPLETE. Phase 6.5 (Hetzner) — PENDING USER ACTION.**
 
 **👉 После /clear читай первым: [`.planning/SESSION-2026-05-11-WRAPUP.md`](.planning/SESSION-2026-05-11-WRAPUP.md)**
@@ -54,7 +45,93 @@ deploy_status:
 - **Phase 1 status**: ✅ DEPLOYED. Auth end-to-end works. Известный UX bug: client-side exception на form submit (email уходит, flow завершается) — non-blocking, отложен на полировку.
 - **Phase 4 status**: ✅ DEPLOYED. Board rendering работает после fixes: camera auto-fit (a36f87d) + first-byte SSE flush + thinking indicator (15a7bd6). User протестировал «объясни 245+874 в столбик» — работает. Speed/animation polish — отложено.
 - **Phase 6 status**: ✅ **IMPLEMENTATION COMPLETE (2026-05-10).** Plan 06-01 + 06-02 shipped в Klassio. Manual UAT (real voice через VPN) deferred пользователю — см. `06-02-SUMMARY.md` § Manual UAT. Конфигурация агента залочена в `.planning/PHASE-6-SETUP-2026-05-10.md`:
+  - ✅ Creator subscription (## Current Position
+
+1/**Phase 6 IMPLEMENTATION COMPLETE. Phase 6.5 (Hetzner) — PENDING USER ACTION.**
+
+**👉 После /clear читай первым: [`.planning/SESSION-2026-05-11-WRAPUP.md`](.planning/SESSION-2026-05-11-WRAPUP.md)**
+
+- **Production URL**: https://klassio-one.vercel.app — DEPLOYED, working
+- **Phase 1 status**: ✅ DEPLOYED. Auth end-to-end works. Известный UX bug: client-side exception на form submit (email уходит, flow завершается) — non-blocking, отложен на полировку.
+- **Phase 4 status**: ✅ DEPLOYED. Board rendering работает после fixes: camera auto-fit (a36f87d) + first-byte SSE flush + thinking indicator (15a7bd6). User протестировал «объясни 245+874 в столбик» — работает. Speed/animation polish — отложено.
+- **Phase 6 status**: ✅ **IMPLEMENTATION COMPLETE (2026-05-10).** Plan 06-01 + 06-02 shipped в Klassio. Manual UAT (real voice через VPN) deferred пользователю — см. `06-02-SUMMARY.md` § Manual UAT. Конфигурация агента залочена в `.planning/PHASE-6-SETUP-2026-05-10.md`:
+  - ✅ Creator subscription (## Current Position
+
+1/Phase: --phase (08) — EXECUTING
+Plan: 1 of --name
+**Phase 6 IMPLEMENTATION COMPLETE. Phase 6.5 (Hetzner) — PENDING USER ACTION.**
+
+**👉 После /clear читай первым: [`.planning/SESSION-2026-05-11-WRAPUP.md`](.planning/SESSION-2026-05-11-WRAPUP.md)**
+
+- **Production URL**: https://klassio-one.vercel.app — DEPLOYED, working
+- **Phase 1 status**: ✅ DEPLOYED. Auth end-to-end works. Известный UX bug: client-side exception на form submit (email уходит, flow завершается) — non-blocking, отложен на полировку.
+- **Phase 4 status**: ✅ DEPLOYED. Board rendering работает после fixes: camera auto-fit (a36f87d) + first-byte SSE flush + thinking indicator (15a7bd6). User протестировал «объясни 245+874 в столбик» — работает. Speed/animation polish — отложено.
+- **Phase 6 status**: ✅ **IMPLEMENTATION COMPLETE (2026-05-10).** Plan 06-01 + 06-02 shipped в Klassio. Manual UAT (real voice через VPN) deferred пользователю — см. `06-02-SUMMARY.md` § Manual UAT. Конфигурация агента залочена в `.planning/PHASE-6-SETUP-2026-05-10.md`:
+  - ✅ Creator subscription (## Current Position
+
+1/**Phase 6 IMPLEMENTATION COMPLETE. Phase 6.5 (Hetzner) — PENDING USER ACTION.**
+
+**👉 После /clear читай первым: [`.planning/SESSION-2026-05-11-WRAPUP.md`](.planning/SESSION-2026-05-11-WRAPUP.md)**
+
+- **Production URL**: https://klassio-one.vercel.app — DEPLOYED, working
+- **Phase 1 status**: ✅ DEPLOYED. Auth end-to-end works. Известный UX bug: client-side exception на form submit (email уходит, flow завершается) — non-blocking, отложен на полировку.
+- **Phase 4 status**: ✅ DEPLOYED. Board rendering работает после fixes: camera auto-fit (a36f87d) + first-byte SSE flush + thinking indicator (15a7bd6). User протестировал «объясни 245+874 в столбик» — работает. Speed/animation polish — отложено.
+- **Phase 6 status**: ✅ **IMPLEMENTATION COMPLETE (2026-05-10).** Plan 06-01 + 06-02 shipped в Klassio. Manual UAT (real voice через VPN) deferred пользователю — см. `06-02-SUMMARY.md` § Manual UAT. Конфигурация агента залочена в `.planning/PHASE-6-SETUP-2026-05-10.md`:
   - ✅ Creator subscription ($11/$22) — saved $77/мо vs Pro
+  - ✅ Custom LLM endpoint работает (OpenAI key через 11labs)
+  - ✅ Voice: **Nataly** (Youthful, Gentle and Soft) + **Eleven Multilingual v2** (после отказа от v3 Alpha — глючил на русском)
+  - ✅ LLM: **GPT-4.1 mini** (повышено с Nano — Nano галлюцинировал на арифметике; cost ~150₽/мес для 6 уроков)
+  - ✅ Voice settings: Stability ~0.30, Similarity 0.75, Style 0.40, Speed 1.05
+  - ✅ System Prompt finalized: gender-neutral для ребёнка (нет `(а)` скобок), женский род для себя, math accuracy rule (chain-of-thought перед похвалой), self-correction rule
+  - ✅ Agent settings: Authentication ON, Allowlist (klassio-one.vercel.app + localhost:3000), First message override ON, Daily limit 100, bursting OFF
+  - ✅ Advanced: Eagerness Normal, Take turn 10s, Max duration 3600s, Generate during silence ON, ASR keywords добавлены (дроби, периметр, etc.)
+  - ✅ **Identifiers**: Agent ID = `agent_7701kr9c2v7eev3tabzv4f2b0e8b`, API key положен в `.env.local` (rотация после prod deploy)
+  - ⚠️ **Open issues для plan 06-01 follow-up**: latency ~3s (можно срезать), потрескивание на first connect (network jitter, лечится Hetzner WS proxy позже)
+  - ✅ **Plan 06-01 COMPLETE** (commits e549d39, 492f175, 40e1868, b12631e, 209e597): @elevenlabs/react SDK + lib/elevenlabs/ + signed-url route + 21 unit tests
+  - ✅ **Plan 06-02 COMPLETE** (commits 8dc64de, ca87b0f, 5510696): VoicePanel rewrite (ConversationProvider + useConversation + mic-first + 4 Russian errors + bus wiring) + 17 component tests + 11 E2E tests (5 bus-driven + 1 fetch-fail UI + 5 bundle-leak scans). One Rule 1 deviation: SDK v1.6.0 API drift (useConversation now requires ConversationProvider; startSession/endSession return void). Resolved cleanly inside Task 1.
+  - ⏳ **Next**: Manual UAT (D-09 #1–9) + Vercel env deploy (см. MANUAL-ACTIONS.md). Затем Phase 6.5 (Hetzner WS proxy) ИЛИ Phase 8 (Pedagogical LLM) ИЛИ Phase 10 (Recording).
+- **Phase 7 status**: ✅ shell deployed; UX bugs (no retry after wrong answer, jitter) — pending редизайн.
+- **Phases done implementation**: 1, 2, 3, 4, 5, 6, 7, 9 (8 из 12). Phase 6.5 — PENDING user action (Hetzner). Phases 8, 10, 11, 12 — depend on Phase 6.5 + user decisions.
+- **Resume file для следующей сессии после /clear**: **`.planning/SESSION-2026-05-11-WRAPUP.md`** (главный — читать первым) + `.planning/STATE.md` (этот файл) + `.planning/MANUAL-ACTIONS.md` § Update #5.
+
+2) — saved $77/мо vs Pro
+
+  - ✅ Custom LLM endpoint работает (OpenAI key через 11labs)
+  - ✅ Voice: **Nataly** (Youthful, Gentle and Soft) + **Eleven Multilingual v2** (после отказа от v3 Alpha — глючил на русском)
+  - ✅ LLM: **GPT-4.1 mini** (повышено с Nano — Nano галлюцинировал на арифметике; cost ~150₽/мес для 6 уроков)
+  - ✅ Voice settings: Stability ~0.30, Similarity 0.75, Style 0.40, Speed 1.05
+  - ✅ System Prompt finalized: gender-neutral для ребёнка (нет `(а)` скобок), женский род для себя, math accuracy rule (chain-of-thought перед похвалой), self-correction rule
+  - ✅ Agent settings: Authentication ON, Allowlist (klassio-one.vercel.app + localhost:3000), First message override ON, Daily limit 100, bursting OFF
+  - ✅ Advanced: Eagerness Normal, Take turn 10s, Max duration 3600s, Generate during silence ON, ASR keywords добавлены (дроби, периметр, etc.)
+  - ✅ **Identifiers**: Agent ID = `agent_7701kr9c2v7eev3tabzv4f2b0e8b`, API key положен в `.env.local` (rотация после prod deploy)
+  - ⚠️ **Open issues для plan 06-01 follow-up**: latency ~3s (можно срезать), потрескивание на first connect (network jitter, лечится Hetzner WS proxy позже)
+  - ✅ **Plan 06-01 COMPLETE** (commits e549d39, 492f175, 40e1868, b12631e, 209e597): @elevenlabs/react SDK + lib/elevenlabs/ + signed-url route + 21 unit tests
+  - ✅ **Plan 06-02 COMPLETE** (commits 8dc64de, ca87b0f, 5510696): VoicePanel rewrite (ConversationProvider + useConversation + mic-first + 4 Russian errors + bus wiring) + 17 component tests + 11 E2E tests (5 bus-driven + 1 fetch-fail UI + 5 bundle-leak scans). One Rule 1 deviation: SDK v1.6.0 API drift (useConversation now requires ConversationProvider; startSession/endSession return void). Resolved cleanly inside Task 1.
+  - ⏳ **Next**: Manual UAT (D-09 #1–9) + Vercel env deploy (см. MANUAL-ACTIONS.md). Затем Phase 6.5 (Hetzner WS proxy) ИЛИ Phase 8 (Pedagogical LLM) ИЛИ Phase 10 (Recording).
+- **Phase 7 status**: ✅ shell deployed; UX bugs (no retry after wrong answer, jitter) — pending редизайн.
+- **Phases done implementation**: 1, 2, 3, 4, 5, 6, 7, 9 (8 из 12). Phase 6.5 — PENDING user action (Hetzner). Phases 8, 10, 11, 12 — depend on Phase 6.5 + user decisions.
+- **Resume file для следующей сессии после /clear**: **`.planning/SESSION-2026-05-11-WRAPUP.md`** (главный — читать первым) + `.planning/STATE.md` (этот файл) + `.planning/MANUAL-ACTIONS.md` § Update #5.
+
+2) — saved $77/мо vs Pro
+
+  - ✅ Custom LLM endpoint работает (OpenAI key через 11labs)
+  - ✅ Voice: **Nataly** (Youthful, Gentle and Soft) + **Eleven Multilingual v2** (после отказа от v3 Alpha — глючил на русском)
+  - ✅ LLM: **GPT-4.1 mini** (повышено с Nano — Nano галлюцинировал на арифметике; cost ~150₽/мес для 6 уроков)
+  - ✅ Voice settings: Stability ~0.30, Similarity 0.75, Style 0.40, Speed 1.05
+  - ✅ System Prompt finalized: gender-neutral для ребёнка (нет `(а)` скобок), женский род для себя, math accuracy rule (chain-of-thought перед похвалой), self-correction rule
+  - ✅ Agent settings: Authentication ON, Allowlist (klassio-one.vercel.app + localhost:3000), First message override ON, Daily limit 100, bursting OFF
+  - ✅ Advanced: Eagerness Normal, Take turn 10s, Max duration 3600s, Generate during silence ON, ASR keywords добавлены (дроби, периметр, etc.)
+  - ✅ **Identifiers**: Agent ID = `agent_7701kr9c2v7eev3tabzv4f2b0e8b`, API key положен в `.env.local` (rотация после prod deploy)
+  - ⚠️ **Open issues для plan 06-01 follow-up**: latency ~3s (можно срезать), потрескивание на first connect (network jitter, лечится Hetzner WS proxy позже)
+  - ✅ **Plan 06-01 COMPLETE** (commits e549d39, 492f175, 40e1868, b12631e, 209e597): @elevenlabs/react SDK + lib/elevenlabs/ + signed-url route + 21 unit tests
+  - ✅ **Plan 06-02 COMPLETE** (commits 8dc64de, ca87b0f, 5510696): VoicePanel rewrite (ConversationProvider + useConversation + mic-first + 4 Russian errors + bus wiring) + 17 component tests + 11 E2E tests (5 bus-driven + 1 fetch-fail UI + 5 bundle-leak scans). One Rule 1 deviation: SDK v1.6.0 API drift (useConversation now requires ConversationProvider; startSession/endSession return void). Resolved cleanly inside Task 1.
+  - ⏳ **Next**: Manual UAT (D-09 #1–9) + Vercel env deploy (см. MANUAL-ACTIONS.md). Затем Phase 6.5 (Hetzner WS proxy) ИЛИ Phase 8 (Pedagogical LLM) ИЛИ Phase 10 (Recording).
+- **Phase 7 status**: ✅ shell deployed; UX bugs (no retry after wrong answer, jitter) — pending редизайн.
+- **Phases done implementation**: 1, 2, 3, 4, 5, 6, 7, 9 (8 из 12). Phase 6.5 — PENDING user action (Hetzner). Phases 8, 10, 11, 12 — depend on Phase 6.5 + user decisions.
+- **Resume file для следующей сессии после /clear**: **`.planning/SESSION-2026-05-11-WRAPUP.md`** (главный — читать первым) + `.planning/STATE.md` (этот файл) + `.planning/MANUAL-ACTIONS.md` § Update #5.
+
+2) — saved $77/мо vs Pro
+
   - ✅ Custom LLM endpoint работает (OpenAI key через 11labs)
   - ✅ Voice: **Nataly** (Youthful, Gentle and Soft) + **Eleven Multilingual v2** (после отказа от v3 Alpha — глючил на русском)
   - ✅ LLM: **GPT-4.1 mini** (повышено с Nano — Nano галлюцинировал на арифметике; cost ~150₽/мес для 6 уроков)
@@ -345,4 +422,4 @@ deploy_status:
   6. (По необходимости) `BOARD-STATUS.md` и `.planning/intel/context.md` — для grаблищ прошлых сессий и сетевой саги.
 - **Что НЕ нужно перечитывать каждую сессию**: VISION.md (core отжата в PROJECT.md), BOARD-STACK.md (контракты в `.planning/intel/constraints.md`).
 
-**Planned Phase:** 01 (ЛК — оболочка, авторизация, список уроков) — 6 plans — 2026-05-09T18:42:59.621Z
+**Planned Phase:** 8 (agent-control) — 8 plans — 2026-05-13T14:15:16.180Z
