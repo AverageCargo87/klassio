@@ -1,9 +1,7 @@
-// Phase 8 Wave 0 RED — Wave 6 plan 08-08 Task 1 creates `lib/proactive-triggers/visibility.ts` to flip GREEN.
+// Phase 8 Wave 6 GREEN — plan 08-08 Task 1 created lib/proactive-triggers/visibility.ts.
 // Covers PED-02 trigger #2 (visibilitychange detector → sendContextualUpdate when document.hidden).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-// RED — Wave 6 plan 08-08 Task 1 creates lib/proactive-triggers/visibility.ts.
-// @ts-expect-error — module not yet created (Wave 0 RED contract)
 import { useVisibilityTrigger } from '@/lib/proactive-triggers'
 
 describe('useVisibilityTrigger (PED-02 — visibilitychange detector)', () => {

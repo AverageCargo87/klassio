@@ -1,10 +1,8 @@
-// Phase 8 Wave 0 RED — Wave 6 plan 08-08 Task 1 creates `lib/proactive-triggers/mistakes.ts` to flip GREEN.
+// Phase 8 Wave 6 GREEN — plan 08-08 Task 1 created lib/proactive-triggers/mistakes.ts.
 // Covers PED-02 trigger #3 (consecutive ≥ 2 wrong answers → sendContextualUpdate).
 import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import React from 'react'
-// RED — Wave 6 plan 08-08 Task 1 creates lib/proactive-triggers/mistakes.ts.
-// @ts-expect-error — module not yet created (Wave 0 RED contract)
 import { useConsecutiveMistakesTrigger } from '@/lib/proactive-triggers'
 import { LessonBusProvider, useLessonBus } from '@/lib/lesson-bus'
 
