@@ -33,7 +33,10 @@ export const LANGUAGE = 'ru'
 // Phase 6 baseline TTS voice tuning (PHASE-6-SETUP § 3)
 export const TTS_STABILITY = 0.30           // more expressive (slider left of center)
 export const TTS_SIMILARITY_BOOST = 0.75    // clear pronunciation
-export const TTS_SPEED = 1.05               // slightly faster than default (бодрее)
+export const TTS_SPEED = 0.95               // slightly slower than default — UAT 2026-05-13:
+                                             // user prefers more deliberate pacing so the child
+                                             // can keep up while the board animates in parallel.
+                                             // (Phase 6 baseline was 1.05; reverted to 0.95.)
 
 // Phase 6 baseline conversation timing (PHASE-6-SETUP § 6)
 export const MAX_CONVERSATION_DURATION_SEC = 3600  // 60 min — 45-min lesson + buffer

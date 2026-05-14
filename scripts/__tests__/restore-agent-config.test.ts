@@ -96,7 +96,7 @@ describe('restore-agent-config — Phase 8 tool definitions (LLM-01 + D-11)', ()
     // Phase 6 tuning must be passed explicitly every restore.
     expect(body.conversation_config.tts.stability).toBe(0.30)
     expect(body.conversation_config.tts.similarity_boost).toBe(0.75)
-    expect(body.conversation_config.tts.speed).toBe(1.05)
+    expect(body.conversation_config.tts.speed).toBe(0.95)
   })
 
   it('buildAgentPatchBody includes Phase 6 turn/conversation/asr baseline (REPLACE-on-object guard)', () => {
