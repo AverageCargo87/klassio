@@ -5,6 +5,8 @@
 
 import type { Editor, IndexKey } from 'tldraw'
 import { createShapeId, toRichText } from 'tldraw'
+import type { TLSize } from './typography'
+import { mapFontSize, MONO_CHAR_WIDTH } from './typography'
 
 type ToolParams = Record<string, unknown>
 
@@ -73,24 +75,6 @@ function mapColor(input: unknown, fallback: TLColorName = 'black'): TLColorName 
   if (lower === 'pink') return 'light-red'
   if (lower === 'lime') return 'light-green'
   return fallback
-}
-
-type TLSize = 's' | 'm' | 'l' | 'xl'
-
-function mapFontSize(size: unknown): TLSize {
-  if (typeof size === 'string') {
-    const s = size.toLowerCase()
-    if (s === 's' || s === 'm' || s === 'l' || s === 'xl') return s
-    const n = Number(s)
-    if (Number.isFinite(n)) return mapFontSize(n)
-  }
-  if (typeof size === 'number') {
-    if (size <= 14) return 's'
-    if (size <= 26) return 'm'
-    if (size <= 40) return 'l'
-    return 'xl'
-  }
-  return 'm'
 }
 
 function mapStrokeWidth(w: unknown): TLSize {
@@ -215,17 +199,6 @@ function shouldStaggerChars(text: string): boolean {
   if (!/^[\d\s]+$/.test(t)) return false
   const nonSpace = t.replace(/\s/g, '').length
   return nonSpace >= 2 && nonSpace <= 5
-}
-
-// Приблизительная ширина символа monospace для tldraw size.
-// Реальное измерение через editor.measureText было бы точнее, но это синхронно
-// и ломает batching, плюс зависит от загруженного шрифта. Эмпирическое значение
-// достаточно для выравнивания цифр столбикового сложения.
-const MONO_CHAR_WIDTH: Record<TLSize, number> = {
-  s: 10,
-  m: 14,
-  l: 22,
-  xl: 30,
 }
 
 export async function executeToolCall(
