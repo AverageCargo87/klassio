@@ -48,8 +48,10 @@ if (!API_KEY || !AGENT_ID) {
 const PROMPT_PATH = process.env.PROMPT_PATH || '/tmp/klassio-prompt.txt'
 const PROMPT = readFileSync(PROMPT_PATH, 'utf8').trim()
 
+// Phase 8.6 focus-group fix (2026-05-14): teacher now introduces herself by name.
+// History: Phase 6 used "Я Учитель"; focus group (2 fifth-graders) said it felt impersonal.
 const FIRST_MESSAGE =
-  'Привет! Я Учитель — буду заниматься с тобой математикой сегодня. Тебя как зовут?'
+  'Привет! Меня зовут Наташа, я твоя учительница математики на сегодня. А тебя как зовут?'
 
 const BASE_HEADERS = {
   'xi-api-key': API_KEY,
@@ -151,9 +153,9 @@ console.log('[5/5] Re-fetching agent to confirm...')
   const asr = j.conversation_config?.asr || {}
   console.log('  voice_id      :', tts.voice_id)
   console.log('  tts model     :', tts.model_id)
-  console.log('  tts stability :', tts.stability, '(Phase 6 baseline: 0.30)')
-  console.log('  tts similarity:', tts.similarity_boost, '(Phase 6 baseline: 0.75)')
-  console.log('  tts speed     :', tts.speed, '(Phase 6 baseline: 1.05)')
+  console.log('  tts stability :', tts.stability, '(target: 0.20 — Phase 8.6 less robotic)')
+  console.log('  tts similarity:', tts.similarity_boost, '(target: 0.75)')
+  console.log('  tts speed     :', tts.speed, '(target: 0.95)')
   console.log('  language      :', j.conversation_config?.agent?.language)
   console.log('  llm           :', j.conversation_config?.agent?.prompt?.llm)
   console.log('  max duration  :', conv.max_duration_seconds, 's (Phase 6 baseline: 3600)')

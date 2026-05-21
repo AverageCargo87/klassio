@@ -93,8 +93,10 @@ describe('restore-agent-config — Phase 8 tool definitions (LLM-01 + D-11)', ()
     expect(body.conversation_config.tts.voice_id).toBe('NhY0kyTmsKuEpHvDMngm')
     expect(body.conversation_config.tts.model_id).toBe('eleven_multilingual_v2')
     // 11labs PATCH is REPLACE-on-object: any TTS field not passed reverts to default.
-    // Phase 6 tuning must be passed explicitly every restore.
-    expect(body.conversation_config.tts.stability).toBe(0.30)
+    // Phase 6 tuning evolved through UAT — Phase 8.6 focus-group fix:
+    //   stability 0.30 → 0.20 (less monotone)
+    //   style added: 0.60   (liveliness — was defaulting to 0)
+    expect(body.conversation_config.tts.stability).toBe(0.20)
     expect(body.conversation_config.tts.similarity_boost).toBe(0.75)
     expect(body.conversation_config.tts.speed).toBe(0.95)
   })

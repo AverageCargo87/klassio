@@ -30,13 +30,21 @@ export const TTS_MODEL_ID = 'eleven_multilingual_v2'
 export const LLM_MODEL = 'gpt-4.1-mini'
 export const LANGUAGE = 'ru'
 
-// Phase 6 baseline TTS voice tuning (PHASE-6-SETUP § 3)
-export const TTS_STABILITY = 0.30           // more expressive (slider left of center)
-export const TTS_SIMILARITY_BOOST = 0.75    // clear pronunciation
-export const TTS_SPEED = 0.95               // slightly slower than default — UAT 2026-05-13:
-                                             // user prefers more deliberate pacing so the child
-                                             // can keep up while the board animates in parallel.
-                                             // (Phase 6 baseline was 1.05; reverted to 0.95.)
+// Phase 6 baseline TTS voice tuning, evolved through UAT cycles.
+// Phase 8.6 focus-group fix (2026-05-14): voice felt "too robotic" to fifth-graders.
+// stability ↓ (0.30 → 0.20) = more emotional variation, less monotone.
+//
+// Things we TRIED that 11labs Convai TTS object does NOT actually accept on
+// Eleven Multilingual v2 (verified by GET-after-PATCH — values silently
+// reverted or stayed at default):
+//   - style: 0.60          → field doesn't exist on Convai TTS object
+//   - expressive_mode: true → field exists but only effective on model v3/Turbo
+// Stuck with stability/similarity_boost/speed/voice_id. For more livеness we
+// either need to switch model (v3 is unstable on Russian per Phase 6 notes)
+// or change voice_id. Both are Phase 8.6 follow-up items if 0.20 isn't enough.
+export const TTS_STABILITY = 0.20           // more emotional / less monotone
+export const TTS_SIMILARITY_BOOST = 0.75    // clear pronunciation (unchanged)
+export const TTS_SPEED = 0.95               // slower than default for child listening (Phase 8 UAT)
 
 // Phase 6 baseline conversation timing (PHASE-6-SETUP § 6)
 export const MAX_CONVERSATION_DURATION_SEC = 3600  // 60 min — 45-min lesson + buffer
