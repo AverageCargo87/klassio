@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { trainerConfigSchema } from '../config-schema'
 
 describe('trainerConfigSchema', () => {
@@ -149,5 +151,105 @@ describe('trainerConfigSchema', () => {
       const paths = result.error.issues.map((i) => i.path.join('.'))
       expect(paths.some((p) => p.includes('prompt'))).toBe(true)
     }
+  })
+
+  // Phase 8.7 — intro блоки, explanation, difficulty (опциональные расширения).
+  describe('Phase 8.7 schema extensions', () => {
+    it('accepts config with intro blocks', () => {
+      const result = trainerConfigSchema.safeParse({
+        title: 'Сложение в столбик',
+        intro: [
+          { id: 'intro-1', type: 'intro', title: 'Что такое столбик?', body: 'Объяснение.' },
+        ],
+        tasks: [
+          { id: 'task-1', type: 'numeric-input', prompt: 'Реши', correct: 42 },
+        ],
+      })
+      expect(result.success).toBe(true)
+    })
+
+    it('accepts task with explanation field', () => {
+      const result = trainerConfigSchema.safeParse({
+        title: 'Test',
+        tasks: [
+          {
+            id: 'task-1',
+            type: 'numeric-input',
+            prompt: 'Реши',
+            correct: 42,
+            explanation: 'Молодец! Правильно.',
+          },
+        ],
+      })
+      expect(result.success).toBe(true)
+    })
+
+    it('accepts difficulty values 1, 2, 3', () => {
+      for (const d of [1, 2, 3] as const) {
+        const result = trainerConfigSchema.safeParse({
+          title: 'Test',
+          tasks: [
+            { id: 'task-1', type: 'numeric-input', prompt: 'Реши', correct: 42, difficulty: d },
+          ],
+        })
+        expect(result.success).toBe(true)
+      }
+    })
+
+    it('rejects difficulty outside 1-3 range', () => {
+      const result = trainerConfigSchema.safeParse({
+        title: 'Test',
+        tasks: [
+          { id: 'task-1', type: 'numeric-input', prompt: 'Реши', correct: 42, difficulty: 4 },
+        ],
+      })
+      expect(result.success).toBe(false)
+    })
+
+    it('rejects intro block with wrong type literal', () => {
+      const result = trainerConfigSchema.safeParse({
+        title: 'Test',
+        intro: [
+          { id: 'intro-1', type: 'tutorial', title: 'X', body: 'Y' },
+        ],
+        tasks: [
+          { id: 'task-1', type: 'numeric-input', prompt: 'Реши', correct: 42 },
+        ],
+      })
+      expect(result.success).toBe(false)
+    })
+
+    it('backward compat: old config without intro/explanation/difficulty still valid', () => {
+      const oldJson = JSON.parse(
+        readFileSync(
+          join(process.cwd(), 'public/trainer-configs/sample-column-addition.json'),
+          'utf8',
+        ),
+      )
+      const result = trainerConfigSchema.safeParse(oldJson)
+      expect(result.success).toBe(true)
+    })
+
+    it('new lesson-column-addition.json: full content validates', () => {
+      const newJson = JSON.parse(
+        readFileSync(
+          join(process.cwd(), 'public/trainer-configs/lesson-column-addition.json'),
+          'utf8',
+        ),
+      )
+      const result = trainerConfigSchema.safeParse(newJson)
+      if (!result.success) {
+        // Show first 3 issues for easy debugging if schema/JSON ever drift
+        // eslint-disable-next-line no-console
+        console.error('Validation issues:', result.error.issues.slice(0, 3))
+      }
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.intro?.length).toBe(3)
+        expect(result.data.tasks.length).toBe(20)
+        expect(result.data.tasks.every((t) => t.difficulty !== undefined)).toBe(true)
+        expect(result.data.tasks.every((t) => t.explanation !== undefined)).toBe(true)
+      }
+    })
   })
 })
