@@ -28,6 +28,12 @@ import type { TrainerConfig } from '@/lib/trainer/config-schema'
 import { LessonBusProvider, useLessonBus, useLessonBusEvent } from '@/lib/lesson-bus'
 import { buildClientTools } from '@/lib/client-tools'
 import { getLessonStateSnapshot, type LessonMistake } from '@/lib/lesson-state'
+import {
+  formatAnswerSubmitted,
+  formatHintOpened,
+  formatIdle15s,
+} from '@/lib/contextual-updates'
+import { useTrainerIdle } from '@/lib/trainer/use-trainer-idle'
 
 interface LessonPageProps {
   lessonId: string
@@ -125,6 +131,23 @@ function LessonPageInner({
     (taskId: string): string => {
       const t = trainerConfig.tasks.find((x) => x.id === taskId)
       return t?.prompt ?? ''
+    },
+    [trainerConfig],
+  )
+
+  const getTaskType = useCallback(
+    (taskId: string): 'numeric-input' | 'single-choice' | 'matching' => {
+      return trainerConfig.tasks.find((t) => t.id === taskId)?.type ?? 'numeric-input'
+    },
+    [trainerConfig],
+  )
+
+  const getCorrectValue = useCallback(
+    (taskId: string): string | undefined => {
+      const correct = trainerConfig.tasks.find((t) => t.id === taskId)?.correct
+      if (correct === undefined || correct === null) return undefined
+      if (Array.isArray(correct)) return correct.map((p) => p.join('→')).join(',')
+      return String(correct)
     },
     [trainerConfig],
   )
@@ -239,6 +262,9 @@ function LessonPageInner({
   const [teacherStatus, setTeacherStatus] = useState<TeacherStatus>('speaking')
   const [teacherLog, setTeacherLog] = useState<ChatMessage[]>([])
   const [bubble, setBubble] = useState<string | null>(null)
+  // Stage 4 — highlighted task id (set by trainer:highlight bus event)
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null)
+  const highlightTimerRef = useRef<number | null>(null)
   const bubbleTimerRef = useRef<number | null>(null)
   const statusTimerRef = useRef<number | null>(null)
   const micOnRef = useRef(false)
@@ -332,7 +358,7 @@ function LessonPageInner({
     setTaskStates(m)
   }
 
-  /* ----- task interactions ----- */
+  /* ----- task interactions (Stage 4: emit bus events for voice + tools) ----- */
   function onSolve(userAnswerText: string) {
     if (!isTask) return
     if (userAnswerText) pushMsg(`Мой ответ: ${userAnswerText}`, 'user')
@@ -340,8 +366,19 @@ function LessonPageInner({
       ...s,
       [screen.id]: { ...s[screen.id], status: 'solved' },
     }))
-    const praise = TEACHER_SCRIPT.correct[Math.floor(Math.random() * TEACHER_SCRIPT.correct.length)]
-    teacherSpeak(praise)
+    // Stage 4: emit trainer:answer_submitted — VoicePanel-style handler
+    // below forwards to Nadya via sendContextualUpdate.
+    bus.emit('trainer:answer_submitted', {
+      taskId: screen.id,
+      value: userAnswerText,
+      correct: true,
+    })
+    // Mock praise only if voice is OFF — when on, Nadya reacts via 11labs.
+    if (!micOn) {
+      const praise =
+        TEACHER_SCRIPT.correct[Math.floor(Math.random() * TEACHER_SCRIPT.correct.length)]
+      teacherSpeak(praise)
+    }
   }
   function onWrong(userAnswerText: string) {
     if (!isTask) return
@@ -353,18 +390,36 @@ function LessonPageInner({
       if (cur.hintsShown < task.hints.length) next.hintsShown = cur.hintsShown + 1
       return { ...s, [screen.id]: next }
     })
-    teacherSpeak(TEACHER_SCRIPT.wrong[Math.floor(Math.random() * TEACHER_SCRIPT.wrong.length)])
+    bus.emit('trainer:answer_submitted', {
+      taskId: screen.id,
+      value: userAnswerText,
+      correct: false,
+    })
+    if (!micOn) {
+      teacherSpeak(
+        TEACHER_SCRIPT.wrong[Math.floor(Math.random() * TEACHER_SCRIPT.wrong.length)],
+      )
+    }
   }
   function onRevealHint() {
     if (!isTask) return
     pushMsg('Дай подсказку', 'user')
+    const task = screen as TaskScreen
+    let nextLevel = 0
     setTaskStates((s) => {
       const cur = s[screen.id]
-      const task = screen as TaskScreen
-      if (cur.hintsShown >= task.hints.length) return s
-      return { ...s, [screen.id]: { ...cur, hintsShown: cur.hintsShown + 1 } }
+      if (cur.hintsShown >= task.hints.length) {
+        nextLevel = cur.hintsShown
+        return s
+      }
+      nextLevel = cur.hintsShown + 1
+      return { ...s, [screen.id]: { ...cur, hintsShown: nextLevel } }
     })
-    teacherSpeak(TEACHER_SCRIPT.hintReveal)
+    // Defer the bus emit so we read the updated hintsShown after state flush.
+    queueMicrotask(() => {
+      bus.emit('trainer:hint_opened', { taskId: screen.id, hintLevel: nextLevel })
+    })
+    if (!micOn) teacherSpeak(TEACHER_SCRIPT.hintReveal)
   }
   function setBoardOpenSafe(next: boolean) {
     // on narrow viewports, auto-collapse chat to keep task area usable
@@ -394,6 +449,120 @@ function LessonPageInner({
     if (bubbleTimerRef.current !== null) window.clearTimeout(bubbleTimerRef.current)
     bubbleTimerRef.current = window.setTimeout(() => setBubble(null), 5000)
   })
+
+  /* ===== Stage 4 — trainer bus integration ===== */
+
+  // sync state refs ← React state so client tool handlers always read fresh
+  // values (the buildClientTools getters read refs, not state).
+  useEffect(() => {
+    if (isTask) currentTaskIdRef.current = screen.id
+  }, [isTask, screen.id])
+
+  useEffect(() => {
+    const next = new Set<string>()
+    for (const [id, st] of Object.entries(taskStates)) {
+      if (st.status === 'solved') next.add(id)
+    }
+    solvedTaskIdsRef.current = next
+  }, [taskStates])
+
+  // trainer:goto_task — Nadya tells the trainer to jump to a specific task.
+  // We translate taskId → screen index and update navigation.
+  useLessonBusEvent('trainer:goto_task', ({ taskId }) => {
+    const idx = screens.findIndex((s) => s.id === taskId)
+    if (idx < 0) {
+      console.warn(`[lesson-v2] trainer:goto_task — unknown id ${taskId}`)
+      return
+    }
+    setDir(idx > currentIdx ? 1 : -1)
+    setCurrentIdx(idx)
+  })
+
+  // trainer:highlight — show a ring around the named task card for durationMs.
+  useLessonBusEvent('trainer:highlight', ({ elementId, durationMs = 3000 }) => {
+    setHighlightedTaskId(elementId)
+    if (highlightTimerRef.current !== null) window.clearTimeout(highlightTimerRef.current)
+    highlightTimerRef.current = window.setTimeout(
+      () => setHighlightedTaskId(null),
+      durationMs,
+    )
+  })
+
+  // trainer:show_hint — Nadya pre-reveals hint N for current task.
+  useLessonBusEvent('trainer:show_hint', ({ taskId, hintLevel }) => {
+    setTaskStates((s) => {
+      const cur = s[taskId]
+      if (!cur) return s
+      // Hint level is 1-based from Nadya's tool; our hintsShown counts how
+      // many are visible. Pull it forward but don't shrink already-shown.
+      const next = Math.max(cur.hintsShown, hintLevel)
+      if (next === cur.hintsShown) return s
+      return { ...s, [taskId]: { ...cur, hintsShown: next } }
+    })
+  })
+
+  // Forward trainer:answer_submitted → Nadya via sendContextualUpdate.
+  // Same allow-list pattern as VoicePanel D-08.
+  const handleAnswerSubmitted = useCallback(
+    ({ taskId, value, correct }: { taskId: string; value: string; correct: boolean }) => {
+      currentTaskIdRef.current = taskId
+      const taskType = getTaskType(taskId)
+      if (correct) {
+        solvedTaskIdsRef.current.add(taskId)
+        try {
+          convoCmdRef.current.sendContextualUpdate(
+            formatAnswerSubmitted({ taskId, value, correct: true }, taskType),
+          )
+        } catch (err) {
+          console.error('[lesson-v2] forward answer (ok):', err)
+        }
+      } else {
+        const correctValue = getCorrectValue(taskId)
+        mistakesRef.current.push({ taskId, value, correct: correctValue ?? '?' })
+        if (mistakesRef.current.length > 10) {
+          mistakesRef.current.splice(0, mistakesRef.current.length - 10)
+        }
+        try {
+          convoCmdRef.current.sendContextualUpdate(
+            formatAnswerSubmitted(
+              { taskId, value, correct: false },
+              taskType,
+              { correctValue },
+            ),
+          )
+        } catch (err) {
+          console.error('[lesson-v2] forward answer (wrong):', err)
+        }
+      }
+    },
+    [getTaskType, getCorrectValue],
+  )
+  useLessonBusEvent('trainer:answer_submitted', handleAnswerSubmitted)
+
+  const handleHintOpened = useCallback(
+    ({ taskId, hintLevel }: { taskId: string; hintLevel: number }) => {
+      try {
+        convoCmdRef.current.sendContextualUpdate(formatHintOpened({ taskId, hintLevel }))
+      } catch (err) {
+        console.error('[lesson-v2] forward hint_opened:', err)
+      }
+    },
+    [],
+  )
+  useLessonBusEvent('trainer:hint_opened', handleHintOpened)
+
+  const handleIdle15s = useCallback(() => {
+    const taskId = currentTaskIdRef.current || '(start)'
+    try {
+      convoCmdRef.current.sendContextualUpdate(formatIdle15s({ taskId }))
+    } catch (err) {
+      console.error('[lesson-v2] forward idle_15s:', err)
+    }
+  }, [])
+  useLessonBusEvent('trainer:idle_15s', handleIdle15s)
+
+  // Idle detector — emits trainer:idle_15s after 15s of no trainer events.
+  useTrainerIdle()
 
   /* Stage 3 — toggleMic now talks to 11labs via the useConversation SDK.
      - First toggle starts the lesson timer.
@@ -603,6 +772,7 @@ function LessonPageInner({
                   index={taskIndices.indexOf(currentIdx)}
                   state={taskState}
                   isActive={true}
+                  isHighlighted={highlightedTaskId === screen.id}
                   onSolve={onSolve}
                   onWrong={onWrong}
                   onRevealHint={onRevealHint}

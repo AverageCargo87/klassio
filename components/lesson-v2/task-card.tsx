@@ -342,6 +342,8 @@ interface TaskCardProps {
   index: number
   state: TaskState
   isActive: boolean
+  /** Phase 8.7 Stage 4 — Nadya called highlight_trainer_task on this id. */
+  isHighlighted?: boolean
   onSolve: (userAnswer: string) => void
   onWrong: (userAnswer: string) => void
   onRevealHint: () => void
@@ -352,6 +354,7 @@ export function TaskCard({
   index,
   state,
   isActive,
+  isHighlighted = false,
   onSolve,
   onWrong,
   onRevealHint,
@@ -369,7 +372,15 @@ export function TaskCard({
   }
 
   let ringStyle: React.CSSProperties = {}
-  if (solved) {
+  if (isHighlighted) {
+    // Phase 8.7 Stage 4 — Nadya's highlight call gets a distinct yellow glow,
+    // visually different from the steady "current" blue ring.
+    ringStyle = {
+      border: `3px solid ${PALETTE.yellow}`,
+      boxShadow: `0 0 0 8px ${PALETTE.yellow}44`,
+      animation: 'lpBreathe 1.2s ease-in-out infinite',
+    }
+  } else if (solved) {
     ringStyle = { border: `2.5px solid ${PALETTE.greenDeep}` }
   } else if (isActive) {
     ringStyle = {
