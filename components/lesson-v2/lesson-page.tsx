@@ -11,7 +11,8 @@
 // Ported from Claude Design lesson-page.jsx (LP_LessonPage) with all DOM
 // globals (window.LP_*) replaced by ES imports + TypeScript types.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import { PALETTE } from './palette'
 import { TEACHER_SCRIPT } from './teacher-script'
 import { trainerConfigToScreens } from './adapt-config'
@@ -25,6 +26,8 @@ import { BoardCanvasV2 } from './board-canvas-v2'
 import type { ChatMessage, Screen, TaskScreen, TaskState, TeacherStatus } from './types'
 import type { TrainerConfig } from '@/lib/trainer/config-schema'
 import { LessonBusProvider, useLessonBus, useLessonBusEvent } from '@/lib/lesson-bus'
+import { buildClientTools } from '@/lib/client-tools'
+import { getLessonStateSnapshot, type LessonMistake } from '@/lib/lesson-state'
 
 interface LessonPageProps {
   lessonId: string
@@ -55,16 +58,19 @@ export function LessonPageV2({ lessonId, topic, trainerConfig }: LessonPageProps
 
   return (
     <LessonBusProvider>
-      <div className="lesson-v2-root">
-        <FontPreload />
-        <LessonPageInner
-          lessonId={lessonId}
-          topic={topic}
-          screens={screens}
-          taskIndices={taskIndices}
-          totalTasks={totalTasks}
-        />
-      </div>
+      <ConversationProvider>
+        <div className="lesson-v2-root">
+          <FontPreload />
+          <LessonPageInner
+            lessonId={lessonId}
+            topic={topic}
+            trainerConfig={trainerConfig}
+            screens={screens}
+            taskIndices={taskIndices}
+            totalTasks={totalTasks}
+          />
+        </div>
+      </ConversationProvider>
     </LessonBusProvider>
   )
 }
@@ -87,13 +93,131 @@ function FontPreload() {
 interface InnerProps {
   lessonId: string
   topic: string
+  trainerConfig: TrainerConfig
   screens: Screen[]
   taskIndices: number[]
   totalTasks: number
 }
 
-function LessonPageInner({ lessonId, topic, screens, taskIndices, totalTasks }: InnerProps) {
+function LessonPageInner({
+  lessonId,
+  topic,
+  trainerConfig,
+  screens,
+  taskIndices,
+  totalTasks,
+}: InnerProps) {
   const bus = useLessonBus()
+  const [voiceError, setVoiceError] = useState<string | null>(null)
+  const isStartingRef = useRef(false)
+
+  // ── Phase 8: per-session refs (mirrored from VoicePanel pattern) ─────────
+  const currentTaskIdRef = useRef<string>('')
+  const solvedTaskIdsRef = useRef<Set<string>>(new Set<string>())
+  const mistakesRef = useRef<LessonMistake[]>([])
+
+  // ── Phase 8: latched sendContextualUpdate ref ───────────────────────────
+  const convoCmdRef = useRef<{ sendContextualUpdate: (text: string) => void }>({
+    sendContextualUpdate: () => {},
+  })
+
+  const getTaskTopic = useCallback(
+    (taskId: string): string => {
+      const t = trainerConfig.tasks.find((x) => x.id === taskId)
+      return t?.prompt ?? ''
+    },
+    [trainerConfig],
+  )
+
+  // Build 11labs client tools — same factory as VoicePanel, same 6 tools.
+  const clientTools = useMemo(
+    () =>
+      buildClientTools({
+        bus,
+        lessonId,
+        sendContextualUpdate: (text: string) => {
+          try {
+            convoCmdRef.current.sendContextualUpdate(text)
+          } catch (err) {
+            console.error('[lesson-v2] sendContextualUpdate failed:', err)
+          }
+        },
+        getCurrentTaskId: () => currentTaskIdRef.current,
+        getSolvedTaskIds: () => solvedTaskIdsRef.current,
+        getTaskTopic,
+        getState: () =>
+          getLessonStateSnapshot(
+            currentTaskIdRef.current,
+            solvedTaskIdsRef.current,
+            mistakesRef.current,
+            trainerConfig.tasks.length,
+          ),
+      }),
+    [bus, lessonId, getTaskTopic, trainerConfig],
+  )
+
+  // Stable SDK callbacks
+  const handleConnect = useCallback(() => {
+    bus.emit('voice:state', { state: 'idle' })
+  }, [bus])
+  const handleDisconnect = useCallback(() => {
+    bus.emit('voice:state', { state: 'idle' })
+  }, [bus])
+  const handleModeChange = useCallback(
+    ({ mode }: { mode: 'speaking' | 'listening' }) => {
+      bus.emit('voice:state', { state: mode })
+    },
+    [bus],
+  )
+  const handleError = useCallback(
+    (message: string) => {
+      console.error('[lesson-v2] SDK error:', message)
+      bus.emit('voice:state', { state: 'idle' })
+      setVoiceError('Ошибка голосового сервиса. Попробуйте снова.')
+    },
+    [bus],
+  )
+  const handleMessage = useCallback(
+    (payload: { message: string; role: 'user' | 'agent' }) => {
+      const text = (payload?.message ?? '').trim()
+      if (!text) return
+      bus.emit('voice:transcript', { text, role: payload.role, timestamp: Date.now() })
+    },
+    [bus],
+  )
+
+  // The SDK hook — must be inside ConversationProvider.
+  const conversation = useConversation({
+    clientTools,
+    onConnect: handleConnect,
+    onDisconnect: handleDisconnect,
+    onModeChange: handleModeChange,
+    onMessage: handleMessage,
+    onError: handleError,
+  })
+
+  // Latch latest sendContextualUpdate into convoCmdRef each render so bus
+  // subscription handlers can call it through a stable identity.
+  convoCmdRef.current = conversation as unknown as {
+    sendContextualUpdate: (text: string) => void
+  }
+
+  // Latched conversation ref for safe cleanup on unmount (Phase 6.5 pattern).
+  const conversationRef = useRef(conversation)
+  conversationRef.current = conversation
+  useEffect(() => {
+    return () => {
+      const c = conversationRef.current
+      if (c.status === 'connected' || c.status === 'connecting') {
+        try {
+          c.endSession()
+        } catch (err) {
+          console.error('[lesson-v2] cleanup endSession:', err)
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   // navigation
   const [currentIdx, setCurrentIdx] = useState(0)
   const [dir, setDir] = useState(1)
@@ -271,15 +395,109 @@ function LessonPageInner({ lessonId, topic, screens, taskIndices, totalTasks }: 
     bubbleTimerRef.current = window.setTimeout(() => setBubble(null), 5000)
   })
 
-  function toggleMic() {
+  /* Stage 3 — toggleMic now talks to 11labs via the useConversation SDK.
+     - First toggle starts the lesson timer.
+     - Mic ON: request permission → fetch fresh signed URL → startSession.
+     - Mic OFF: endSession() (the bot is silenced).
+     Voice state (speaking/listening/idle) is driven by the SDK's onModeChange
+     callback — we don't set teacherStatus manually here, just track UI mic
+     toggle. */
+  const toggleMic = useCallback(async () => {
     if (!timerStarted) setTimerStarted(true)
-    setMicOn((v) => {
-      const next = !v
-      teacherSpeak(next ? TEACHER_SCRIPT.micOn : TEACHER_SCRIPT.micOff)
-      setTeacherStatus(next ? 'listening' : 'idle')
-      return next
-    })
-  }
+    const isActive =
+      conversation.status === 'connected' || conversation.status === 'connecting'
+    if (isActive) {
+      try {
+        conversation.endSession()
+      } catch (err) {
+        console.error('[lesson-v2] toggleMic.endSession failed:', err)
+      }
+      setMicOn(false)
+      return
+    }
+
+    if (isStartingRef.current) return
+    isStartingRef.current = true
+    setVoiceError(null)
+    try {
+      // 1) mic permission
+      const stream = await navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .catch((err: { name?: string }) => {
+          if (err?.name === 'NotAllowedError') {
+            setVoiceError(
+              'Доступ к микрофону запрещён. Разреши его в настройках браузера.',
+            )
+          } else if (err?.name === 'NotFoundError') {
+            setVoiceError('Микрофон не найден. Подключи микрофон.')
+          } else {
+            setVoiceError('Не удалось получить микрофон.')
+          }
+          return null
+        })
+      if (!stream) return
+      // Release; SDK will request its own.
+      stream.getTracks().forEach((t) => t.stop())
+
+      // 2) signed URL
+      const res = await fetch('/api/voice/signed-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lessonId }),
+      })
+      if (!res.ok) {
+        setVoiceError('Не удалось получить ссылку. Попробуй снова.')
+        return
+      }
+      const data = (await res.json()) as { signedUrl: string; topic: string }
+
+      // 3) start
+      conversation.startSession({
+        signedUrl: data.signedUrl,
+        connectionType: 'websocket',
+        dynamicVariables: {
+          lesson_topic: data.topic || topic,
+          total_tasks: trainerConfig.tasks.length,
+        },
+      })
+      setMicOn(true)
+    } catch (err) {
+      console.error('[lesson-v2] start failed:', err)
+      setVoiceError('Ошибка голосового сервиса. Попробуй снова.')
+    } finally {
+      isStartingRef.current = false
+    }
+  }, [conversation, lessonId, timerStarted, topic, trainerConfig])
+
+  // Mirror SDK status into local micOn + teacherStatus state, so the UI stays
+  // in sync if the connection drops outside our toggleMic flow (e.g. network
+  // hiccup, server-side hangup).
+  useEffect(() => {
+    const isActive =
+      conversation.status === 'connected' || conversation.status === 'connecting'
+    setMicOn((cur) => (cur !== isActive ? isActive : cur))
+
+    if (conversation.status === 'connected') {
+      if (conversation.mode === 'speaking') setTeacherStatus('speaking')
+      else if (conversation.mode === 'listening') setTeacherStatus('listening')
+      else setTeacherStatus('idle')
+    } else if (conversation.status === 'connecting') {
+      setTeacherStatus('speaking')
+    } else {
+      setTeacherStatus('idle')
+    }
+  }, [conversation.status, conversation.mode])
+
+  // Listen to voice transcript events from the SDK — push them into teacherLog
+  // for the two-way chat panel.
+  useLessonBusEvent('voice:transcript', ({ text, role }) => {
+    pushMsg(text, role === 'agent' ? 'teacher' : 'user')
+    if (role === 'agent') {
+      setBubble(text)
+      if (bubbleTimerRef.current !== null) window.clearTimeout(bubbleTimerRef.current)
+      bubbleTimerRef.current = window.setTimeout(() => setBubble(null), 5000)
+    }
+  })
 
   // top-bar menu stubs (prototype: Nadya narrates the action)
   function onHome() {
