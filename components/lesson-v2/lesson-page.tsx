@@ -21,8 +21,10 @@ import { IntroCard } from './intro-card'
 import { FloatingTeacher, TEACHER_W } from './floating-teacher'
 import { FloatingMic } from './floating-mic'
 import { FloatingBoardToggle, BoardOverlay } from './floating-board'
+import { BoardCanvasV2 } from './board-canvas-v2'
 import type { ChatMessage, Screen, TaskScreen, TaskState, TeacherStatus } from './types'
 import type { TrainerConfig } from '@/lib/trainer/config-schema'
+import { LessonBusProvider, useLessonBus, useLessonBusEvent } from '@/lib/lesson-bus'
 
 interface LessonPageProps {
   lessonId: string
@@ -52,16 +54,18 @@ export function LessonPageV2({ lessonId, topic, trainerConfig }: LessonPageProps
   }
 
   return (
-    <div className="lesson-v2-root">
-      <FontPreload />
-      <LessonPageInner
-        lessonId={lessonId}
-        topic={topic}
-        screens={screens}
-        taskIndices={taskIndices}
-        totalTasks={totalTasks}
-      />
-    </div>
+    <LessonBusProvider>
+      <div className="lesson-v2-root">
+        <FontPreload />
+        <LessonPageInner
+          lessonId={lessonId}
+          topic={topic}
+          screens={screens}
+          taskIndices={taskIndices}
+          totalTasks={totalTasks}
+        />
+      </div>
+    </LessonBusProvider>
   )
 }
 
@@ -88,7 +92,8 @@ interface InnerProps {
   totalTasks: number
 }
 
-function LessonPageInner({ lessonId: _lessonId, topic, screens, taskIndices, totalTasks }: InnerProps) {
+function LessonPageInner({ lessonId, topic, screens, taskIndices, totalTasks }: InnerProps) {
+  const bus = useLessonBus()
   // navigation
   const [currentIdx, setCurrentIdx] = useState(0)
   const [dir, setDir] = useState(1)
@@ -243,7 +248,28 @@ function LessonPageInner({ lessonId: _lessonId, topic, screens, taskIndices, tot
       setTeacherExpanded(false)
     }
     setBoardOpen(next)
+    // Stage 2 — when board opens for the FIRST time on a task with an expr,
+    // auto-trigger draw_request so the child sees Nadya's explanation as soon
+    // as they tap "Доска". When voice is real (Stage 3), Nadya herself will
+    // call draw_explanation through 11labs client tools; this auto-trigger is
+    // a convenience for the prototype.
+    if (next && isTask && screen.kind === 'task' && screen.type === 'numeric-input' && screen.expr) {
+      bus.emit('board:draw_request', {
+        prompt: `сложение в столбик ${screen.expr}`,
+        lessonId,
+      })
+    }
   }
+
+  // Listen to board:say events emitted by BoardCanvasV2 — push them into
+  // teacherLog so Nadya's narration shows up in the chat panel.
+  useLessonBusEvent('board:say', ({ text }) => {
+    pushMsg(text, 'teacher')
+    setBubble(text)
+    setTeacherStatus('speaking')
+    if (bubbleTimerRef.current !== null) window.clearTimeout(bubbleTimerRef.current)
+    bubbleTimerRef.current = window.setTimeout(() => setBubble(null), 5000)
+  })
 
   function toggleMic() {
     if (!timerStarted) setTimerStarted(true)
@@ -388,7 +414,9 @@ function LessonPageInner({ lessonId: _lessonId, topic, screens, taskIndices, tot
       </main>
 
       {/* overlays */}
-      <BoardOverlay open={boardOpen} onClose={() => setBoardOpen(false)} contextLabel={contextLabel} />
+      <BoardOverlay open={boardOpen} onClose={() => setBoardOpen(false)} contextLabel={contextLabel}>
+        <BoardCanvasV2 lessonId={lessonId} />
+      </BoardOverlay>
 
       <FloatingBoardToggle open={boardOpen} onToggle={() => setBoardOpenSafe(!boardOpen)} />
 
