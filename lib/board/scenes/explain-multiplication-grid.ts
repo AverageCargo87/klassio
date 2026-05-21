@@ -2,6 +2,7 @@
 // Объясняет умножение двух натуральных чисел в столбик (метод частичных произведений).
 import { registerScene } from './index'
 import type { PrimitiveCall } from './types'
+import { getMonoCharWidth } from '../typography'
 
 export function* explainMultiplicationGrid(args: unknown): Generator<PrimitiveCall> {
   const { a, b } = args as { a: number; b: number }
@@ -16,9 +17,13 @@ export function* explainMultiplicationGrid(args: unknown): Generator<PrimitiveCa
   const strB = String(b)
   const strResult = String(result)
 
-  // Canvas layout: right-aligned column, adapted to number length
+  // Canvas layout: right-aligned column, adapted to number length.
+  // DIGIT_W must match the staggered renderer step in lib/board/executor.ts —
+  // otherwise highlight/result coords miss the rendered digits. The previous
+  // adaptive formula (max(20, min(32, floor(400/(maxLen+2))))) drifted away
+  // from the renderer step for typical school inputs.
   const maxLen = Math.max(strA.length, strB.length, strResult.length)
-  const DIGIT_W = Math.max(20, Math.min(32, Math.floor(400 / (maxLen + 2))))
+  const DIGIT_W = getMonoCharWidth(32)
   const RIGHT_X = Math.min(520, 180 + maxLen * DIGIT_W)
   const Y_TOP = 100
 

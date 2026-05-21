@@ -2,6 +2,7 @@
 // Объясняет вычитание в столбик (a - b).
 import { registerScene } from './index'
 import type { PrimitiveCall } from './types'
+import { getMonoCharWidth } from '../typography'
 
 export function* explainColumnSubtraction(args: unknown): Generator<PrimitiveCall> {
   const { a, b } = args as { a: number; b: number }
@@ -22,7 +23,9 @@ export function* explainColumnSubtraction(args: unknown): Generator<PrimitiveCal
   const strB = String(b)
   const strDiff = String(diff)
 
-  const DIGIT_W = 32
+  // DIGIT_W must match the staggered renderer step in lib/board/executor.ts —
+  // otherwise highlight/result coords miss the rendered digits.
+  const DIGIT_W = getMonoCharWidth(32)
   const COL_X = 500
   const ROW_Y1 = 130
   const ROW_Y2 = 180

@@ -2,6 +2,7 @@
 // Объясняет сложение двух натуральных чисел в столбик.
 import { registerScene } from './index'
 import type { PrimitiveCall } from './types'
+import { getMonoCharWidth } from '../typography'
 
 export function* explainColumnAddition(args: unknown): Generator<PrimitiveCall> {
   const { a, b } = args as { a: number; b: number }
@@ -16,8 +17,10 @@ export function* explainColumnAddition(args: unknown): Generator<PrimitiveCall> 
   const strB = String(b)
   const strSum = String(sum)
 
-  // Canvas layout: centered around x=400, numbers aligned to right edge at COL_X
-  const DIGIT_W = 32     // px per digit slot (fontSize 32 monospace)
+  // Canvas layout: centered around x=400, numbers aligned to right edge at COL_X.
+  // DIGIT_W must match the staggered renderer step in lib/board/executor.ts —
+  // otherwise highlight/result coords miss the rendered digits.
+  const DIGIT_W = getMonoCharWidth(32)
   const COL_X = 500      // right edge of column
   const ROW_Y1 = 130     // y of first number (a)
   const ROW_Y2 = 180     // y of second number (b)
