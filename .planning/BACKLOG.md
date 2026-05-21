@@ -121,3 +121,63 @@
 - После Phase 11 (layout готов под новый toolbar)
 - Или вместе с Phase 8.5 (контент тренажёра) — там добавим `requireBoardSolution` на задачи где это критично
 - Или раньше если фокус-группа продолжит просить и это блокер для UAT
+
+---
+
+## #002 — Снизить latency голоса учителя (UAT, 2026-05-14)
+
+### Trigger
+
+Замечание пользователя 2026-05-14: «сейчас хочется чтобы учитель отвечал быстрее». Из-под капота сейчас Phase 6 architecture — WebSocket connection к 11labs agent. Phase 6 нотe в `PHASE-6-SETUP-2026-05-10.md` § 11 фиксировал latency ~3s в раннем тесте (приемлемо, но можно срезать).
+
+11labs официально рекомендует **WebRTC** как «recommended, lower latency» альтернативу WebSocket — это есть в их Claude-Code-генерируемом cheat-sheet.
+
+### Что нужно
+
+Сменить connectionType с `"websocket"` на `"webrtc"` в VoicePanel `startSession()` вызове. Возможно дополнительно — server-side token endpoint (`/v1/convai/conversation/token`) для WebRTC handshake вместо signed-URL flow.
+
+Также рассмотреть **`sendUserActivity()`** — сигнал «пользователь активен» который **отменяет turn_timeout** на стороне агента. Use case: ребёнок печатает в тренажёре или рисует на доске — он активен, но молчит. Без сигнала Наталия через 25 сек начинает «эй, ты тут?». С сигналом — заткнётся. Не latency как таковой, но улучшает «отзывчивость» в восприятии.
+
+### Что под капотом
+
+1. **VoicePanel — connectionType webrtc** (`components/panels/voice-panel.tsx`)
+   - В `startSession({ connectionType: 'webrtc', ... })` instead of websocket
+   - Возможно потребуется token-based auth (`conversationToken` вместо `signedUrl`)
+   - Нужен новый server endpoint `/api/voice/conversation-token` (POST к 11labs `/v1/convai/conversation/token`)
+
+2. **`/api/voice/conversation-token` endpoint** — server-side token fetch
+   - Аналогичен текущему `/api/voice/signed-url`
+   - GET token, return to client, client использует в startSession
+
+3. **`sendUserActivity()` integration** — VoicePanel подписывается на trainer events
+   - При любой активности в тренажёре (`trainer:answer_submitted`, `trainer:hint_opened`, `trainer:task_focused`) → `conversation.sendUserActivity()`
+   - Аналогично для будущей user-draw активности на доске
+
+4. **WebRTC firewall / РФ concerns**
+   - WebRTC требует UDP-доступа к 11labs ICE-server-ам (LiveKit под капотом)
+   - Может конфликтовать с Hetzner WS-proxy (Phase 6.5) — proxy спроектирован для WebSocket
+   - Из РФ residential UDP traffic может быть блокирован/throttled
+   - **Решить**: WebRTC использует свой path (без нашего Hetzner proxy) или нужен новый proxy слой?
+
+### Открытые вопросы
+
+- **OQ-1**: WebRTC vs WS на сегодняшнем latency baseline — сколько мс реально срежется на РФ residential network? Phase 6 notе писал «~3s», но это очень общая оценка. Нужен замер.
+- **OQ-2**: Совместим ли WebRTC с Phase 6.5 Hetzner proxy? Если нет — нужно архитектурное решение (own TURN server? bypass proxy для WebRTC?).
+- **OQ-3**: `sendUserActivity()` vs текущий turn_timeout=25s — нужны оба или один заменяет другой? Возможно достаточно `sendUserActivity()` и можно вернуть turn_timeout к более агрессивному 10s.
+- **OQ-4**: Volume controls для родителей / accessibility — `setVolume()`, `getInputVolume()`, `getOutputVolume()` — добавлять сейчас или в Phase 11?
+
+### Зависимости
+
+- ✅ Phase 6 (WebSocket connection) — есть как baseline
+- ⚠️ Phase 6.5 (Hetzner WS proxy) — нужно понять как WebRTC сочетается с ним
+- 🟢 Phase 8.6 (нынешняя session) — turn_timeout настроен на 25s именно потому что отзывчивость низкая; с WebRTC и sendUserActivity можно вернуться к более бодрому 10-15s
+
+### Оценка scope
+
+- 1-2 дня работы (WebRTC migration + token endpoint + sendUserActivity wire-up)
+- НО — может вылезти РФ-network проблема (Phase 6.5 type — несколько дней разбирательства)
+- Тесты — обновить existing VoicePanel + новый E2E на token flow
+
+### Status
+
+**В backlog** — promote когда нужна реальная атака на latency (например после Phase 8.5 контента когда настоящий UAT начнёт мерить «отзывчивость» как метрику). Возможный триггер: фокус-группа продолжит говорить «медленно отвечает» — будем мерить и крутить.

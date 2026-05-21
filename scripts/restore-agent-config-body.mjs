@@ -78,6 +78,20 @@ export const ASR_KEYWORDS = [
   'умножение', 'деление', 'сложение', 'вычитание',
 ]
 
+// Phase 8.6 round 3 — pronunciation dictionary for stress and accent on math
+// vocabulary. Created via POST /v1/pronunciation-dictionaries/add-from-rules
+// using the IPA alphabet (W3C PLS standard). 30 rules covering fractions,
+// geometry, operations, equations, percent, statistics, place value, and
+// commonly-mispronounced numbers (одиннадцать, семьдесят, etc.).
+//
+// To re-create the dictionary (e.g. after deletion): see .tmp/klassio-math-ru-v1.pls
+// for the canonical word list + IPA. The version_id changes if rules are
+// updated — only the latest version is attached below.
+export const PRONUNCIATION_DICTIONARY = {
+  dictionary_id: 'KQist6ywpSyKS2CnoJBV',
+  version_id:   'tGwJMwtqd1W9xZEmIab7',
+}
+
 /**
  * Six client tool definitions per Phase 8 D-07. These are the tool_config
  * payloads passed to POST /v1/convai/tools to create the tools as workspace
@@ -260,6 +274,12 @@ export function buildAgentPatchBody({ prompt, firstMessage, voiceId, toolIds }) 
         stability: TTS_STABILITY,
         similarity_boost: TTS_SIMILARITY_BOOST,
         speed: TTS_SPEED,
+        pronunciation_dictionary_locators: [
+          {
+            pronunciation_dictionary_id: PRONUNCIATION_DICTIONARY.dictionary_id,
+            version_id:                  PRONUNCIATION_DICTIONARY.version_id,
+          },
+        ],
       },
       conversation: {
         max_duration_seconds: MAX_CONVERSATION_DURATION_SEC,

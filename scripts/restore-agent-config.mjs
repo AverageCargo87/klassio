@@ -166,6 +166,8 @@ console.log('[5/5] Re-fetching agent to confirm...')
   console.log('  turn timeout  :', turn.turn_timeout, 's (Phase 6 baseline: 10)')
   console.log('  turn eagerness:', turn.turn_eagerness, '(Phase 6 baseline: normal)')
   console.log('  asr keywords  :', asr.keywords?.length || 0, 'keywords (Phase 6 baseline: 18)')
+  console.log('  pron dicts    :', tts.pronunciation_dictionary_locators?.length || 0,
+              'dictionary attached (target: 1 — klassio-math-ru-v1, 30 rules)')
   console.log('  first_message :', (j.conversation_config?.agent?.first_message || '').slice(0, 80))
   console.log('  prompt len    :', (j.conversation_config?.agent?.prompt?.prompt || '').length, 'chars')
   console.log('  prompt head   :', (j.conversation_config?.agent?.prompt?.prompt || '').slice(0, 80))
