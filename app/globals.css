@@ -182,3 +182,96 @@
 .avatar-anim-sad {
   animation: avatar-wilt 1.5s ease-in-out forwards;
 }
+/* ============================================================
+   Lesson v2 (Phase 8.7 Claude Design integration) — keyframes
+   Used by components/lesson-v2/* via arbitrary Tailwind animate-[]
+   classes. Prefix "lp" = Lesson Page (Claude Design naming).
+   ============================================================ */
+
+/* shake on wrong answer */
+@keyframes lpShake {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  15% { transform: translateX(-8px) rotate(-1.5deg); }
+  30% { transform: translateX(8px) rotate(1.5deg); }
+  45% { transform: translateX(-6px) rotate(-1deg); }
+  60% { transform: translateX(6px) rotate(1deg); }
+  75% { transform: translateX(-3px) rotate(0); }
+  90% { transform: translateX(3px) rotate(0); }
+}
+
+/* segmented progress current pulse */
+@keyframes lpSegPulse {
+  0%, 100% { opacity: 1; transform: scaleY(1); }
+  50%      { opacity: 0.75; transform: scaleY(1.25); }
+}
+
+/* hint slide-down */
+@keyframes lpHintIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* screen slide transitions */
+@keyframes lpSlideInRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes lpSlideInLeft {
+  from { opacity: 0; transform: translateX(-40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* stars burst */
+@keyframes lpStarFly {
+  0%   { transform: translate(-50%, -50%) rotate(0deg) scale(0.6); opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)) scale(0.4); opacity: 0; }
+}
+
+/* confetti pieces */
+@keyframes lpConfetti {
+  0%   { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)); opacity: 0; }
+}
+
+/* teacher bubble */
+@keyframes lpBubbleIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* teacher panel morph */
+@keyframes lpTeacherIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.94); transform-origin: bottom right; }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* generic pulse */
+@keyframes lpPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.25); opacity: 0.7; }
+}
+
+/* mic listening glow pulse */
+@keyframes lpMicPulse {
+  0%, 100% { box-shadow: 0 6px 0 #46A302, 0 0 0 8px rgba(88,204,2,0.22), 0 0 0 16px rgba(88,204,2,0.10); }
+  50%      { box-shadow: 0 6px 0 #46A302, 0 0 0 14px rgba(88,204,2,0.30), 0 0 0 26px rgba(88,204,2,0.06); }
+}
+
+/* correct-answer pop bounce */
+@keyframes lpPop {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); }
+}
+
+/* breathing ring for active task */
+@keyframes lpBreathe {
+  0%, 100% { box-shadow: 0 0 0 6px rgba(28,176,246,0.13); }
+  50%      { box-shadow: 0 0 0 10px rgba(28,176,246,0.20); }
+}
+
+/* fonts for lesson-v2 page (Nunito for body, JetBrains Mono for digits).
+   Loaded via <link> in app/lesson-v2/[id]/page.tsx head; here we just
+   declare class-scoped families so Tailwind classes pick them up. */
+.lesson-v2-root { font-family: 'Nunito', system-ui, -apple-system, sans-serif; }
+.lesson-v2-root .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
