@@ -40,20 +40,25 @@ export const LLM_MODEL = 'gpt-4.1-mini'
 export const LANGUAGE = 'ru'
 
 // Phase 6 baseline TTS voice tuning, evolved through UAT cycles.
-// Phase 8.6 focus-group fix (2026-05-14): voice felt "too robotic" to fifth-graders.
-// stability ↓ (0.30 → 0.20) = more emotional variation, less monotone.
+//
+// History of stability/speed iterations:
+//   Phase 6:                  stability 0.30, speed 1.05  (initial baseline)
+//   Phase 8 UAT (speed):      speed 1.05 → 0.95            (more deliberate pacing)
+//   Phase 8.6 round 1:        stability 0.30 → 0.20        (less monotone, but Nataly voice)
+//   Phase 8.6 round 2:        voice Nataly → Nadia          (operator-changed in UI)
+//   Phase 8.6 round 3 (this): stability 0.20 → 0.35,        Nadia + low stability sounded
+//                              speed 0.95 → 1.00            "tired/sluggish" rather than
+//                                                            energetic. Higher stability +
+//                                                            default speed = livelier delivery.
 //
 // Things we TRIED that 11labs Convai TTS object does NOT actually accept on
 // Eleven Multilingual v2 (verified by GET-after-PATCH — values silently
 // reverted or stayed at default):
 //   - style: 0.60          → field doesn't exist on Convai TTS object
 //   - expressive_mode: true → field exists but only effective on model v3/Turbo
-// Stuck with stability/similarity_boost/speed/voice_id. For more livеness we
-// either need to switch model (v3 is unstable on Russian per Phase 6 notes)
-// or change voice_id. Both are Phase 8.6 follow-up items if 0.20 isn't enough.
-export const TTS_STABILITY = 0.20           // more emotional / less monotone
+export const TTS_STABILITY = 0.35           // mid-range — Phase 8.6 round 3 (energetic Nadia)
 export const TTS_SIMILARITY_BOOST = 0.75    // clear pronunciation (unchanged)
-export const TTS_SPEED = 0.95               // slower than default for child listening (Phase 8 UAT)
+export const TTS_SPEED = 1.0                // default speed — Phase 8.6 round 3 (avoid sluggish)
 
 // Phase 6 baseline conversation timing (PHASE-6-SETUP § 6)
 export const MAX_CONVERSATION_DURATION_SEC = 3600  // 60 min — 45-min lesson + buffer
