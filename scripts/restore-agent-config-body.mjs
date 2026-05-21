@@ -25,7 +25,16 @@
 // explicitly passed gets reset to default. See 2026-05-13 live test where
 // missing `turn.turn_timeout` reverted to 7 (default) instead of 10 (Phase 6).
 // Therefore buildAgentPatchBody passes ALL Phase 6 baseline fields every call.
-export const NATALY_VOICE_ID = 'NhY0kyTmsKuEpHvDMngm'
+// Teacher voice — currently Nadia (Energetic, Clear, Polished — Native Russian
+// female, young, crisp; 11labs use_case=informative_educational).
+//
+// History: Phase 6 used Nataly (NhY0kyTmsKuEpHvDMngm — Youthful, Gentle, Soft).
+// Focus group 2026-05-14 (#1 remark) said Nataly sounded too robotic to
+// fifth-graders. Operator changed the voice in 11labs UI to Nadia; this
+// constant locks the change so the next restore-script PATCH doesn't
+// revert it (PATCH is REPLACE-on-object — every field we don't pass
+// gets defaulted, every field we do pass overwrites).
+export const TEACHER_VOICE_ID = 'gedzfqL7OGdPbwm0ynTP'  // Nadia (Russian female, young)
 export const TTS_MODEL_ID = 'eleven_multilingual_v2'
 export const LLM_MODEL = 'gpt-4.1-mini'
 export const LANGUAGE = 'ru'
@@ -50,7 +59,7 @@ export const TTS_SPEED = 0.95               // slower than default for child lis
 export const MAX_CONVERSATION_DURATION_SEC = 3600  // 60 min — 45-min lesson + buffer
 export const TURN_TIMEOUT_SEC = 25                 // 25s of silence before agent re-engages
                                                     // (was 10 in Phase 6 baseline; bumped per
-                                                    // user feedback during Phase 8 UAT — Nataly
+                                                    // user feedback during Phase 8 UAT — teacher
                                                     // was interrupting child too early during
                                                     // problem-solving thought process)
 export const TURN_EAGERNESS = 'normal'             // 'high' would cut child off
@@ -72,7 +81,7 @@ export const ASR_KEYWORDS = [
  * - `type: 'client'` — handler lives in browser, invoked via SDK callback.
  * - `execution_mode: 'immediate'` — agent continues speaking while result returns
  *   (supports INV-02 fire-and-forget per D-09).
- * - `expects_response: true` — Nataly receives the ack/error string back.
+ * - `expects_response: true` — teacher receives the ack/error string back.
  * - `response_timeout_secs: 20` — generous; handlers return in < 50ms.
  *
  * Schema notes from live PATCH testing:
@@ -210,8 +219,8 @@ export function buildToolCreateBody(toolDef) {
  *
  * @param {object} args
  * @param {string} args.prompt        — full system prompt text
- * @param {string} args.firstMessage  — first message Nataly speaks
- * @param {string} [args.voiceId]     — defaults to Nataly voice ID
+ * @param {string} args.firstMessage  — first message the teacher speaks
+ * @param {string} [args.voiceId]     — defaults to TEACHER_VOICE_ID (Nadia)
  * @param {string[]} args.toolIds     — workspace tool IDs from POST /v1/convai/tools
  * @returns {object}
  */
@@ -241,7 +250,7 @@ export function buildAgentPatchBody({ prompt, firstMessage, voiceId, toolIds }) 
         },
       },
       tts: {
-        voice_id: voiceId || NATALY_VOICE_ID,
+        voice_id: voiceId || TEACHER_VOICE_ID,
         model_id: TTS_MODEL_ID,
         stability: TTS_STABILITY,
         similarity_boost: TTS_SIMILARITY_BOOST,

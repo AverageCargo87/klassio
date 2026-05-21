@@ -49,9 +49,13 @@ const PROMPT_PATH = process.env.PROMPT_PATH || '/tmp/klassio-prompt.txt'
 const PROMPT = readFileSync(PROMPT_PATH, 'utf8').trim()
 
 // Phase 8.6 focus-group fix (2026-05-14): teacher now introduces herself by name.
-// History: Phase 6 used "Я Учитель"; focus group (2 fifth-graders) said it felt impersonal.
+// History:
+//   - Phase 6: "Я Учитель" — focus group said it felt impersonal
+//   - Phase 8.6 round 1: "Меня зовут Наташа" with voice Nataly
+//   - Phase 8.6 round 2: "Меня зовут Надя" — voice changed to Nadia in 11labs UI,
+//     name in first_message aligned to match (Nadia → Надя)
 const FIRST_MESSAGE =
-  'Привет! Меня зовут Наташа, я твоя учительница математики на сегодня. А тебя как зовут?'
+  'Привет! Меня зовут Надя, я твоя учительница математики на сегодня. А тебя как зовут?'
 
 const BASE_HEADERS = {
   'xi-api-key': API_KEY,
@@ -118,7 +122,7 @@ for (const def of PHASE_8_TOOLS) {
 
 // ─── 4. PATCH agent ─────────────────────────────────────────────────────────
 console.log(
-  `[4/5] Sending agent PATCH (prompt: ${PROMPT.length} chars, voice: Nataly, lang: ru, tool_ids: ${toolIds.length})...`,
+  `[4/5] Sending agent PATCH (prompt: ${PROMPT.length} chars, voice: Nadia, lang: ru, tool_ids: ${toolIds.length})...`,
 )
 {
   const body = buildAgentPatchBody({
