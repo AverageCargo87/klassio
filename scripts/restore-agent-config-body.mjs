@@ -60,6 +60,18 @@ export const TTS_STABILITY = 0.35           // mid-range — Phase 8.6 round 3 (
 export const TTS_SIMILARITY_BOOST = 0.75    // clear pronunciation (unchanged)
 export const TTS_SPEED = 1.0                // default speed — Phase 8.6 round 3 (avoid sluggish)
 
+// Text normalisation mode for the TTS pipeline. Two values accepted by 11labs
+// Convai API (discovered via 400 errors trying 'on'/'auto' — they're rejected):
+//   - 'system_prompt' — model relies on the LLM's system prompt to handle
+//                       number expansion and punctuation pacing.
+//   - 'elevenlabs'    — 11labs's built-in normalisation pass converts digits
+//                       to words, parses punctuation marks for pause timing,
+//                       handles question/exclamation intonation. Generally
+//                       gives better punctuation respect.
+// Phase 8.6 UAT 2026-05-14: user reported voice ignores punctuation. Switched
+// from 'system_prompt' → 'elevenlabs' to get proper pause/intonation handling.
+export const TTS_TEXT_NORMALISATION = 'elevenlabs'
+
 // Phase 6 baseline conversation timing (PHASE-6-SETUP § 6)
 export const MAX_CONVERSATION_DURATION_SEC = 3600  // 60 min — 45-min lesson + buffer
 export const TURN_TIMEOUT_SEC = 25                 // 25s of silence before agent re-engages
@@ -274,6 +286,7 @@ export function buildAgentPatchBody({ prompt, firstMessage, voiceId, toolIds }) 
         stability: TTS_STABILITY,
         similarity_boost: TTS_SIMILARITY_BOOST,
         speed: TTS_SPEED,
+        text_normalisation_type: TTS_TEXT_NORMALISATION,
         pronunciation_dictionary_locators: [
           {
             pronunciation_dictionary_id: PRONUNCIATION_DICTIONARY.dictionary_id,

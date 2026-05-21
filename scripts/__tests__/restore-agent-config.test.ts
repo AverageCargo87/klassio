@@ -99,6 +99,7 @@ describe('restore-agent-config — Phase 8 tool definitions (LLM-01 + D-11)', ()
     expect(body.conversation_config.tts.stability).toBe(0.35)
     expect(body.conversation_config.tts.similarity_boost).toBe(0.75)
     expect(body.conversation_config.tts.speed).toBe(1.0)
+    expect(body.conversation_config.tts.text_normalisation_type).toBe('elevenlabs')
   })
 
   it('buildAgentPatchBody includes Phase 6 turn/conversation/asr baseline (REPLACE-on-object guard)', () => {
