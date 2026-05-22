@@ -275,3 +275,13 @@
    declare class-scoped families so Tailwind classes pick them up. */
 .lesson-v2-root { font-family: 'Nunito', system-ui, -apple-system, sans-serif; }
 .lesson-v2-root .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+/* Blueprint look for tldraw canvas inside lesson-v2 BoardOverlay.
+   Tldraw's default dark background is near-black; we tint it to the
+   #1F2A37 palette colour used by the surrounding overlay so the canvas
+   reads as one piece with the chrome (UAT 2026-05-22 — "как будто
+   blueprint"). The grid is enabled via editor.updateInstanceState
+   in board-canvas-v2.tsx. */
+.tldraw-container .tl-background {
+  background-color: #1F2A37 !important;
+}

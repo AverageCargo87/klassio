@@ -52,7 +52,12 @@ export function BoardCanvasV2({ lessonId, initialPrompt, onPromptConsumed }: Boa
   const onMount = useCallback((editor: Editor) => {
     editorRef.current = editor
     editor.setCamera({ x: 0, y: 0, z: 1 })
-    editor.updateInstanceState({ isGridMode: false })
+    // Phase 8.7 UAT 2026-05-22 — blueprint look:
+    //   - dark colorScheme inverts shape `'black'` colors to white automatically,
+    //     so digit text renders visibly on the dark bg
+    //   - grid mode draws the subtle dot pattern characteristic of the design mock
+    editor.user.updateUserPreferences({ colorScheme: 'dark' })
+    editor.updateInstanceState({ isGridMode: true })
     setEditorReady(true)
   }, [])
 
@@ -140,10 +145,21 @@ export function BoardCanvasV2({ lessonId, initialPrompt, onPromptConsumed }: Boa
 
               await executeToolCall(editor, name, input)
 
-              // Auto-fit camera to created shapes — same pattern as BoardPanel.
+              // Auto-fit camera to created shapes, but with breathing room
+              // around the bounds — UAT 2026-05-22 user feedback was «как
+              // будто носом в цифры». We expand the bounding box of all
+              // shapes by ~100 world-units on each side, then zoom to that
+              // expanded box. Effect: roughly 70-80% of the fit zoom, so
+              // content sits in the center with margin on all sides.
               const hasContent = editor.getCurrentPageShapeIds().size > 0
               if (hasContent && name.startsWith('draw_')) {
-                editor.zoomToFit({ animation: { duration: 200 } })
+                const bounds = editor.getCurrentPageBounds()
+                if (bounds) {
+                  const padded = bounds.clone().expandBy(100)
+                  editor.zoomToBounds(padded, { animation: { duration: 200 } })
+                } else {
+                  editor.zoomToFit({ animation: { duration: 200 } })
+                }
               }
             } else if (evt.type === 'error') {
               const msg = String(evt.error ?? 'sse-error')

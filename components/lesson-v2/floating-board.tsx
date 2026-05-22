@@ -104,15 +104,15 @@ export function BoardOverlay({ open, onClose, contextLabel, children }: BoardOve
 
         <div
           className="flex-1 relative"
-          style={
-            children
-              ? { background: '#FFFFFF' }
-              : {
-                  background: `repeating-linear-gradient(0deg, #2A3340 0 1px, transparent 1px 32px),
-                               repeating-linear-gradient(90deg, #2A3340 0 1px, transparent 1px 32px),
-                               #1F2A37`,
-                }
-          }
+          style={{
+            // Blueprint pattern is the canvas backdrop in both states — the
+            // real tldraw canvas is dark + transparent enough that the
+            // pattern doesn't bleed through, but it's a clean placeholder
+            // during dynamic-import loading.
+            background: `repeating-linear-gradient(0deg, #2A3340 0 1px, transparent 1px 32px),
+                         repeating-linear-gradient(90deg, #2A3340 0 1px, transparent 1px 32px),
+                         #1F2A37`,
+          }}
         >
           {children ?? <BoardPlaceholder />}
         </div>
