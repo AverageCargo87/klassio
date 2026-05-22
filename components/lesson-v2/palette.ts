@@ -21,17 +21,19 @@ export const PALETTE = {
   paperWarmSoft: 'var(--lp-paper-warm-soft)',
   paperWarmBorderSoft: 'var(--lp-paper-warm-border-soft)',
   placeholderDot: 'var(--lp-placeholder-dot)',
-  // feedback soft backgrounds — theme-aware
+  // feedback / accent soft backgrounds — theme-aware
   greenSoft: 'var(--lp-correct-soft)',
   coralSoft: 'var(--lp-wrong-soft)',
+  yellowSoft: 'var(--lp-yellow-soft)',
+  blueSoft: 'var(--lp-blue-soft)',
+  blueSoftBorder: 'var(--lp-blue-soft-border)',
+  userBubble: 'var(--lp-user-bubble)',
   // brand (Duolingo-like) — same on both themes
   green: '#58CC02',
   greenDeep: '#46A302',
   blue: '#1CB0F6',
   blueDeep: '#1591CC',
-  blueSoft: '#E3F4FD',
   yellow: '#FFC800',
-  yellowSoft: '#FFF3C7',
   coral: '#FF6B6B',
   coralDeep: '#E04B4B',
   lilac: '#A78BFA',

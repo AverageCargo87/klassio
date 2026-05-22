@@ -445,32 +445,11 @@ function LessonPageInner({
       setTeacherExpanded(false)
     }
     setBoardOpen(next)
-    // Auto-trigger draw_request when user opens the board manually — covers
-    // the case where Nadya hasn't called draw_explanation herself (yet). She
-    // can also call it on her own; concurrent calls auto-clear the board.
-    // UAT 2026-05-22: previously gated by "numeric-input with expr" which
-    // left single-choice/matching/intro screens with an empty canvas when
-    // opened. Now any screen produces a useful prompt.
-    if (next && screen) {
-      let drawPrompt: string | null = null
-      if (screen.kind === 'task') {
-        if (screen.type === 'numeric-input' && screen.expr) {
-          drawPrompt = `сложение в столбик ${screen.expr}`
-        } else {
-          // single-choice / matching / numeric without expr — fall back to
-          // the task prompt itself. Drawing LLM will pick whatever scene fits.
-          drawPrompt = screen.prompt
-        }
-      } else if (screen.kind === 'intro') {
-        // For theory blocks: nudge Nadya to illustrate the headline concept.
-        drawPrompt = `Объясни на доске: ${screen.title}`
-      }
-      if (drawPrompt) {
-        // Stash the prompt — BoardCanvasV2 will execute it on mount.
-        // Reliable: no setTimeout race, no bus event lost during dynamic import.
-        setPendingBoardPrompt(drawPrompt)
-      }
-    }
+    // UAT 2026-05-22: do NOT auto-trigger drawing when the user manually
+    // opens the board. Manual open shows the empty canvas — Nadya draws
+    // only on her own `draw_explanation` call. Earlier rounds auto-issued
+    // a prompt here, which confused users who just wanted to peek at the
+    // board ("открыл доску — началось объяснение, я этого не просил").
   }
 
   // Listen to board:say events emitted by BoardCanvasV2 — push them into

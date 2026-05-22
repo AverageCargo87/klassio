@@ -36,9 +36,9 @@ function ChatMessageBubble({ msg, now }: ChatMessageBubbleProps) {
         <div
           className="px-3.5 py-2.5 rounded-2xl leading-snug"
           style={{
-            background: isUser ? '#E9EEF4' : PALETTE.blueSoft,
+            background: isUser ? PALETTE.userBubble : PALETTE.blueSoft,
             color: PALETTE.ink,
-            border: isUser ? `1.5px solid ${PALETTE.line}` : '1.5px solid #BFE4F8',
+            border: isUser ? `1.5px solid ${PALETTE.line}` : `1.5px solid ${PALETTE.blueSoftBorder}`,
             borderBottomRightRadius: isUser ? 6 : 16,
             borderBottomLeftRadius: isUser ? 16 : 6,
             fontSize: 13.5,

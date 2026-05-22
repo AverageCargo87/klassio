@@ -292,6 +292,10 @@
   --lp-placeholder-dot: #D6C9A4;
   --lp-correct-soft: #E8F7E6;
   --lp-wrong-soft: #FFE4E0;
+  --lp-yellow-soft: #FFF3C7;
+  --lp-blue-soft: #E3F4FD;
+  --lp-blue-soft-border: #BFE4F8;
+  --lp-user-bubble: #E9EEF4;
   --lp-tldraw-bg: #1F2A37;
 }
 .lesson-v2-root[data-theme='dark'] {
@@ -307,6 +311,10 @@
   --lp-placeholder-dot: #6B6049;
   --lp-correct-soft: #1F4A1A;
   --lp-wrong-soft: #4A1F1A;
+  --lp-yellow-soft: #3D341A;
+  --lp-blue-soft: #1A2B3D;
+  --lp-blue-soft-border: #2D4659;
+  --lp-user-bubble: #2A3340;
   --lp-tldraw-bg: #0A0F1A;
 }
 
