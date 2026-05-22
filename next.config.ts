@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
   // tracing handles its own isolated build context correctly.
   outputFileTracingRoot: process.env.VERCEL ? undefined : path.resolve(__dirname),
 
+  // UAT 2026-05-22 round 14: expose the Vercel build's git short-SHA to the
+  // client bundle so the lesson-v2 TopBar can render "Klassio · abc1234".
+  // VERCEL_GIT_COMMIT_SHA is provided automatically on every Vercel deploy.
+  // Fallback "dev" used during local development.
+  env: {
+    NEXT_PUBLIC_BUILD_SHA: (process.env.VERCEL_GIT_COMMIT_SHA || 'dev').slice(0, 7),
+    NEXT_PUBLIC_BUILD_BRANCH: process.env.VERCEL_GIT_COMMIT_REF || 'local',
+  },
+
   // Prevent webpack from bundling Node.js native modules used in server-only code.
   // pg (node-postgres) uses native Node.js net/tls/fs — webpack bundling breaks it in RSC.
   // drizzle-orm and @auth/drizzle-adapter must also be excluded so they load from the

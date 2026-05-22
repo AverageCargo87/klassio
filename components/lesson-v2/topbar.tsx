@@ -175,7 +175,9 @@ export function TopBar({
       }}
     >
       <div className="h-full px-5 flex items-center gap-5">
-        {/* LEFT: logo → /lessons */}
+        {/* LEFT: logo → /lessons. Build SHA shown next to the name for UAT
+            traceability — every Vercel deploy gets a fresh hash, so user can
+            confirm they're on the latest version after a refresh. */}
         <a
           href="/lessons"
           onClick={(e) => {
@@ -183,8 +185,7 @@ export function TopBar({
             onHome()
           }}
           className="flex items-center gap-2 group shrink-0"
-          style={{ width: 180 }}
-          title="Все уроки"
+          title={`Все уроки · ветка ${process.env.NEXT_PUBLIC_BUILD_BRANCH ?? 'local'}`}
         >
           <span className="inline-block text-2xl group-hover:animate-[lpPulse_.6s_ease-out]">
             🧮
@@ -194,6 +195,20 @@ export function TopBar({
             style={{ color: PALETTE.ink }}
           >
             Klassio
+          </span>
+          <span
+            className="font-mono tabular-nums px-1.5 py-0.5 rounded-md"
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: PALETTE.sub,
+              background: PALETTE.paperWarmSoft,
+              border: `1px solid ${PALETTE.line}`,
+              letterSpacing: 0.2,
+              lineHeight: 1.3,
+            }}
+          >
+            {process.env.NEXT_PUBLIC_BUILD_SHA ?? 'dev'}
           </span>
         </a>
 

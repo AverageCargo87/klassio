@@ -550,9 +550,15 @@ function LessonPageInner({
     if (!prev.sessionStarted) return
     if (prev.idx === curr.idx) return
 
+    // UAT round 14: don't ping the agent on intro→intro navigation. Child
+    // is flipping through theory slides; the agent repeating «прочти теорию,
+    // нажми Дальше» on each slide is annoying. Only ping when the new
+    // screen is a task or the final screen — those need a fresh reaction.
+    if (screen.kind === 'intro') return
+
     try {
       convoCmdRef.current.sendUserMessage(
-        `[ПЛАТФОРМА] Ребёнок перешёл на следующий экран. ${screenInfoRef.current}. Реагируй ПРЯМО СЕЙЧАС: если screen=task и это первая задача темы — обязательно draw_explanation с числами из expr; если задачу того же типа уже решал ранее — короткая подбадривающая реплика и ЖДИ ребёнка; если screen=intro — короткая фраза «прочти теорию и нажми Дальше»; если screen=final — поздравь.`,
+        `[ПЛАТФОРМА] Ребёнок перешёл на следующий экран. ${screenInfoRef.current}. Реагируй ПРЯМО СЕЙЧАС: если screen=task и это первая задача темы — обязательно draw_explanation с числами из expr; если задачу того же типа уже решал ранее — короткая подбадривающая реплика и ЖДИ ребёнка; если screen=final — поздравь.`,
       )
     } catch (err) {
       console.error('[lesson-v2] screen change forward:', err)
