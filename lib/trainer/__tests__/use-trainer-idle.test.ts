@@ -44,12 +44,12 @@ describe('useTrainerIdle', () => {
     vi.useRealTimers()
   })
 
-  it('emits trainer:idle_15s after 15 seconds of no activity', () => {
+  it('emits trainer:idle_15s after 30 seconds of no activity', () => {
     renderHook(() => useTrainerIdle())
 
-    // Advance timer by 15+ seconds (polling is every 5s)
+    // Advance timer by 30+ seconds (polling is every 5s, threshold 30s)
     act(() => {
-      vi.advanceTimersByTime(20_000)
+      vi.advanceTimersByTime(35_000)
     })
 
     expect(mockEmit).toHaveBeenCalledWith('trainer:idle_15s', expect.objectContaining({
@@ -57,12 +57,12 @@ describe('useTrainerIdle', () => {
     }))
   })
 
-  it('resets the 15s timer when any trainer event fires', () => {
+  it('resets the idle timer when any trainer event fires', () => {
     renderHook(() => useTrainerIdle())
 
-    // Advance 10 seconds (not yet idle)
+    // Advance 20 seconds (not yet idle — below 30s threshold)
     act(() => {
-      vi.advanceTimersByTime(10_000)
+      vi.advanceTimersByTime(20_000)
     })
 
     // Simulate a trainer event to reset the timer
@@ -73,47 +73,47 @@ describe('useTrainerIdle', () => {
       }
     })
 
-    // Advance another 10 seconds (only 10s since reset — below 15s threshold)
+    // Advance another 20 seconds (only 20s since reset — below 30s threshold)
     act(() => {
-      vi.advanceTimersByTime(10_000)
+      vi.advanceTimersByTime(20_000)
     })
 
     // Should NOT have emitted yet (reset happened)
     expect(mockEmit).not.toHaveBeenCalledWith('trainer:idle_15s', expect.anything())
   })
 
-  it('does not emit a second trainer:idle_15s within 30 seconds of the first', () => {
+  it('does not emit a second trainer:idle_15s within 45 seconds of the first', () => {
     renderHook(() => useTrainerIdle())
 
-    // First idle fires
+    // First idle fires after 30s threshold
     act(() => {
-      vi.advanceTimersByTime(20_000)
+      vi.advanceTimersByTime(35_000)
     })
 
     expect(mockEmit).toHaveBeenCalledTimes(1)
 
-    // 10 more seconds — still within 30s spam guard
+    // 20 more seconds — still within 45s spam guard
     act(() => {
-      vi.advanceTimersByTime(10_000)
+      vi.advanceTimersByTime(20_000)
     })
 
     // Should still be 1 (spam guard blocks second emit)
     expect(mockEmit).toHaveBeenCalledTimes(1)
   })
 
-  it('emits a second idle after 30+ seconds from first emit', () => {
+  it('emits a second idle after 45+ seconds from first emit', () => {
     renderHook(() => useTrainerIdle())
 
-    // First idle fires at 20s
+    // First idle fires at 35s
     act(() => {
-      vi.advanceTimersByTime(20_000)
+      vi.advanceTimersByTime(35_000)
     })
 
     expect(mockEmit).toHaveBeenCalledTimes(1)
 
-    // Advance 35 more seconds (20+35=55 from start; 35s after first emit > 30s guard)
+    // Advance 50 more seconds (35+50=85 from start; 50s after first emit > 45s guard)
     act(() => {
-      vi.advanceTimersByTime(35_000)
+      vi.advanceTimersByTime(50_000)
     })
 
     // Second idle should now fire

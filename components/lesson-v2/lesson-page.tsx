@@ -615,14 +615,13 @@ function LessonPageInner({
           convoCmdRef.current.sendContextualUpdate(
             formatAnswerSubmitted({ taskId, value, correct: true }, taskType),
           )
-          // UAT 2026-05-22 round 7: force-interrupt via sendUserMessage.
-          // sendContextualUpdate just appends context for the NEXT turn —
-          // queued behind any in-flight TTS, hence the 15s delay user saw.
-          // sendUserMessage is treated as user-side input and aborts current
-          // TTS so Nadya can respond immediately. Prefix [ПЛАТФОРМА] makes
-          // it clear to her this is a system event, not the child speaking.
+          // UAT round 7: force-interrupt via sendUserMessage. UAT round 13:
+          // strictly "praise only" — don't ask her to advance. Earlier
+          // version said «предложи перейти к следующей задаче» which made
+          // her call goto_trainer_task automatically; user wants the child
+          // to press «Дальше» themselves.
           convoCmdRef.current.sendUserMessage(
-            `[ПЛАТФОРМА] Ребёнок только что молча ввёл правильный ответ для ${taskId}: ${value}. Похвали ПРЯМО СЕЙЧАС короткой репликой и предложи перейти к следующей задаче.`,
+            `[ПЛАТФОРМА] Ребёнок только что молча ввёл правильный ответ для ${taskId}: ${value}. Скажи ОДНУ короткую похвалу ПРЯМО СЕЙЧАС («Молодец!», «Точно!», «Огонь!») и ЗАМОЛЧИ. НЕ зови goto_trainer_task. НЕ начинай объяснять следующую задачу. Ребёнок сам нажмёт «Дальше» когда будет готов — тогда система сама пришлёт тебе сигнал о новой задаче.`,
           )
         } catch (err) {
           console.error('[lesson-v2] forward answer (ok):', err)

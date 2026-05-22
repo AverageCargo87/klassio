@@ -1,13 +1,18 @@
 'use client'
 // useTrainerIdle — idle detector hook (D-17).
-// Subscribes to all trainer events; emits trainer:idle_15s after 15s of silence.
-// Spam guard: max 1 emit per 30s.
+// Subscribes to all trainer events; emits trainer:idle_15s after a threshold
+// of silence. Spam guard: max 1 emit per 45s.
+//
+// UAT 2026-05-22 round 13: bumped IDLE_THRESHOLD_MS 15s → 30s and spam
+// guard 30s → 45s per user feedback («интервал между её вопросами когда я
+// молчу пусть будет больше на 15 сек»). Event name kept as trainer:idle_15s
+// for back-compat with subscribers.
 import { useEffect, useRef } from 'react'
 import { useLessonBus, useLessonBusEvent } from '@/lib/lesson-bus'
 
-const IDLE_THRESHOLD_MS = 15_000   // 15 seconds
+const IDLE_THRESHOLD_MS = 30_000   // 30 seconds
 const POLL_INTERVAL_MS  = 5_000    // poll every 5 seconds
-const SPAM_GUARD_MS     = 30_000   // max 1 idle event per 30 seconds
+const SPAM_GUARD_MS     = 45_000   // max 1 idle event per 45 seconds
 
 export function useTrainerIdle(): void {
   const bus = useLessonBus()
