@@ -522,6 +522,14 @@ function LessonPageInner({
 
   // Update screenInfoRef (declared above) whenever the visible screen changes.
   // get_lesson_state reads this ref so Nataly always sees the current screen.
+  // Also (UAT round 12) — when this fires DURING an active session because
+  // the child clicked «Дальше» / «Предыдущая», proactively poke the agent
+  // with a sendUserMessage so she reacts to the new screen immediately
+  // instead of waiting for the 25 sec silence trigger.
+  const lastNavSnapshotRef = useRef<{ sessionStarted: boolean; idx: number }>({
+    sessionStarted: false,
+    idx: currentIdx,
+  })
   useEffect(() => {
     if (screen.kind === 'task') {
       const exprPart = 'expr' in screen && screen.expr ? ` expr="${screen.expr}"` : ''
@@ -531,7 +539,25 @@ function LessonPageInner({
     } else {
       screenInfoRef.current = `screen=final`
     }
-  }, [screen])
+
+    // Notify agent only on real navigation during active session — skip the
+    // initial mount and skip the session-start tick (welcome flow already
+    // handles that path).
+    const prev = lastNavSnapshotRef.current
+    const curr = { sessionStarted, idx: currentIdx }
+    lastNavSnapshotRef.current = curr
+    if (!curr.sessionStarted) return
+    if (!prev.sessionStarted) return
+    if (prev.idx === curr.idx) return
+
+    try {
+      convoCmdRef.current.sendUserMessage(
+        `[ПЛАТФОРМА] Ребёнок перешёл на следующий экран. ${screenInfoRef.current}. Реагируй ПРЯМО СЕЙЧАС: если screen=task и это первая задача темы — обязательно draw_explanation с числами из expr; если задачу того же типа уже решал ранее — короткая подбадривающая реплика и ЖДИ ребёнка; если screen=intro — короткая фраза «прочти теорию и нажми Дальше»; если screen=final — поздравь.`,
+      )
+    } catch (err) {
+      console.error('[lesson-v2] screen change forward:', err)
+    }
+  }, [screen, sessionStarted, currentIdx])
 
   useEffect(() => {
     const next = new Set<string>()
