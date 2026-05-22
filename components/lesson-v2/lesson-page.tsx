@@ -255,7 +255,11 @@ function LessonPageInner({
   })
   const [finished, setFinished] = useState(false)
 
-  // overlays
+  // session lifecycle
+  //   sessionStarted: true after «Начать урок» — voice session is live.
+  //   micOn: true when mic is unmuted and capturing audio. After start, mic
+  //   defaults to ON. Tapping the floating mic toggles MUTE (not disconnect).
+  const [sessionStarted, setSessionStarted] = useState(false)
   const [micOn, setMicOn] = useState(false)
   const [boardOpen, setBoardOpen] = useState(false)
   const [teacherExpanded, setTeacherExpanded] = useState(true) // pinned by default
@@ -345,6 +349,16 @@ function LessonPageInner({
   }
   function finishLesson() {
     setFinished(true)
+    // End the voice session cleanly — Nadya disconnects, mic releases.
+    if (sessionStarted) {
+      try {
+        conversation.endSession()
+      } catch (err) {
+        console.error('[lesson-v2] finishLesson.endSession:', err)
+      }
+      setSessionStarted(false)
+      setMicOn(false)
+    }
     teacherSpeak(TEACHER_SCRIPT.finish)
   }
   function restart() {
@@ -564,32 +578,24 @@ function LessonPageInner({
   // Idle detector — emits trainer:idle_15s after 15s of no trainer events.
   useTrainerIdle()
 
-  /* Stage 3 — toggleMic now talks to 11labs via the useConversation SDK.
-     - First toggle starts the lesson timer.
-     - Mic ON: request permission → fetch fresh signed URL → startSession.
-     - Mic OFF: endSession() (the bot is silenced).
-     Voice state (speaking/listening/idle) is driven by the SDK's onModeChange
-     callback — we don't set teacherStatus manually here, just track UI mic
-     toggle. */
-  const toggleMic = useCallback(async () => {
-    if (!timerStarted) setTimerStarted(true)
-    const isActive =
-      conversation.status === 'connected' || conversation.status === 'connecting'
-    if (isActive) {
-      try {
-        conversation.endSession()
-      } catch (err) {
-        console.error('[lesson-v2] toggleMic.endSession failed:', err)
-      }
-      setMicOn(false)
-      return
-    }
+  /* Stage 3+UAT fix (2026-05-22) — voice session lifecycle split into two
+     concerns:
 
-    if (isStartingRef.current) return
+     1) startLesson() — runs ONCE at the «Начать урок» CTA. Requests mic
+        permission, fetches signed URL, calls startSession(), starts the
+        lesson timer, marks the session live. After this, FloatingMic
+        appears and Nadya begins talking.
+
+     2) toggleMic() — runs every time the user taps the floating mic
+        AFTER session started. Uses conversation.setMicMuted() — the
+        SDK keeps the WebSocket open, Nadya stays connected. Just the
+        mic audio capture is paused/resumed. No reconnect roundtrip,
+        no greeting replay. */
+  const startLesson = useCallback(async () => {
+    if (isStartingRef.current || sessionStarted) return
     isStartingRef.current = true
     setVoiceError(null)
     try {
-      // 1) mic permission
       const stream = await navigator.mediaDevices
         .getUserMedia({ audio: true })
         .catch((err: { name?: string }) => {
@@ -605,10 +611,8 @@ function LessonPageInner({
           return null
         })
       if (!stream) return
-      // Release; SDK will request its own.
       stream.getTracks().forEach((t) => t.stop())
 
-      // 2) signed URL
       const res = await fetch('/api/voice/signed-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -620,7 +624,6 @@ function LessonPageInner({
       }
       const data = (await res.json()) as { signedUrl: string; topic: string }
 
-      // 3) start
       conversation.startSession({
         signedUrl: data.signedUrl,
         connectionType: 'websocket',
@@ -629,23 +632,37 @@ function LessonPageInner({
           total_tasks: trainerConfig.tasks.length,
         },
       })
+      setSessionStarted(true)
       setMicOn(true)
+      setTimerStarted(true)
     } catch (err) {
-      console.error('[lesson-v2] start failed:', err)
+      console.error('[lesson-v2] startLesson failed:', err)
       setVoiceError('Ошибка голосового сервиса. Попробуй снова.')
     } finally {
       isStartingRef.current = false
     }
-  }, [conversation, lessonId, timerStarted, topic, trainerConfig])
+  }, [conversation, lessonId, sessionStarted, topic, trainerConfig])
 
-  // Mirror SDK status into local micOn + teacherStatus state, so the UI stays
-  // in sync if the connection drops outside our toggleMic flow (e.g. network
-  // hiccup, server-side hangup).
+  /** Mute/unmute the mic without breaking the session. */
+  const toggleMic = useCallback(() => {
+    if (!sessionStarted) return
+    const nextOn = !micOn
+    try {
+      // useConversation exposes `setMuted` (the underlying BaseConversation
+      // method is `setMicMuted`; the React hook wraps it with the shorter name).
+      conversation.setMuted(!nextOn)
+    } catch (err) {
+      console.error('[lesson-v2] setMuted failed:', err)
+      return
+    }
+    setMicOn(nextOn)
+  }, [conversation, micOn, sessionStarted])
+
+  // Mirror SDK mode (speaking/listening) into teacherStatus, but DO NOT touch
+  // micOn here — micOn is the local mute toggle and lives independently of
+  // SDK mode. If the underlying connection drops outside our control (e.g.
+  // network hiccup), we surface 'idle' but leave micOn for the user to retry.
   useEffect(() => {
-    const isActive =
-      conversation.status === 'connected' || conversation.status === 'connecting'
-    setMicOn((cur) => (cur !== isActive ? isActive : cur))
-
     if (conversation.status === 'connected') {
       if (conversation.mode === 'speaking') setTeacherStatus('speaking')
       else if (conversation.mode === 'listening') setTeacherStatus('listening')
@@ -781,8 +798,44 @@ function LessonPageInner({
             </div>
           )}
 
-          {/* «Дальше →» — only on intros + solved tasks */}
-          {!finished && canGoForward && (
+          {/* «Начать урок» — pre-session CTA on the very first screen.
+              Shown until startLesson() runs successfully. Replaces both
+              «Дальше →» and FloatingMic until that point. */}
+          {!finished && !sessionStarted && (
+            <div className="flex flex-col items-center mt-7 gap-3 animate-[lpHintIn_.3s_ease-out]">
+              <button
+                onClick={startLesson}
+                className="h-16 px-12 rounded-2xl text-lg font-extrabold uppercase tracking-wide transition-all active:translate-y-0.5 active:shadow-none inline-flex items-center gap-3"
+                style={{
+                  background: PALETTE.green,
+                  color: 'white',
+                  boxShadow: `0 6px 0 ${PALETTE.greenDeep}`,
+                  minWidth: 280,
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                  <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z" />
+                  <path d="M19 11a1 1 0 0 0-2 0 5 5 0 0 1-10 0 1 1 0 0 0-2 0 7 7 0 0 0 6 6.92V21h-3a1 1 0 0 0 0 2h8a1 1 0 0 0 0-2h-3v-3.08A7 7 0 0 0 19 11z" />
+                </svg>
+                Начать урок
+              </button>
+              <div className="text-xs font-bold text-center max-w-md" style={{ color: PALETTE.sub }}>
+                Нажми, когда будешь готов. Запросим доступ к микрофону — Надя
+                поздоровается и начнёт урок голосом.
+              </div>
+              {voiceError && (
+                <div
+                  className="text-xs font-bold text-center max-w-md mt-1"
+                  style={{ color: PALETTE.coralDeep }}
+                >
+                  {voiceError}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* «Дальше →» — after session started, on intros + solved tasks */}
+          {!finished && sessionStarted && canGoForward && (
             <div className="flex justify-center mt-7 animate-[lpHintIn_.3s_ease-out]">
               <button
                 onClick={goNext}
@@ -808,7 +861,11 @@ function LessonPageInner({
 
       <FloatingBoardToggle open={boardOpen} onToggle={() => setBoardOpenSafe(!boardOpen)} />
 
-      <FloatingMic on={micOn} onToggle={toggleMic} style={{ left: micLeft }} />
+      {/* FloatingMic — only after «Начать урок» pressed. While not started,
+          the big start CTA in the hero area is the entry point. */}
+      {sessionStarted && (
+        <FloatingMic on={micOn} onToggle={toggleMic} style={{ left: micLeft }} />
+      )}
 
       <FloatingTeacher
         expanded={teacherExpanded}
