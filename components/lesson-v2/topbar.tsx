@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { PALETTE } from './palette'
 import { ThemeToggle } from './theme-toggle'
+import { VoiceToggle } from './voice-toggle'
 import type { Screen } from './types'
 
 interface LessonTimerProps {
@@ -138,6 +139,9 @@ interface TopBarProps {
   timerSec: number
   taskIndices: number[]
   screens: Screen[]
+  /** Phase 8.7 UAT round 9 — voice picker is locked once a session is live;
+   *  the override only takes effect at the next startSession. */
+  sessionStarted: boolean
   onHome: () => void
   onProfile: () => void
   onSettings: () => void
@@ -153,6 +157,7 @@ export function TopBar({
   timerSec,
   taskIndices,
   screens,
+  sessionStarted,
   onHome,
   onProfile,
   onSettings,
@@ -236,8 +241,9 @@ export function TopBar({
           </div>
         </div>
 
-        {/* RIGHT: theme toggle + user avatar dropdown */}
-        <div style={{ width: 180 }} className="flex justify-end items-center gap-2 shrink-0">
+        {/* RIGHT: voice picker + theme toggle + user avatar dropdown */}
+        <div className="flex justify-end items-center gap-2 shrink-0">
+          <VoiceToggle locked={sessionStarted} />
           <ThemeToggle />
           <UserMenu
             onProfile={onProfile}

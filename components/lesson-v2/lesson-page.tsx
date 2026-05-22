@@ -28,6 +28,7 @@ import type { TrainerConfig } from '@/lib/trainer/config-schema'
 import { LessonBusProvider, useLessonBus, useLessonBusEvent } from '@/lib/lesson-bus'
 import { buildClientTools } from '@/lib/client-tools'
 import { getLessonStateSnapshot, type LessonMistake } from '@/lib/lesson-state'
+import { useVoice } from '@/lib/lesson-v2/use-voice'
 import {
   formatAnswerSubmitted,
   formatHintOpened,
@@ -270,6 +271,14 @@ function LessonPageInner({
     return m
   })
   const [finished, setFinished] = useState(false)
+
+  // Voice picker — UAT 2026-05-22 round 9. Selected voice persists across
+  // sessions in localStorage. The resolved voiceId is passed to
+  // conversation.startSession via overrides.tts.voiceId (requires "Voice"
+  // override to be enabled in the 11labs agent Security tab).
+  const { voiceId } = useVoice()
+  const voiceIdRef = useRef(voiceId)
+  voiceIdRef.current = voiceId
 
   // session lifecycle
   //   sessionStarted: true after «Начать урок» — voice session is live.
@@ -688,6 +697,14 @@ function LessonPageInner({
           lesson_topic: data.topic || topic,
           total_tasks: trainerConfig.tasks.length,
         },
+        // Voice override (round 9) — picks up the user's saved voice
+        // preference. 11labs agent must have Security → Overrides → TTS
+        // voice enabled or this is silently ignored.
+        overrides: {
+          tts: {
+            voiceId: voiceIdRef.current,
+          },
+        },
       })
       setSessionStarted(true)
       setMicOn(true)
@@ -785,6 +802,7 @@ function LessonPageInner({
         timerSec={timerSec}
         taskIndices={taskIndices}
         screens={screens}
+        sessionStarted={sessionStarted}
         onHome={onHome}
         onProfile={onProfile}
         onSettings={onSettings}
