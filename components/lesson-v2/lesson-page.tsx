@@ -731,12 +731,11 @@ function LessonPageInner({
       }
       const data = (await res.json()) as { signedUrl: string; topic: string }
 
-      // UAT round 9/16 diagnostic — surface the chosen persona + speed.
+      // UAT round 9/16 diagnostic — surface the chosen persona.
       const v = voiceOptionRef.current
       console.info('[lesson-v2] startSession voice override:', {
         label: v.label,
         voiceId: v.voiceId,
-        speed: v.speed,
         firstMessagePreview: v.firstMessage.slice(0, 40),
       })
       conversation.startSession({
@@ -746,13 +745,17 @@ function LessonPageInner({
           lesson_topic: data.topic || topic,
           total_tasks: trainerConfig.tasks.length,
         },
-        // Voice + persona + speed override (round 16). 11labs agent must
-        // have Voice, First message AND Voice speed enabled in Security
-        // Overrides tab, else 11labs silently uses the agent defaults.
+        // Voice + persona override. 11labs agent must have Voice + First
+        // message enabled in Security Overrides tab.
+        //
+        // UAT round 17: removed overrides.tts.speed — Voice speed toggle
+        // is OFF in Security, sending it broke the session entirely (Аня
+        // silent, mic toggle dead). Agent default speed was bumped to
+        // 0.95 in restore-agent-config-body so both voices speak slightly
+        // slower without needing the override path.
         overrides: {
           tts: {
             voiceId: v.voiceId,
-            speed: v.speed,
           },
           agent: {
             firstMessage: v.firstMessage,

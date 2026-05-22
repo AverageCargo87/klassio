@@ -58,7 +58,7 @@ export const LANGUAGE = 'ru'
 //   - expressive_mode: true → field exists but only effective on model v3/Turbo
 export const TTS_STABILITY = 0.35           // mid-range — Phase 8.6 round 3 (energetic Nadia)
 export const TTS_SIMILARITY_BOOST = 0.75    // clear pronunciation (unchanged)
-export const TTS_SPEED = 1.0                // default speed — Phase 8.6 round 3 (avoid sluggish)
+export const TTS_SPEED = 0.95               // round 16 UAT — «чуть-чуть медленнее». Applies to all voices via agent default; we no longer override speed per-session because the override Security toggle is off and 11labs silently breaks the session when an unauthorized override is sent.
 
 // Text normalisation mode for the TTS pipeline. Two values accepted by 11labs
 // Convai API (discovered via 400 errors trying 'on'/'auto' — they're rejected):
