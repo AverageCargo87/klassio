@@ -1,9 +1,10 @@
 ---
-session_date: 2026-05-22 (overnight autonomous)
-context: Полная интеграция Claude Design v2 lesson page в backend
-status: deployed для UAT
-branch: v2-claude-design
-next_session_starts_with: UAT v2 в preview URL → решить merge в master или итерировать
+session_date: 2026-05-22 (overnight autonomous + UAT day)
+context: Полная интеграция Claude Design v2 lesson page в backend + 5 раундов UAT фиксов
+status: deployed для UAT, ждёт продолжения после /clear
+branch: v2-claude-design (10 коммитов поверх master)
+stable_url: https://klassio-v2.vercel.app/lesson-v2/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee?test=1
+next_session_starts_with: Прочитай этот doc → продолжай UAT/итерации/merge в master когда готово
 ---
 
 # Session Progress — 2026-05-22 (Night Autonomous Work)
@@ -41,12 +42,42 @@ git branch checkout master.
 ## Local commits на ветке
 
 ```
+111b8c2 fix(lesson-v2): дубль чата + auto-open доски на draw_explanation        ← UAT round 5
+6094f37 fix(lesson-v2): props-based board mount-time draw + системное правило в промпте  ← UAT round 4
+40e9254 fix(lesson-v2 + prompt): доска mount-race + Надя реагирует на silent submit  ← UAT round 3
+adc5620 fix(lesson-v2): auto-trigger board:draw_request на любом screen          ← UAT round 2
+5bc858f fix(lesson-v2): explicit «Начать урок» CTA + mic toggle = mute            ← UAT round 1
+39c38e4 test(lesson-v2): adapter coverage + Stage 5 session progress doc          ← Stage 5
 9a4dcc8 feat(lesson-v2): Stage 4 — trainer bus integration + voice contextual updates
 4b541bd feat(lesson-v2): Stage 3 — real 11labs voice через useConversation SDK
 b218135 feat(lesson-v2): Stage 2 — real tldraw canvas в BoardOverlay
 4f17fc0 feat(lesson-v2): Stage 1 — Claude Design UI port (placeholder backend)
 2f018da docs(backlog): add #003 text-input fallback for Nadia chat   ← master
 ```
+
+## UAT fix раунды (день 22 мая)
+
+Каждый раунд — user UAT'ил → находил issue → я фиксил → redeploy + alias repoint.
+
+| Round | Commit | Что починили |
+|---|---|---|
+| 1 | `5bc858f` | (a) Не было кнопки «Начать урок» (таймер шёл «сразу при заходе» при первом mic tap, user не понимал что mic=старт). Сделал explicit зелёную кнопку «🎤 Начать урок» в hero area. (b) Mic toggle разрывал сессию (endSession+startSession → Надя приветствовала заново). Переделал на `conversation.setMuted()` — session остаётся connected, только аудио поток приостанавливается. (c) `finishLesson` теперь зовёт endSession. |
+| 2 | `adc5620` | (a) Auto-trigger в `setBoardOpenSafe` срабатывал только для numeric с expr → single-choice/matching/intro давали пустой канвас. Расширил на все типы (с разными подходящими prompt'ами). (b) Промпт Нади (live PATCH): добавлен раздел «КРИТИЧНО — Когда ОБЯЗАНА вызвать инструмент» — на «помоги с заданием» зови get_lesson_state, на «нарисуй» зови draw_explanation, запрет «я не вижу» и описания процесса словами. |
+| 3 | `40e9254` | (a) Доска пустая при ручном открытии — race condition: `board:draw_request` эмиттился до того как BoardCanvasV2 успевал mount'нуться (tldraw heavy dynamic import). Добавил setTimeout 900ms. (b) Надя молчала на silent submit ответа — `sendContextualUpdate` инжектит context но не триггерит её ход в SDK когда ребёнок в listening mode. Добавил второй sendContextualUpdate с explicit call-to-action + усилил промпт «реагируй ГОЛОСОМ НЕМЕДЛЕННО на ✓/✗». |
+| 4 | `6094f37` | (a) setTimeout 900ms всё ещё ловил race на слабых соединениях. Переписал на **props-based mount-time trigger**: BoardCanvasV2 принимает `initialPrompt` prop + `editorReady` state, useEffect запускает executeDraw как только editor готов И prompt есть. Гарантированно. (b) Надя при welcome выдала длинный monolog с пересказом процесса столбика СЛОВАМИ, не позвав draw_explanation. Добавил в самое начало промпта **СИСТЕМНОЕ ПРАВИЛО ВЫСШЕГО ПРИОРИТЕТА** — запрет описывать процесс без draw_explanation. Промпт вырос до 28043 chars. |
+| 5 | `111b8c2` | (a) Двойной чат: voice transcript (Надина речь от 11labs onMessage) + board:say (scene's say primitives) показывались параллельно. Disabled board:say push в teacherLog когда sessionStarted=true. (b) Доска не открывалась когда Надя сама вызывала draw_explanation — overlay оставался closed, ребёнок видел только пустую плашку. Добавил `useLessonBusEvent('board:draw_request')` в LessonPage → `setBoardOpen(true)`. User-initiated open идёт через props (отдельный канал), loop'а нет. |
+
+## State после Round 5 (последний UAT)
+
+User протестировал и сказал «голос попал в то что на доске нарисовано». То есть:
+- ✅ Кнопка «Начать урок» работает
+- ✅ Mic toggle = mute (session не разрывается)
+- ✅ Надя зовёт draw_explanation сама (системное правило сработало)
+- ✅ Доска рисует столбик, голос примерно sync (по случайности — точный sync требует SSML mark'и из Phase 11)
+- ✅ Чат не дублируется
+- ✅ Auto-open доски когда Надя начинает рисовать
+
+⚠️ **Случайный sync голос+доска** — это **не настоящий** sync, just временное совпадение. Точный sync = Phase 11 (SSML mark + scene timing). Если на сложных темах разъедутся — флаг для backlog.
 
 ---
 
@@ -156,21 +187,21 @@ app/globals.css             — добавлено 13 lp* keyframes для ан�
 
 ---
 
-## Vercel preview URL
+## Vercel — стабильный URL через alias
 
-✅ **Deploy ready**: https://klassio-4j4dsb4yb-kratov-s-team.vercel.app
-
-Inspect: https://vercel.com/kratov-s-team/klassio/DnrYTyfntJ2GR6jaEtGrFbCkUZQg
-
-UAT путь (v2 — новый дизайн):
+**Главный URL** (всегда указывает на последний deploy v2-ветки):
 ```
-https://klassio-4j4dsb4yb-kratov-s-team.vercel.app/lesson-v2/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee?test=1
+https://klassio-v2.vercel.app/lesson-v2/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee?test=1
 ```
 
-Старая версия для сравнения (3-panel layout, тот же deploy):
+Старая версия для сравнения:
 ```
-https://klassio-4j4dsb4yb-kratov-s-team.vercel.app/lesson/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee?test=1
+https://klassio-v2.vercel.app/lesson/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee?test=1
 ```
+
+После каждого нового deploy я делаю `vercel alias set <new-deploy-url> klassio-v2.vercel.app` — URL для user'a остаётся one and the same, cookies сохраняются, повторного email-login не требуется. **При следующих фиксах ОБЯЗАТЕЛЬНО делай alias re-point после deploy**, иначе user попадёт на старую версию через alias.
+
+Последний deploy под alias: `klassio-f7ikvpe16-kratov-s-team.vercel.app` (после round 5).
 
 Production `klassio-one.vercel.app` НЕ затронут (GitHub origin/master без push).
 
@@ -248,20 +279,61 @@ Vercel — текущий preview deploy с v2 (URL ниже), production `klass
 
 ---
 
+## 11labs cloud agent state (после 3 PATCH'ей сегодня)
+
+Промпт agent'а `agent_7701kr9c2v7eev3tabzv4f2b0e8b` прошёл 3 PATCH'а сегодня:
+1. Round 2 → добавлен «КРИТИЧНО — Когда ОБЯЗАНА вызвать инструмент»
+2. Round 3 → добавлен «КРИТИЧНО — Реагируй ГОЛОСОМ НЕМЕДЛЕННО»
+3. Round 4 → добавлен «СИСТЕМНОЕ ПРАВИЛО ВЫСШЕГО ПРИОРИТЕТА» в самом начале
+
+Итог: prompt 12943 → 28043 chars (2.2x рост).
+
+Backup'ы (в `.tmp/`, gitignored):
+- `klassio-prompt.txt.backup-pre-narration-mode` — состояние до 21 мая ночи
+- `klassio-prompt.txt.backup-pre-tools-criticai-22` — после round 2 (до round 3)
+- `klassio-prompt.txt.backup-pre-trainer-react` — после round 3 (до round 4)
+- `klassio-prompt.txt.backup-pre-system-rule` — после round 4 (до... нет round'а, это финал был)
+
+Чтобы откатиться к ранней версии: `cp .tmp/klassio-prompt.txt.backup-<name> .tmp/klassio-prompt.txt && PROMPT_PATH=.tmp/klassio-prompt.txt node --env-file=.env.local scripts/restore-agent-config.mjs`
+
+Все Phase 6.5/8.6 baseline'ы (Nadia voice, stability 0.35, speed 1.0, pronunciation dict, 18 ASR keywords, 6 client tools) сохраняются автоматически (restore script их всегда применяет — REPLACE-on-object).
+
 ## Memory rules для следующей сессии (если /clear)
 
+- **`klassio-project-pointer`** — где код, что invariants
 - **`klassio-secrets-location`** — env в `.env.local`, не `.tmp/prod.env`
-- **`elevenlabs-russian-tts-quirks`** — IPA dict не работает на русском
-- **`never-push-without-permission`** — GitHub push требует OK; live 11labs PATCH
-  тоже
+- **`elevenlabs-russian-tts-quirks`** — IPA dict не работает на русском, alias подход
+- **`klassio-v2-lesson-design`** — структура /components/lesson-v2/, adapter, branch info
+- **`never-push-without-permission`** — GitHub push требует OK; live 11labs PATCH тоже
 
 ## Hints для эффективного старта
 
-- v2 живёт на ветке `v2-claude-design`. `git log --oneline | head -8` покажет
-  все 4 stage коммита
-- LessonPageV2 — главный компонент orchestrator. 700 строк, читать с импортов вниз
+- v2 живёт на ветке `v2-claude-design`. `git log --oneline master..HEAD` покажет
+  10 коммитов (4 stage + 1 test + 5 UAT раундов)
+- LessonPageV2 — главный компонент orchestrator. ~1000 строк после round 5,
+  читать с импортов вниз
 - Adapter `trainerConfigToScreens` — единственное место где наш JSON schema
   встречается с Claude Design data shape
 - Все color refs идут через PALETTE из палитры — менять цвет одной правкой
 - Анимации = arbitrary Tailwind animate-[lp*] которые ссылаются на keyframes в
   app/globals.css
+- Промпт Нади живёт в `.tmp/klassio-prompt.txt` (gitignored, 28043 chars).
+  Изменения применяются через `PROMPT_PATH=.tmp/klassio-prompt.txt node --env-file=.env.local scripts/restore-agent-config.mjs`
+
+## Workflow для продолжения (если делаешь ещё UAT раунды)
+
+1. User жалуется на что-то конкретное — проверяй state через `git status`, типcheck
+2. Делаешь изменения в `components/lesson-v2/*` и/или `.tmp/klassio-prompt.txt`
+3. Если promпт менял → PATCH 11labs (см. команду выше)
+4. `git add` + `git commit` (на ветке v2-claude-design)
+5. `vercel deploy --yes` → запоминаешь новый deploy URL
+6. **`vercel alias set <new-deploy-url> klassio-v2.vercel.app`** — критично, иначе user останется на старом deploy через alias
+7. Пишешь user'у короткий summary что починил + просьба refresh страницы
+
+## Если user хочет merge v2 → master + push на GitHub
+
+Это будет означать что klassio-one.vercel.app получит v2 как production. До этого момента стратегия consensus:
+- Завершить ВСЕ UAT раунды на ветке
+- Окончательный test pass
+- Merge: `git checkout master && git merge --no-ff v2-claude-design`
+- Push: ОБЯЗАТЕЛЬНО спросить user'a OK ещё раз (memory rule, никаких неожиданных production updates)
