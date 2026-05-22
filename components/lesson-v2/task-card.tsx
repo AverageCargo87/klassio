@@ -45,6 +45,7 @@ function NumericInput({
   const [shake, setShake] = useState(false)
   const [wrong, setWrong] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const hasExpr = Boolean(task.expr)
 
   function submit() {
     if (solved) return
@@ -66,16 +67,48 @@ function NumericInput({
     if (e.key === 'Enter') submit()
   }
 
+  // Column-with-boxes mode: digit boxes live under the column line inside
+  // ColumnExpression. We only render a full-width "Проверить" below it.
+  if (hasExpr) {
+    return (
+      <div className="space-y-5">
+        <div className={'flex justify-center ' + (shake ? 'animate-[lpShake_.45s_ease-in-out]' : '')}>
+          <ColumnExpression
+            expr={task.expr!}
+            solved={solved}
+            answer={task.answer}
+            value={val}
+            wrong={wrong}
+            onChange={(v) => {
+              setVal(v)
+              if (wrong) setWrong(false)
+            }}
+            onSubmit={submit}
+          />
+        </div>
+        {!solved && (
+          <button
+            onClick={submit}
+            className="block mx-auto h-14 px-10 rounded-2xl text-base font-extrabold uppercase tracking-wide transition-transform active:translate-y-0.5 active:shadow-none"
+            style={{
+              background: PALETTE.blue,
+              color: 'white',
+              boxShadow: `0 4px 0 ${PALETTE.blueDeep}`,
+            }}
+          >
+            Проверить
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  // Plain numeric input (no column visual): single text field + Проверить.
   const inputBg = solved ? '#E8F7E6' : wrong ? '#FFE4E0' : '#F7F1E2'
   const inputBorder = solved ? PALETTE.greenDeep : wrong ? PALETTE.coralDeep : '#E1D3B0'
 
   return (
     <div className="space-y-4">
-      {task.expr && (
-        <div className="flex justify-center">
-          <ColumnExpression expr={task.expr} solved={solved} answer={task.answer} />
-        </div>
-      )}
       <div
         className={
           'flex flex-col sm:flex-row gap-3 items-stretch ' +
