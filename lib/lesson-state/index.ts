@@ -25,12 +25,24 @@ export function getLessonStateSnapshot(
   solvedTaskIds: Set<string>,
   mistakes: LessonMistake[],
   totalTasks: number,
+  /**
+   * UAT 2026-05-22 round 8 — optional current-screen descriptor so Nataly
+   * sees the EXACT numbers / kind of what the child is looking at. Without
+   * this she invented generic examples (e.g. 245+874) from training when
+   * the real first task was 25+34. Format: free-form short string like
+   *   "screen=task-1 prompt='Сложи в столбик:' expr='25+34'"
+   *   "screen=intro:'Что такое столбик?'"
+   * Appended after the main snapshot with a separator.
+   */
+  currentScreenInfo?: string,
 ): string {
   const solvedList = [...solvedTaskIds].join(',')
   const solvedCount = solvedTaskIds.size
   const head = `STATE: ${currentTaskId} active, solved=${solvedCount}/${totalTasks}[${solvedList}]`
-  if (mistakes.length === 0) return head
-  const last3 = mistakes.slice(-3)
-  const tail = last3.map(m => `${m.taskId}:ans${m.value}`).join(',')
-  return `${head} mistakes=[${tail}]`
+  const mistakesSection =
+    mistakes.length === 0
+      ? ''
+      : ' mistakes=[' + mistakes.slice(-3).map((m) => `${m.taskId}:ans${m.value}`).join(',') + ']'
+  const screenSection = currentScreenInfo ? ` | ${currentScreenInfo}` : ''
+  return head + mistakesSection + screenSection
 }

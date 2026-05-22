@@ -121,6 +121,11 @@ function LessonPageInner({
   const currentTaskIdRef = useRef<string>('')
   const solvedTaskIdsRef = useRef<Set<string>>(new Set<string>())
   const mistakesRef = useRef<LessonMistake[]>([])
+  // UAT 2026-05-22 round 8 — describes the screen Nataly's pupil currently
+  // sees (kind + content). Surfaced to her via get_lesson_state so she can
+  // draw the EXACT task numbers instead of inventing generic examples.
+  // Updated in an effect below whenever `screen` changes.
+  const screenInfoRef = useRef<string>('')
 
   // ── Phase 8: latched sendContextualUpdate + sendUserMessage ref ─────────
   // UAT 2026-05-22 round 7: explicit force-interrupt path uses sendUserMessage,
@@ -183,6 +188,7 @@ function LessonPageInner({
             solvedTaskIdsRef.current,
             mistakesRef.current,
             trainerConfig.tasks.length,
+            screenInfoRef.current,
           ),
       }),
     [bus, lessonId, getTaskTopic, trainerConfig],
@@ -496,6 +502,19 @@ function LessonPageInner({
   useEffect(() => {
     if (isTask) currentTaskIdRef.current = screen.id
   }, [isTask, screen.id])
+
+  // Update screenInfoRef (declared above) whenever the visible screen changes.
+  // get_lesson_state reads this ref so Nataly always sees the current screen.
+  useEffect(() => {
+    if (screen.kind === 'task') {
+      const exprPart = 'expr' in screen && screen.expr ? ` expr="${screen.expr}"` : ''
+      screenInfoRef.current = `screen=${screen.id} type=${screen.type} prompt="${screen.prompt}"${exprPart}`
+    } else if (screen.kind === 'intro') {
+      screenInfoRef.current = `screen=intro title="${screen.title}"`
+    } else {
+      screenInfoRef.current = `screen=final`
+    }
+  }, [screen])
 
   useEffect(() => {
     const next = new Set<string>()
