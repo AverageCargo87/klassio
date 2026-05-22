@@ -273,12 +273,13 @@ function LessonPageInner({
   const [finished, setFinished] = useState(false)
 
   // Voice picker — UAT 2026-05-22 round 9. Selected voice persists across
-  // sessions in localStorage. The resolved voiceId is passed to
-  // conversation.startSession via overrides.tts.voiceId (requires "Voice"
-  // override to be enabled in the 11labs agent Security tab).
-  const { voiceId } = useVoice()
-  const voiceIdRef = useRef(voiceId)
-  voiceIdRef.current = voiceId
+  // sessions in localStorage. The resolved voiceId + first_message are
+  // passed to conversation.startSession via overrides.tts.voiceId and
+  // overrides.agent.firstMessage (requires BOTH "Voice" and "First message"
+  // overrides to be enabled in the 11labs agent Security tab).
+  const { option: voiceOption } = useVoice()
+  const voiceOptionRef = useRef(voiceOption)
+  voiceOptionRef.current = voiceOption
 
   // session lifecycle
   //   sessionStarted: true after «Начать урок» — voice session is live.
@@ -690,13 +691,12 @@ function LessonPageInner({
       }
       const data = (await res.json()) as { signedUrl: string; topic: string }
 
-      // UAT 2026-05-22 round 9 diagnostic — surface what voice we asked
-      // for. If the picker says Anya but Nadya plays, this log proves
-      // the SDK was called with the right ID — issue is in 11labs config.
+      // UAT 2026-05-22 round 9 diagnostic — surface the chosen persona.
+      const v = voiceOptionRef.current
       console.info('[lesson-v2] startSession voice override:', {
-        chosenVoiceId: voiceIdRef.current,
-        nadia: 'gedzfqL7OGdPbwm0ynTP',
-        anya: 'd5ruruBhXNbnS7Va7n23',
+        label: v.label,
+        voiceId: v.voiceId,
+        firstMessagePreview: v.firstMessage.slice(0, 40),
       })
       conversation.startSession({
         signedUrl: data.signedUrl,
@@ -705,12 +705,15 @@ function LessonPageInner({
           lesson_topic: data.topic || topic,
           total_tasks: trainerConfig.tasks.length,
         },
-        // Voice override (round 9) — picks up the user's saved voice
-        // preference. 11labs agent must have Security → Overrides → TTS
-        // voice enabled or this is silently ignored.
+        // Voice + persona override (round 9). 11labs agent must have BOTH
+        // overrides enabled in Security tab (Voice + First message), else
+        // 11labs silently uses the agent default.
         overrides: {
           tts: {
-            voiceId: voiceIdRef.current,
+            voiceId: v.voiceId,
+          },
+          agent: {
+            firstMessage: v.firstMessage,
           },
         },
       })

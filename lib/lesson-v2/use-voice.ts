@@ -6,7 +6,7 @@
 // into conversation.startSession via `overrides.tts.voiceId`.
 
 import { useCallback, useEffect, useState } from 'react'
-import { DEFAULT_VOICE, VOICES, type VoiceKey } from './voices'
+import { DEFAULT_VOICE, VOICES, type VoiceKey, type VoiceOption } from './voices'
 
 const STORAGE_KEY = 'klassio-lesson-v2-voice'
 
@@ -21,6 +21,9 @@ export function useVoice(): {
   voice: VoiceKey
   setVoice: (next: VoiceKey) => void
   voiceId: string
+  /** Full option object — exposes label, firstMessage etc. for callers
+   *  that need more than the voiceId. */
+  option: VoiceOption
 } {
   const [voice, setVoiceState] = useState<VoiceKey>(DEFAULT_VOICE)
 
@@ -35,6 +38,6 @@ export function useVoice(): {
     }
   }, [])
 
-  const voiceId = (VOICES.find((opt) => opt.key === voice) ?? VOICES[0]).voiceId
-  return { voice, setVoice, voiceId }
+  const option = VOICES.find((opt) => opt.key === voice) ?? VOICES[0]
+  return { voice, setVoice, voiceId: option.voiceId, option }
 }

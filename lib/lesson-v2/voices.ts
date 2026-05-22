@@ -11,9 +11,16 @@ export type VoiceKey = 'nadia' | 'anna'
 
 export interface VoiceOption {
   key: VoiceKey
+  /** Display name in the picker AND the persona name spoken to the child. */
   label: string
+  /** 11labs voice ID — passed via overrides.tts.voiceId. */
   voiceId: string
+  /** Short blurb shown under the picker option. */
   description: string
+  /** Override for agent.first_message — keeps name aligned with the voice.
+   *  Without overriding this the new voice still introduces itself as the
+   *  primary persona ("Я Надя") regardless of who is actually speaking. */
+  firstMessage: string
 }
 
 export const VOICES: readonly VoiceOption[] = [
@@ -22,12 +29,16 @@ export const VOICES: readonly VoiceOption[] = [
     label: 'Надя',
     voiceId: 'gedzfqL7OGdPbwm0ynTP',
     description: 'Энергичная, тёплая — основной голос',
+    firstMessage:
+      'Привет! Меня зовут Надя, я твоя учительница математики на сегодня. А тебя как зовут?',
   },
   {
     key: 'anna',
     label: 'Аня',
     voiceId: 'd5ruruBhXNbnS7Va7n23',
     description: 'Альтернативный голос учителя',
+    firstMessage:
+      'Привет! Меня зовут Аня, я твоя учительница математики на сегодня. А тебя как зовут?',
   },
 ] as const
 
