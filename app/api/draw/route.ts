@@ -21,6 +21,7 @@ import { db } from '@/lib/db'
 import { lessons } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { allBoardTools, isSceneName, getScene } from '@/lib/board'
+import type { SceneName } from '@/lib/board/scenes/types'
 
 // Phase 5 Wave 1: Side-effect imports to register scenes in the registry.
 import '@/lib/board/scenes/explain-column-addition'
@@ -123,6 +124,39 @@ const openaiTools: ChatCompletionTool[] = allBoardTools.map((t) => ({
   },
 }))
 
+// Round 18 UAT — bypass OpenAI for unambiguous scene prompts.
+// Returns { name, args } if the prompt matches a known canonical form,
+// or null to fall through to the OpenAI router. Keep patterns CONSERVATIVE
+// — only match phrasings the agent prompt explicitly produces.
+function matchFastScene(
+  prompt: string,
+): { name: SceneName; args: Record<string, unknown> } | null {
+  const p = prompt.trim().toLowerCase()
+
+  // Column addition: "сложение в столбик A+B" (+ variants with spaces).
+  // Matches both "сложение в столбик 25+34" and "сложение в столбик 25 + 34".
+  let m = p.match(/сложен[ие]+\s+в\s+столбик[еа]?\s+(\d+)\s*\+\s*(\d+)/)
+  if (m) {
+    const a = Number(m[1])
+    const b = Number(m[2])
+    if (a > 0 && b > 0) {
+      return { name: 'explain_column_addition', args: { a, b } }
+    }
+  }
+
+  // Column subtraction: "вычитание в столбик A-B".
+  m = p.match(/вычитани[ея]+\s+в\s+столбик[еа]?\s+(\d+)\s*[-−]\s*(\d+)/)
+  if (m) {
+    const a = Number(m[1])
+    const b = Number(m[2])
+    if (a > 0 && b > 0 && a >= b) {
+      return { name: 'explain_column_subtraction', args: { a, b } }
+    }
+  }
+
+  return null
+}
+
 export async function POST(req: NextRequest) {
   console.log('[draw] Request received')
 
@@ -212,6 +246,49 @@ export async function POST(req: NextRequest) {
       // Notify client that we've started — gives instant feedback even
       // before the LLM responds. Client can show "Бот думает..." indicator.
       send({ type: 'started' })
+
+      // Round 18 UAT — fast-path scene routing. User feedback: «доска
+      // открылась, пошло объяснение голосом, а первая цифра только секунд
+      // через 10 появилась». Корень — OpenAI тратит 5-10s на reasoning
+      // перед выбором сцены, даже если prompt буквально совпадает с её
+      // формой. Для известных паттернов диспатчим scene generator
+      // напрямую — first shape падает на клиент через ~100ms вместо
+      // ~5-10s.
+      const fastScene = matchFastScene(prompt)
+      if (fastScene) {
+        const sceneFn = getScene(fastScene.name)
+        if (sceneFn) {
+          let fastToolCalls = 0
+          try {
+            for (const primitive of sceneFn(fastScene.args)) {
+              fastToolCalls++
+              send({
+                type: 'tool_use',
+                id: `fast_${fastToolCalls}`,
+                name: primitive.name,
+                input: primitive.input,
+              })
+            }
+            console.log(`[draw] FAST PATH ${fastScene.name} — ${fastToolCalls} tool_use events, no OpenAI call`)
+            send({
+              type: 'done',
+              prompt_tokens: 0,
+              completion_tokens: 0,
+              finish_reason: 'fast_path',
+              tool_calls_total: fastToolCalls,
+              scene_used: fastScene.name,
+              fast_path: true,
+            })
+            controller.close()
+            return
+          } catch (sceneErr) {
+            // Scene threw → fall through to OpenAI loop (it might rescue
+            // by picking a different scene or going primitive-only).
+            const msg = sceneErr instanceof Error ? sceneErr.message : String(sceneErr)
+            console.error(`[draw] Fast-path ${fastScene.name} failed, falling back to OpenAI:`, msg)
+          }
+        }
+      }
 
       // Agent loop.
       // OpenAI ChatCompletion stops after tool_calls and waits for tool_result.
