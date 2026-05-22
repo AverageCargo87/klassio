@@ -160,13 +160,13 @@ export function BoardCanvasV2({ lessonId, initialPrompt, onPromptConsumed }: Boa
                 } else {
                   editor.zoomToFit({ animation: { duration: 200 } })
                 }
-                // UAT 2026-05-22 (Variant B): scenes used to render almost
-                // instantly while Nadya's narration ran ~30s — visible
-                // desync. Inserting 700 ms between draw_* shapes paces the
-                // canvas to ~8–15 sec total per scene, matching Nadya's
-                // shortened narration rhythm. Non-draw events (say, etc.)
-                // are not gated.
-                await new Promise((r) => setTimeout(r, 700))
+                // UAT 2026-05-22 (Variant B reverted): the 700ms client-side
+                // delay between draw_* steps was tried as a pacing fix but
+                // combined with the truncated narration prompt it made the
+                // lesson feel sluggish («очень медленно говорит»). Reverted
+                // to instant rendering — narration mode in the prompt was
+                // restored to richer step-by-step monolog, which provides
+                // its own pacing via TTS speech length.
               }
             } else if (evt.type === 'error') {
               const msg = String(evt.error ?? 'sse-error')
