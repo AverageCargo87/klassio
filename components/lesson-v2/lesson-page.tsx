@@ -475,12 +475,29 @@ function LessonPageInner({
 
   // Listen to board:say events emitted by BoardCanvasV2 — push them into
   // teacherLog so Nadya's narration shows up in the chat panel.
+  //
+  // UAT 2026-05-22 fix: when the voice session is ACTIVE, Nadya's words come
+  // through voice:transcript already (the SDK's onMessage fires for every
+  // agent utterance). board:say in that case duplicates the chat — once as
+  // one big block from voice (her actual TTS) and again as scene's step-by-
+  // step say primitives. Skip board:say when session is on.
   useLessonBusEvent('board:say', ({ text }) => {
+    if (sessionStarted) return // voice transcript handles narration
     pushMsg(text, 'teacher')
     setBubble(text)
     setTeacherStatus('speaking')
     if (bubbleTimerRef.current !== null) window.clearTimeout(bubbleTimerRef.current)
     bubbleTimerRef.current = window.setTimeout(() => setBubble(null), 5000)
+  })
+
+  // UAT 2026-05-22 — auto-open board when Nadya issues draw_explanation
+  // (which fans out into a board:draw_request via the client-tools handler).
+  // Without this the canvas renders shapes behind a closed overlay and the
+  // child has to tap the board pill manually to see them.
+  // User-initiated open already goes through setPendingBoardPrompt (prop),
+  // not the bus — so this listener only catches Nadya's tool-driven calls.
+  useLessonBusEvent('board:draw_request', () => {
+    setBoardOpen(true)
   })
 
   /* ===== Stage 4 — trainer bus integration ===== */
