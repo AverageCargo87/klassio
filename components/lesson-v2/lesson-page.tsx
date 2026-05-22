@@ -441,16 +441,29 @@ function LessonPageInner({
       setTeacherExpanded(false)
     }
     setBoardOpen(next)
-    // Stage 2 — when board opens for the FIRST time on a task with an expr,
-    // auto-trigger draw_request so the child sees Nadya's explanation as soon
-    // as they tap "Доска". When voice is real (Stage 3), Nadya herself will
-    // call draw_explanation through 11labs client tools; this auto-trigger is
-    // a convenience for the prototype.
-    if (next && isTask && screen.kind === 'task' && screen.type === 'numeric-input' && screen.expr) {
-      bus.emit('board:draw_request', {
-        prompt: `сложение в столбик ${screen.expr}`,
-        lessonId,
-      })
+    // Auto-trigger draw_request when user opens the board manually — covers
+    // the case where Nadya hasn't called draw_explanation herself (yet). She
+    // can also call it on her own; concurrent calls auto-clear the board.
+    // UAT 2026-05-22: previously gated by "numeric-input with expr" which
+    // left single-choice/matching/intro screens with an empty canvas when
+    // opened. Now any screen produces a useful prompt.
+    if (next && screen) {
+      let drawPrompt: string | null = null
+      if (screen.kind === 'task') {
+        if (screen.type === 'numeric-input' && screen.expr) {
+          drawPrompt = `сложение в столбик ${screen.expr}`
+        } else {
+          // single-choice / matching / numeric without expr — fall back to
+          // the task prompt itself. Drawing LLM will pick whatever scene fits.
+          drawPrompt = screen.prompt
+        }
+      } else if (screen.kind === 'intro') {
+        // For theory blocks: nudge Nadya to illustrate the headline concept.
+        drawPrompt = `Объясни на доске: ${screen.title}`
+      }
+      if (drawPrompt) {
+        bus.emit('board:draw_request', { prompt: drawPrompt, lessonId })
+      }
     }
   }
 
