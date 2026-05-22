@@ -107,7 +107,7 @@ export function FloatingTeacher({
             style={{
               right: 24,
               bottom: 92,
-              background: 'white',
+              background: PALETTE.card,
               color: PALETTE.ink,
               border: `2px solid ${PALETTE.line}`,
               boxShadow: '0 6px 24px rgba(31,42,55,0.10)',
@@ -117,7 +117,7 @@ export function FloatingTeacher({
             <span
               className="absolute -bottom-1.5 right-10 w-3 h-3 rotate-45"
               style={{
-                background: 'white',
+                background: PALETTE.card,
                 borderRight: `2px solid ${PALETTE.line}`,
                 borderBottom: `2px solid ${PALETTE.line}`,
               }}
@@ -132,7 +132,7 @@ export function FloatingTeacher({
             bottom: 24,
             height: 52,
             padding: '0 18px 0 10px',
-            background: 'white',
+            background: PALETTE.card,
             color: PALETTE.ink,
             border: `2px solid ${PALETTE.line}`,
             boxShadow: `0 4px 0 ${PALETTE.line}, 0 6px 20px rgba(31,42,55,0.06)`,
@@ -182,7 +182,7 @@ export function FloatingTeacher({
         bottom: 0,
         right: 0,
         width: TEACHER_W,
-        background: 'white',
+        background: PALETTE.card,
         borderLeft: `2px solid ${PALETTE.line}`,
         boxShadow: '-8px 0 30px rgba(31,42,55,0.06)',
       }}
@@ -235,7 +235,7 @@ export function FloatingTeacher({
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto p-4 space-y-3"
-        style={{ background: '#F8FAFC' }}
+        style={{ background: PALETTE.bg }}
       >
         {log.length === 0 && (
           <div className="text-center text-xs py-8" style={{ color: PALETTE.sub }}>

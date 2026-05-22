@@ -276,12 +276,45 @@
 .lesson-v2-root { font-family: 'Nunito', system-ui, -apple-system, sans-serif; }
 .lesson-v2-root .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 
+/* Theme variables for lesson-v2 (UAT 2026-05-22 — dark mode toggle).
+   Light is the default; data-theme="dark" set on .lesson-v2-root by
+   the ThemeToggle button persists user preference in localStorage. */
+.lesson-v2-root {
+  --lp-bg: #F4F6F9;
+  --lp-card: #FFFFFF;
+  --lp-ink: #1F2A37;
+  --lp-sub: #6B7280;
+  --lp-line: #E5E7EB;
+  --lp-paper-warm: #FFF8EA;
+  --lp-paper-warm-border: #E7D8AE;
+  --lp-paper-warm-soft: #F7F1E2;
+  --lp-paper-warm-border-soft: #E1D3B0;
+  --lp-placeholder-dot: #D6C9A4;
+  --lp-correct-soft: #E8F7E6;
+  --lp-wrong-soft: #FFE4E0;
+  --lp-tldraw-bg: #1F2A37;
+}
+.lesson-v2-root[data-theme='dark'] {
+  --lp-bg: #0F1722;
+  --lp-card: #1F2A37;
+  --lp-ink: #F4F6F9;
+  --lp-sub: #9CA3AF;
+  --lp-line: #374151;
+  --lp-paper-warm: #2A2620;
+  --lp-paper-warm-border: #4A3F2E;
+  --lp-paper-warm-soft: #1F1C18;
+  --lp-paper-warm-border-soft: #3A3328;
+  --lp-placeholder-dot: #6B6049;
+  --lp-correct-soft: #1F4A1A;
+  --lp-wrong-soft: #4A1F1A;
+  --lp-tldraw-bg: #0A0F1A;
+}
+
 /* Blueprint look for tldraw canvas inside lesson-v2 BoardOverlay.
    Tldraw's default dark background is near-black; we tint it to the
-   #1F2A37 palette colour used by the surrounding overlay so the canvas
-   reads as one piece with the chrome (UAT 2026-05-22 — "как будто
-   blueprint"). The grid is enabled via editor.updateInstanceState
-   in board-canvas-v2.tsx. */
+   palette colour used by the surrounding overlay so the canvas reads
+   as one piece with the chrome (UAT 2026-05-22 — "как будто blueprint").
+   The colour follows the lesson-v2 theme via the --lp-tldraw-bg variable. */
 .tldraw-container .tl-background {
-  background-color: #1F2A37 !important;
+  background-color: var(--lp-tldraw-bg, #1F2A37) !important;
 }

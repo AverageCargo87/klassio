@@ -97,8 +97,8 @@ export function ColumnExpression({
       </div>
     )
   } else if (interactive) {
-    const boxBorder = wrong ? PALETTE.coralDeep : '#B89B5E'
-    const boxBg = wrong ? '#FFE4E0' : '#FFFFFF'
+    const boxBorder = wrong ? PALETTE.coralDeep : PALETTE.paperWarmBorder
+    const boxBg = wrong ? PALETTE.coralSoft : PALETTE.card
     const leadingPads = Math.max(0, width - expectedLen)
     answerRow = (
       <div className="flex justify-end items-center">
@@ -131,7 +131,7 @@ export function ColumnExpression({
     )
   } else {
     answerRow = (
-      <div className="flex justify-end" style={{ color: '#D6C9A4' }}>
+      <div className="flex justify-end" style={{ color: PALETTE.placeholderDot }}>
         {pad('')
           .split('')
           .map((_, i) => (
@@ -147,8 +147,8 @@ export function ColumnExpression({
     <div
       className="inline-block rounded-2xl px-5 py-4 font-mono text-3xl font-extrabold"
       style={{
-        background: '#FFF8EA',
-        border: '2px dashed #E7D8AE',
+        background: PALETTE.paperWarm,
+        border: `2px dashed ${PALETTE.paperWarmBorder}`,
         color: PALETTE.ink,
         lineHeight: 1.15,
       }}

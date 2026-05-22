@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { PALETTE } from './palette'
+import { ThemeToggle } from './theme-toggle'
 import type { Screen } from './types'
 
 interface LessonTimerProps {
@@ -89,7 +90,7 @@ function UserMenu({ onProfile, onSettings, onAllLessons, onFinish }: UserMenuPro
         <div
           className="absolute right-0 top-12 z-50 w-56 rounded-2xl py-2 animate-[lpHintIn_.18s_ease-out]"
           style={{
-            background: 'white',
+            background: PALETTE.card,
             border: `1.5px solid ${PALETTE.line}`,
             boxShadow: '0 12px 32px rgba(31,42,55,0.16)',
           }}
@@ -163,7 +164,7 @@ export function TopBar({
       className="sticky top-0 z-40"
       style={{
         height: 64,
-        background: 'rgba(244,246,249,0.92)',
+        background: `color-mix(in srgb, ${PALETTE.bg} 92%, transparent)`,
         borderBottom: `1.5px solid ${PALETTE.line}`,
         backdropFilter: 'blur(10px)',
       }}
@@ -235,8 +236,9 @@ export function TopBar({
           </div>
         </div>
 
-        {/* RIGHT: user avatar dropdown */}
-        <div style={{ width: 180 }} className="flex justify-end shrink-0">
+        {/* RIGHT: theme toggle + user avatar dropdown */}
+        <div style={{ width: 180 }} className="flex justify-end items-center gap-2 shrink-0">
+          <ThemeToggle />
           <UserMenu
             onProfile={onProfile}
             onSettings={onSettings}

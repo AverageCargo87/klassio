@@ -104,8 +104,8 @@ function NumericInput({
   }
 
   // Plain numeric input (no column visual): single text field + Проверить.
-  const inputBg = solved ? '#E8F7E6' : wrong ? '#FFE4E0' : '#F7F1E2'
-  const inputBorder = solved ? PALETTE.greenDeep : wrong ? PALETTE.coralDeep : '#E1D3B0'
+  const inputBg = solved ? PALETTE.greenSoft : wrong ? PALETTE.coralSoft : PALETTE.paperWarmSoft
+  const inputBorder = solved ? PALETTE.greenDeep : wrong ? PALETTE.coralDeep : PALETTE.paperWarmBorderSoft
 
   return (
     <div className="space-y-4">
@@ -193,17 +193,17 @@ function SingleChoice({
       {task.options.map((opt) => {
         const isWrong = wrongKeys.includes(opt.key)
         const isCorrect = solved && opt.correct
-        let bg: string = '#FFFFFF'
-        let border: string = '#E5DBC2'
-        let badgeBg: string = '#F2E9D2'
+        let bg: string = PALETTE.card
+        let border: string = PALETTE.paperWarmBorderSoft
+        let badgeBg: string = PALETTE.paperWarmSoft
         let badgeColor: string = PALETTE.sub
         if (isCorrect) {
-          bg = '#E8F7E6'
+          bg = PALETTE.greenSoft
           border = PALETTE.greenDeep
           badgeBg = PALETTE.greenDeep
           badgeColor = 'white'
         } else if (isWrong) {
-          bg = '#FFE4E0'
+          bg = PALETTE.coralSoft
           border = PALETTE.coralDeep
           badgeBg = PALETTE.coralDeep
           badgeColor = 'white'
@@ -290,17 +290,17 @@ function Matching({
           const val = solved ? p.right : assignments[p.left] || ''
           const isCorrectPair = solved || (val && val === p.right)
           const isWrongPair = wrong && val && val !== p.right
-          let bg = '#FFFFFF'
-          let border = '#E5DBC2'
+          let bg: string = PALETTE.card
+          let border: string = PALETTE.paperWarmBorderSoft
           if (solved) {
-            bg = '#E8F7E6'
+            bg = PALETTE.greenSoft
             border = PALETTE.greenDeep
           } else if (isWrongPair) {
-            bg = '#FFE4E0'
+            bg = PALETTE.coralSoft
             border = PALETTE.coralDeep
           } else if (isCorrectPair) {
-            bg = '#F7F1E2'
-            border = '#E1D3B0'
+            bg = PALETTE.paperWarmSoft
+            border = PALETTE.paperWarmBorderSoft
           }
           return (
             <div
@@ -311,8 +311,8 @@ function Matching({
               <div
                 className="w-14 h-14 rounded-xl flex items-center justify-center font-mono text-2xl font-extrabold"
                 style={{
-                  background: '#FFF8EA',
-                  border: '2px dashed #E7D8AE',
+                  background: PALETTE.paperWarm,
+                  border: `2px dashed ${PALETTE.paperWarmBorder}`,
                   color: PALETTE.ink,
                 }}
               >
@@ -327,7 +327,7 @@ function Matching({
                 onChange={(e) => setPair(p.left, e.target.value)}
                 className="flex-1 h-12 px-3 rounded-xl text-base font-bold outline-none appearance-none cursor-pointer"
                 style={{
-                  background: 'white',
+                  background: PALETTE.card,
                   border: `2px solid ${border}`,
                   color: PALETTE.ink,
                   backgroundImage:
@@ -422,23 +422,24 @@ export function TaskCard({
       animation: 'lpBreathe 2.2s ease-in-out infinite',
     }
   } else {
-    ringStyle = { border: '2px solid #ECDFC2' }
+    ringStyle = { border: `2px solid ${PALETTE.paperWarmBorderSoft}` }
   }
 
   return (
     <div
       data-task-id={task.id}
       className={
-        'relative rounded-3xl bg-white p-5 md:p-7 transition-all ' +
+        'relative rounded-3xl p-5 md:p-7 transition-all ' +
         (pulse ? 'animate-[lpPop_.5s_ease-out]' : '')
       }
       style={{
         ...ringStyle,
+        background: PALETTE.card,
         boxShadow: solved
-          ? '0 2px 0 #d6e9cf'
+          ? `0 2px 0 ${PALETTE.greenSoft}`
           : isActive
             ? `0 0 0 6px ${PALETTE.blue}22`
-            : '0 2px 0 #EFE3C5',
+            : `0 2px 0 ${PALETTE.paperWarmBorderSoft}`,
       }}
     >
       <Confetti play={confetti} />
@@ -459,7 +460,7 @@ export function TaskCard({
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-extrabold tabular-nums"
             style={{
-              background: solved ? PALETTE.greenDeep : isActive ? PALETTE.blue : '#F2E9D2',
+              background: solved ? PALETTE.greenDeep : isActive ? PALETTE.blue : PALETTE.paperWarmSoft,
               color: solved || isActive ? 'white' : PALETTE.sub,
             }}
           >

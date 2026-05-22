@@ -22,7 +22,7 @@ export function FloatingBoardToggle({ open, onToggle }: FloatingBoardToggleProps
         bottom: 24,
         height: 52,
         padding: '0 22px',
-        background: open ? PALETTE.blue : 'white',
+        background: open ? PALETTE.blue : PALETTE.card,
         color: open ? 'white' : PALETTE.ink,
         border: open ? `2px solid ${PALETTE.blueDeep}` : `2px solid ${PALETTE.line}`,
         boxShadow: open

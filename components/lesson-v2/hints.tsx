@@ -70,7 +70,7 @@ export function Explanation({ text }: ExplanationProps) {
       >
         <Checkmark size={18} />
       </div>
-      <div className="text-[14.5px] leading-snug pt-1" style={{ color: '#1f4a1a' }}>
+      <div className="text-[14.5px] leading-snug pt-1" style={{ color: PALETTE.greenDeep }}>
         {text}
       </div>
     </div>

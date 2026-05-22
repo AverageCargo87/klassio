@@ -15,7 +15,7 @@ export function IntroCard({ item, idx }: IntroCardProps) {
   return (
     <div
       className="rounded-3xl p-6 md:p-7 shadow-sm relative overflow-hidden"
-      style={{ background: '#FFF1D6', border: '2px solid #F2E3BF' }}
+      style={{ background: PALETTE.paperWarm, border: `2px solid ${PALETTE.paperWarmBorder}` }}
     >
       <div
         className="absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-30"
@@ -35,7 +35,7 @@ export function IntroCard({ item, idx }: IntroCardProps) {
           </h3>
           <div
             className="space-y-2 text-[15px] md:text-base leading-relaxed"
-            style={{ color: '#3a3328' }}
+            style={{ color: PALETTE.ink }}
           >
             {item.body.map((p, i) => (
               <p key={i}>{p}</p>

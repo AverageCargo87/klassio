@@ -21,11 +21,11 @@ export function FloatingMic({ on, onToggle, style }: FloatingMicProps) {
         bottom: 28,
         width: 72,
         height: 72,
-        background: on ? PALETTE.green : '#D5D9DF',
+        background: on ? PALETTE.green : PALETTE.sub,
         color: 'white',
         boxShadow: on
           ? `0 6px 0 ${PALETTE.greenDeep}, 0 0 0 8px ${PALETTE.green}33, 0 0 0 16px ${PALETTE.green}1a`
-          : '0 6px 0 #BCC1C9',
+          : `0 6px 0 ${PALETTE.line}`,
         border: '3px solid white',
         animation: on ? 'lpMicPulse 1.6s ease-in-out infinite' : 'none',
         transform: 'translateX(-50%)',
@@ -57,7 +57,8 @@ export function FloatingMic({ on, onToggle, style }: FloatingMicProps) {
         className="absolute whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold pointer-events-none"
         style={{
           bottom: 88,
-          background: PALETTE.ink,
+          // Tooltip stays dark in both themes for legibility with white text.
+          background: '#1F2A37',
           color: 'white',
           opacity: 0.92,
         }}
