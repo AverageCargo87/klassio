@@ -438,9 +438,17 @@ export async function executeToolCall(
       }
 
       case 'wait': {
-        const ms = Math.max(0, asNum(p.ms, 300))
+        // Round 17 UAT: scene-wide pacing scale. Scene generators specify
+        // waits calibrated for the old 30-40 sec narration mode (e.g.
+        // 3000-4500ms between shape draws). After Round 7 narration was
+        // tightened, so scenes now finish well after Аня stops talking
+        // («с очень большой задержкой стало все рисоваться»). 50% scale
+        // halves total scene time without touching every generator.
+        const SCENE_WAIT_SCALE = 0.5
+        const raw = Math.max(0, asNum(p.ms, 300))
+        const ms = Math.round(raw * SCENE_WAIT_SCALE)
         await new Promise((res) => setTimeout(res, ms))
-        return { ok: true, note: `waited ${ms}ms` }
+        return { ok: true, note: `waited ${ms}ms (scaled from ${raw})` }
       }
 
       case 'say': {
