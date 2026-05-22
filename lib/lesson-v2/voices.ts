@@ -21,6 +21,10 @@ export interface VoiceOption {
    *  Without overriding this the new voice still introduces itself as the
    *  primary persona ("Я Надя") regardless of who is actually speaking. */
   firstMessage: string
+  /** Override for agent.tts.speed (1.0 is the 11labs default). Tweaked
+   *  per voice so each one sounds natural. Round 16: Аня at 0.94 because
+   *  user finds her too fast at 1.0. */
+  speed: number
 }
 
 export const VOICES: readonly VoiceOption[] = [
@@ -31,6 +35,7 @@ export const VOICES: readonly VoiceOption[] = [
     description: 'Энергичная, тёплая — основной голос',
     firstMessage:
       'Привет! Меня зовут Надя, я твоя учительница математики на сегодня. А тебя как зовут?',
+    speed: 1.0,
   },
   {
     key: 'anna',
@@ -39,6 +44,7 @@ export const VOICES: readonly VoiceOption[] = [
     description: 'Альтернативный голос учителя',
     firstMessage:
       'Привет! Меня зовут Аня, я твоя учительница математики на сегодня. А тебя как зовут?',
+    speed: 0.94,
   },
 ] as const
 

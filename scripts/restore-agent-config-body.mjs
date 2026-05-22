@@ -287,12 +287,12 @@ export function buildAgentPatchBody({ prompt, firstMessage, voiceId, toolIds }) 
         similarity_boost: TTS_SIMILARITY_BOOST,
         speed: TTS_SPEED,
         text_normalisation_type: TTS_TEXT_NORMALISATION,
-        pronunciation_dictionary_locators: [
-          {
-            pronunciation_dictionary_id: PRONUNCIATION_DICTIONARY.dictionary_id,
-            version_id:                  PRONUNCIATION_DICTIONARY.version_id,
-          },
-        ],
+        // UAT 2026-05-22 round 16: pronunciation dictionary disabled per user
+        // feedback («мне кажется с ним хуже»). The klassio-math-ru-v1 dict is
+        // still in the workspace (re-attachable via the locator constants
+        // above) but not applied to the agent. Empty array tells 11labs to
+        // clear any previously-attached dicts.
+        pronunciation_dictionary_locators: [],
       },
       conversation: {
         max_duration_seconds: MAX_CONVERSATION_DURATION_SEC,

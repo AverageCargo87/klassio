@@ -731,11 +731,12 @@ function LessonPageInner({
       }
       const data = (await res.json()) as { signedUrl: string; topic: string }
 
-      // UAT 2026-05-22 round 9 diagnostic — surface the chosen persona.
+      // UAT round 9/16 diagnostic — surface the chosen persona + speed.
       const v = voiceOptionRef.current
       console.info('[lesson-v2] startSession voice override:', {
         label: v.label,
         voiceId: v.voiceId,
+        speed: v.speed,
         firstMessagePreview: v.firstMessage.slice(0, 40),
       })
       conversation.startSession({
@@ -745,12 +746,13 @@ function LessonPageInner({
           lesson_topic: data.topic || topic,
           total_tasks: trainerConfig.tasks.length,
         },
-        // Voice + persona override (round 9). 11labs agent must have BOTH
-        // overrides enabled in Security tab (Voice + First message), else
-        // 11labs silently uses the agent default.
+        // Voice + persona + speed override (round 16). 11labs agent must
+        // have Voice, First message AND Voice speed enabled in Security
+        // Overrides tab, else 11labs silently uses the agent defaults.
         overrides: {
           tts: {
             voiceId: v.voiceId,
+            speed: v.speed,
           },
           agent: {
             firstMessage: v.firstMessage,
