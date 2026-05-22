@@ -127,9 +127,13 @@ export default async function LessonPageV2Route({
   //    might still point to the old 5-task sample. If lesson has its own path,
   //    use it; else fall back to the v2 default.
   //
-  //    NOTE: this is a Stage-1 convenience. In production both paths should be
-  //    valid JSON for the schema and we'd use whichever the admin set.
-  const trainerConfigPath = lesson.htmlTrainerPath || 'lesson-column-addition.json'
+  //    UAT 2026-05-22 round 7: admin test bypass (?test=1) always uses the
+  //    rich 20-task config — the Evergreen test lesson DB row still has the
+  //    legacy 5-task sample path, and user UAT reported «прошёл 5 заданий и
+  //    урок закончился. заданий же вроде должно было быть 20».
+  const trainerConfigPath = isAdminTestBypass
+    ? 'lesson-column-addition.json'
+    : lesson.htmlTrainerPath || 'lesson-column-addition.json'
   const trainerConfig = await loadTrainerConfig(trainerConfigPath).catch((err) => {
     console.error('[LessonPageV2] Failed to load trainer config:', err)
     return null

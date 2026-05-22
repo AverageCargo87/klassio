@@ -122,9 +122,18 @@ function LessonPageInner({
   const solvedTaskIdsRef = useRef<Set<string>>(new Set<string>())
   const mistakesRef = useRef<LessonMistake[]>([])
 
-  // ── Phase 8: latched sendContextualUpdate ref ───────────────────────────
-  const convoCmdRef = useRef<{ sendContextualUpdate: (text: string) => void }>({
+  // ── Phase 8: latched sendContextualUpdate + sendUserMessage ref ─────────
+  // UAT 2026-05-22 round 7: explicit force-interrupt path uses sendUserMessage,
+  // which 11labs treats as user-side input and aborts whatever Nadya is
+  // currently speaking. Plain sendContextualUpdate only appends context for
+  // her NEXT turn — buffered behind any in-flight TTS, which is why the
+  // submit reaction lagged 15s.
+  const convoCmdRef = useRef<{
+    sendContextualUpdate: (text: string) => void
+    sendUserMessage: (text: string) => void
+  }>({
     sendContextualUpdate: () => {},
+    sendUserMessage: () => {},
   })
 
   const getTaskTopic = useCallback(
@@ -219,10 +228,11 @@ function LessonPageInner({
     onError: handleError,
   })
 
-  // Latch latest sendContextualUpdate into convoCmdRef each render so bus
-  // subscription handlers can call it through a stable identity.
+  // Latch latest conversation command surface into convoCmdRef each render
+  // so bus subscription handlers can call it through a stable identity.
   convoCmdRef.current = conversation as unknown as {
     sendContextualUpdate: (text: string) => void
+    sendUserMessage: (text: string) => void
   }
 
   // Latched conversation ref for safe cleanup on unmount (Phase 6.5 pattern).
@@ -543,11 +553,14 @@ function LessonPageInner({
           convoCmdRef.current.sendContextualUpdate(
             formatAnswerSubmitted({ taskId, value, correct: true }, taskType),
           )
-          // UAT 2026-05-22: pure marker keeps Nadya in listening mode if the
-          // child was silent. Add an explicit call-to-action so she takes a
-          // turn immediately. Phase 8.7 prompt rule reinforces this.
-          convoCmdRef.current.sendContextualUpdate(
-            `Ребёнок только что молча ввёл правильный ответ для ${taskId}: ${value}. Похвали голосом ПРЯМО СЕЙЧАС и предложи перейти к следующей задаче.`,
+          // UAT 2026-05-22 round 7: force-interrupt via sendUserMessage.
+          // sendContextualUpdate just appends context for the NEXT turn —
+          // queued behind any in-flight TTS, hence the 15s delay user saw.
+          // sendUserMessage is treated as user-side input and aborts current
+          // TTS so Nadya can respond immediately. Prefix [ПЛАТФОРМА] makes
+          // it clear to her this is a system event, not the child speaking.
+          convoCmdRef.current.sendUserMessage(
+            `[ПЛАТФОРМА] Ребёнок только что молча ввёл правильный ответ для ${taskId}: ${value}. Похвали ПРЯМО СЕЙЧАС короткой репликой и предложи перейти к следующей задаче.`,
           )
         } catch (err) {
           console.error('[lesson-v2] forward answer (ok):', err)
@@ -566,8 +579,8 @@ function LessonPageInner({
               { correctValue },
             ),
           )
-          convoCmdRef.current.sendContextualUpdate(
-            `Ребёнок только что ввёл неправильный ответ для ${taskId}: ${value} (правильный ${correctValue ?? '?'}). Мягко прокомментируй ГОЛОСОМ ПРЯМО СЕЙЧАС и подскажи следующий шаг.`,
+          convoCmdRef.current.sendUserMessage(
+            `[ПЛАТФОРМА] Ребёнок только что ввёл неправильный ответ для ${taskId}: ${value} (правильный ${correctValue ?? '?'}). Мягко прокомментируй ПРЯМО СЕЙЧАС и подскажи следующий шаг.`,
           )
         } catch (err) {
           console.error('[lesson-v2] forward answer (wrong):', err)
