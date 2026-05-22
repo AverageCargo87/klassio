@@ -28,7 +28,7 @@ import type { TrainerConfig } from '@/lib/trainer/config-schema'
 import { LessonBusProvider, useLessonBus, useLessonBusEvent } from '@/lib/lesson-bus'
 import { buildClientTools } from '@/lib/client-tools'
 import { getLessonStateSnapshot, type LessonMistake } from '@/lib/lesson-state'
-import { useVoice } from '@/lib/lesson-v2/use-voice'
+import { useVoice, VoiceProvider } from '@/lib/lesson-v2/use-voice'
 import {
   formatAnswerSubmitted,
   formatHintOpened,
@@ -66,17 +66,19 @@ export function LessonPageV2({ lessonId, topic, trainerConfig }: LessonPageProps
   return (
     <LessonBusProvider>
       <ConversationProvider>
-        <div className="lesson-v2-root">
-          <FontPreload />
-          <LessonPageInner
-            lessonId={lessonId}
-            topic={topic}
-            trainerConfig={trainerConfig}
-            screens={screens}
-            taskIndices={taskIndices}
-            totalTasks={totalTasks}
-          />
-        </div>
+        <VoiceProvider>
+          <div className="lesson-v2-root">
+            <FontPreload />
+            <LessonPageInner
+              lessonId={lessonId}
+              topic={topic}
+              trainerConfig={trainerConfig}
+              screens={screens}
+              taskIndices={taskIndices}
+              totalTasks={totalTasks}
+            />
+          </div>
+        </VoiceProvider>
       </ConversationProvider>
     </LessonBusProvider>
   )
