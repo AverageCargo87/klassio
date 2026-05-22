@@ -224,3 +224,87 @@
 ### Status
 
 **В backlog** — promote когда нужна реальная атака на latency (например после Phase 8.5 контента когда настоящий UAT начнёт мерить «отзывчивость» как метрику). Возможный триггер: фокус-группа продолжит говорить «медленно отвечает» — будем мерить и крутить.
+
+---
+
+## #004 — Block-based scene+voice synchronization (UAT 2026-05-22)
+
+### Trigger
+
+UAT v2-claude-design ветка 2026-05-22. User feedback: «голос и отрисовка в сильном рассинхроне. объясняет сильно дольше, чем рисует. может по блокам генерировать часть решения на доске, вместе с такой же частью голоса?»
+
+Корень рассинхрона: scene рисуется почти мгновенно через SSE (`/api/draw`), а Надя в narration mode непрерывно озвучивает 30-40 секунд план словами. Доска уже закончена, Надя ещё рассказывает.
+
+Быстрый workaround (A+B 2026-05-22) — сокращение narration в промпте + клиентская задержка 700ms между draw-шагами в BoardCanvasV2 — улучшает sync приблизительно, но это не настоящая синхронизация.
+
+### Что нужно
+
+Сцена эмитит блоки `[draw_chunk, voice_line]`. На каждом блоке:
+1. Клиент применяет draw operations блока к tldraw
+2. Клиент проигрывает voice_line через 11labs TTS API (exact text, не conversation reformulation)
+3. Ждёт окончания audio
+4. Идёт следующий блок
+
+Координаты шейпов остаются absolute (как сейчас) — разрезы на блоки не сдвигают позиции, не накладывают шейпы поверх.
+
+Надя на время block playback **muted** (через `conversation.setMuted(true)`). После `scene_complete` — unmute + контекстный update «продолжай диалог».
+
+### Что под капотом
+
+5 компонентов:
+
+1. **Scene generators v2** (`lib/board/scenes/v2/*`)
+   - Refactor 15+ существующих generators в блочный формат: `yield { type: 'block', say: '...', draw: [tool_use_arr] }`
+   - Координаты не меняются — это только новая группировка yields
+
+2. **API endpoint `/api/draw-v2`**
+   - Новый параллельно к старому (старый `/api/draw` обслуживает legacy `/lesson/[id]`)
+   - Стримит блоки SSE по одному
+   - Опционально: ACK-protocol между блоками (или sequential client-side pacing — проще)
+
+3. **TTS pipeline для точной озвучки**
+   - Вариант (a): новый `/api/voice/tts` proxy к 11labs TTS API (NOT conversation API) — рендерит exact text в audio stream. Cost ~$0.0003 на блок.
+   - Вариант (b) — оптимизация позже: pre-gen кеш TTS audio для scene templates, runtime мгновенно.
+
+4. **Block orchestrator в BoardCanvasV2**
+   - Цикл: applyDraws(block) → playAudio(block.say) → await audioEnd → next
+   - Параллельно: setMuted(true) на conversation на старте scene, setMuted(false) на завершении
+
+5. **Промпт Нади**
+   - Новое правило: «когда вызвала `draw_explanation` — ты МОЛЧИШЬ. Система сама проигрывает audio синхронно с доской. Возобновляешь диалог при marker `scene_complete`.»
+   - Marker `scene_complete` emit'ится из orchestrator при последнем блоке.
+
+### Открытые вопросы
+
+- Mute conversation целиком на время block sync или только Надин output? Если ребёнок что-то скажет в микрофон во время block sync — игнорить или buffer и обработать после?
+- Visual indicator «Надя сейчас рисует, подожди» — нужен ли pulsing animation на доске?
+- Fallback если 11labs TTS API упал — пропускать voice блока или прерывать всю сцену?
+- Pre-gen кеш (variant b) — где хранить audio (Vercel KV / S3 / отдельный CDN)?
+
+### Оценка scope
+
+**2-3 рабочих дня** (можно полдня для PoC на 1 сцене column addition):
+- День 1: блочный протокол spec, 1 scene refactor, `/api/draw-v2`, client orchestrator, TTS API proxy. End-to-end один scene работает.
+- День 2: refactor остальных ~14 scene generators в блоки.
+- День 3: edge cases (mute/unmute transitions, child speaks during scene, abort mid-scene), промпт, fine-tune timing, UAT.
+
+### Cost delta
+
+| Resource | Delta per урок |
+|---|---|
+| 11labs TTS API (новое) | +$0.009 |
+| 11labs conversation (Надя меньше говорит) | -$0.001 |
+| Compute | негл. |
+| Storage (pre-gen кеш — опционально) | ~$0.01/mo |
+
+**Net: ~$0.008 на урок (меньше цента).** При 1000 уроках/мес = +$8/mo.
+
+### Что НЕ ломается
+
+- `/lesson/[id]` legacy route — не трогаем, использует старый `/api/draw`
+- tldraw layer + `executeToolCall` — не меняется
+- 11labs conversation infrastructure — добавляется только mute/unmute управление
+
+### Status
+
+**В backlog** — promote когда A+B (2026-05-22 quick fix) окажется недостаточным sync для UAT. Если ребёнок продолжает теряться в рассинхроне на фокус-группах — заходим в block sync, начиная с PoC на column addition.
