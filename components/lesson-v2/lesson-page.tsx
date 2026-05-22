@@ -690,6 +690,14 @@ function LessonPageInner({
       }
       const data = (await res.json()) as { signedUrl: string; topic: string }
 
+      // UAT 2026-05-22 round 9 diagnostic — surface what voice we asked
+      // for. If the picker says Anya but Nadya plays, this log proves
+      // the SDK was called with the right ID — issue is in 11labs config.
+      console.info('[lesson-v2] startSession voice override:', {
+        chosenVoiceId: voiceIdRef.current,
+        nadia: 'gedzfqL7OGdPbwm0ynTP',
+        anya: 'd5ruruBhXNbnS7Va7n23',
+      })
       conversation.startSession({
         signedUrl: data.signedUrl,
         connectionType: 'websocket',

@@ -25,7 +25,7 @@ export const VOICES: readonly VoiceOption[] = [
   },
   {
     key: 'anna',
-    label: 'Anna',
+    label: 'Аня',
     voiceId: 'd5ruruBhXNbnS7Va7n23',
     description: 'Альтернативный голос учителя',
   },
