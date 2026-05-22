@@ -356,10 +356,12 @@ function LessonPageInner({
   }
 
   /* ----- lifecycle ----- */
-  useEffect(() => {
-    teacherSpeak(TEACHER_SCRIPT.welcome)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // UAT 2026-05-22 round 11: pre-session welcome message used to be pushed
+  // here, but it raced useVoice's localStorage hydration — the chat showed
+  // «Я Надя» even when Аня was picked. Real greeting now arrives via voice
+  // transcript when the session actually starts (and is the correct
+  // persona because we override agent.firstMessage). Empty state «Здесь
+  // появится наш диалог» covers the pre-session moment.
   useEffect(() => {
     if (screen.kind === 'intro') teacherSpeak(TEACHER_SCRIPT.introStart)
     else teacherSpeak(TEACHER_SCRIPT.taskStart)
@@ -911,8 +913,7 @@ function LessonPageInner({
                 Начать урок
               </button>
               <div className="text-xs font-bold text-center max-w-md" style={{ color: PALETTE.sub }}>
-                Нажми, когда будешь готов. Запросим доступ к микрофону — {teacherName}
-                поздоровается и начнёт урок голосом.
+                {`Нажми, когда будешь готов. Запросим доступ к микрофону — ${teacherName} поздоровается и начнёт урок голосом.`}
               </div>
               {voiceError && (
                 <div
