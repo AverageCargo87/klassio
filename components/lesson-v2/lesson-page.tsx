@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import { PALETTE } from './palette'
-import { TEACHER_SCRIPT } from './teacher-script'
+import { buildTeacherScript } from './teacher-script'
 import { trainerConfigToScreens } from './adapt-config'
 import { TopBar } from './topbar'
 import { TaskCard } from './task-card'
@@ -305,6 +305,11 @@ function LessonPageInner({
   useEffect(() => {
     micOnRef.current = micOn
   }, [micOn])
+
+  // Teacher persona name (derived from voice picker). Used to parameterize
+  // greetings + chrome labels so the UI matches the voice the child hears.
+  const teacherName = voiceOption.label
+  const TEACHER_SCRIPT = useMemo(() => buildTeacherScript({ name: teacherName }), [teacherName])
 
   // lesson timer
   const [timerSec, setTimerSec] = useState(0)
@@ -906,7 +911,7 @@ function LessonPageInner({
                 Начать урок
               </button>
               <div className="text-xs font-bold text-center max-w-md" style={{ color: PALETTE.sub }}>
-                Нажми, когда будешь готов. Запросим доступ к микрофону — Надя
+                Нажми, когда будешь готов. Запросим доступ к микрофону — {teacherName}
                 поздоровается и начнёт урок голосом.
               </div>
               {voiceError && (
@@ -941,7 +946,7 @@ function LessonPageInner({
       </main>
 
       {/* overlays */}
-      <BoardOverlay open={boardOpen} onClose={() => setBoardOpen(false)} contextLabel={contextLabel}>
+      <BoardOverlay open={boardOpen} onClose={() => setBoardOpen(false)} contextLabel={contextLabel} teacherName={teacherName}>
         <BoardCanvasV2
           lessonId={lessonId}
           initialPrompt={pendingBoardPrompt}
@@ -964,6 +969,7 @@ function LessonPageInner({
         log={teacherLog}
         status={teacherStatus}
         currentBubble={bubble}
+        teacherName={teacherName}
       />
     </div>
   )

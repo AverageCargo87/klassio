@@ -44,11 +44,17 @@ interface BoardOverlayProps {
   open: boolean
   onClose: () => void
   contextLabel: string
+  /** Persona name from the voice picker — surfaces in "Доска <name>". */
+  teacherName: string
   /** Optional child (e.g. real tldraw canvas). When omitted, shows placeholder. */
   children?: React.ReactNode
 }
 
-export function BoardOverlay({ open, onClose, contextLabel, children }: BoardOverlayProps) {
+export function BoardOverlay({ open, onClose, contextLabel, teacherName, children }: BoardOverlayProps) {
+  // Genitive form for Russian — "Доска Нади" / "Доска Ани". Fallback to
+  // nominative for unknown names ("Доска <Name>").
+  const teacherGen =
+    teacherName === 'Надя' ? 'Нади' : teacherName === 'Аня' ? 'Ани' : teacherName
   return (
     <div
       className="fixed top-0 bottom-0 left-0 z-20 transition-transform duration-300 ease-out"
@@ -79,7 +85,7 @@ export function BoardOverlay({ open, onClose, contextLabel, children }: BoardOve
               📋
             </div>
             <div>
-              <div className="text-sm font-extrabold leading-tight">Доска Нади</div>
+              <div className="text-sm font-extrabold leading-tight">Доска {teacherGen}</div>
               <div className="text-[11px] opacity-70">{contextLabel}</div>
             </div>
           </div>
@@ -114,21 +120,21 @@ export function BoardOverlay({ open, onClose, contextLabel, children }: BoardOve
                          #1F2A37`,
           }}
         >
-          {children ?? <BoardPlaceholder />}
+          {children ?? <BoardPlaceholder teacherName={teacherName} />}
         </div>
       </div>
     </div>
   )
 }
 
-function BoardPlaceholder() {
+function BoardPlaceholder({ teacherName }: { teacherName: string }) {
   return (
     <div className="absolute inset-0 flex items-center justify-center text-center p-6">
       <div className="relative max-w-sm">
         <div className="text-5xl mb-3">✏️</div>
         <div className="text-white font-extrabold text-lg mb-1">здесь будет tldraw канвас</div>
         <div className="text-white/60 text-sm leading-snug">
-          Надя нарисует объяснение прямо здесь — столбик, переносы и пометки.
+          {teacherName} нарисует объяснение прямо здесь — столбик, переносы и пометки.
         </div>
         <div
           className="mt-6 mx-auto inline-block p-5 rounded-xl font-mono text-3xl font-extrabold text-left"

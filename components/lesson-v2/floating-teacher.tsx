@@ -26,9 +26,10 @@ function relTime(t: number, now: number): string {
 interface ChatMessageBubbleProps {
   msg: ChatMessage
   now: number
+  teacherName: string
 }
 
-function ChatMessageBubble({ msg, now }: ChatMessageBubbleProps) {
+function ChatMessageBubble({ msg, now, teacherName }: ChatMessageBubbleProps) {
   const isUser = msg.role === 'user'
   return (
     <div className={'flex ' + (isUser ? 'justify-end' : 'justify-start')}>
@@ -51,7 +52,7 @@ function ChatMessageBubble({ msg, now }: ChatMessageBubbleProps) {
           className="text-[10px] mt-1 px-1 font-bold"
           style={{ color: PALETTE.sub, textAlign: isUser ? 'right' : 'left' }}
         >
-          {isUser ? 'Ты · ' : 'Надя · '}
+          {isUser ? 'Ты · ' : `${teacherName} · `}
           {relTime(msg.t, now)}
         </div>
       </div>
@@ -66,6 +67,8 @@ interface FloatingTeacherProps {
   log: ChatMessage[]
   status: TeacherStatus
   currentBubble: string | null
+  /** Persona name from the voice picker (e.g. 'Надя', 'Аня'). */
+  teacherName: string
 }
 
 export function FloatingTeacher({
@@ -75,6 +78,7 @@ export function FloatingTeacher({
   log,
   status,
   currentBubble,
+  teacherName,
 }: FloatingTeacherProps) {
   const statusMap: Record<TeacherStatus, { color: string; label: string }> = {
     idle: { color: '#B0B6BF', label: 'Жду' },
@@ -141,7 +145,7 @@ export function FloatingTeacher({
             transitionProperty: 'transform, box-shadow, background, color',
             transitionDuration: '180ms',
           }}
-          title="Открыть чат с Надей"
+          title={`Открыть чат с ${teacherName === 'Надя' ? 'Надей' : teacherName === 'Аня' ? 'Аней' : teacherName}`}
         >
           <span
             className="relative inline-flex items-center justify-center"
@@ -167,7 +171,7 @@ export function FloatingTeacher({
               }}
             />
           </span>
-          <span>Надя</span>
+          <span>{teacherName}</span>
         </button>
       </>
     )
@@ -199,7 +203,7 @@ export function FloatingTeacher({
           <span style={{ fontSize: 24 }}>🙂</span>
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-extrabold leading-tight">Надя · твой репетитор</div>
+          <div className="font-extrabold leading-tight">{teacherName} · твой репетитор</div>
           <div className="text-xs flex items-center gap-1.5 opacity-95 mt-0.5">
             <span
               className="inline-block w-2 h-2 rounded-full"
@@ -243,7 +247,7 @@ export function FloatingTeacher({
           </div>
         )}
         {log.map((m, i) => (
-          <ChatMessageBubble key={i} msg={m} now={now} />
+          <ChatMessageBubble key={i} msg={m} now={now} teacherName={teacherName} />
         ))}
       </div>
 
@@ -260,7 +264,7 @@ export function FloatingTeacher({
           }}
         />
         {status === 'listening' && 'Слушаю тебя…'}
-        {status === 'speaking' && 'Надя сейчас говорит'}
+        {status === 'speaking' && `${teacherName} сейчас говорит`}
         {status === 'idle' && 'Включи микрофон, чтобы говорить'}
       </div>
     </aside>
