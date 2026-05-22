@@ -462,7 +462,14 @@ function LessonPageInner({
         drawPrompt = `Объясни на доске: ${screen.title}`
       }
       if (drawPrompt) {
-        bus.emit('board:draw_request', { prompt: drawPrompt, lessonId })
+        // BoardCanvasV2 mounts via next/dynamic (tldraw is heavy, ~600kB).
+        // If we emit immediately, the lesson-bus subscription inside the canvas
+        // isn't set up yet — event is lost and the board stays empty.
+        // Delay to let the dynamic import resolve and the subscription attach.
+        const prompt = drawPrompt
+        setTimeout(() => {
+          bus.emit('board:draw_request', { prompt, lessonId })
+        }, 900)
       }
     }
   }
@@ -537,8 +544,15 @@ function LessonPageInner({
       if (correct) {
         solvedTaskIdsRef.current.add(taskId)
         try {
+          // Base allow-listed event marker (Phase 8 D-08 pattern).
           convoCmdRef.current.sendContextualUpdate(
             formatAnswerSubmitted({ taskId, value, correct: true }, taskType),
+          )
+          // UAT 2026-05-22: pure marker keeps Nadya in listening mode if the
+          // child was silent. Add an explicit call-to-action so she takes a
+          // turn immediately. Phase 8.7 prompt rule reinforces this.
+          convoCmdRef.current.sendContextualUpdate(
+            `Ребёнок только что молча ввёл правильный ответ для ${taskId}: ${value}. Похвали голосом ПРЯМО СЕЙЧАС и предложи перейти к следующей задаче.`,
           )
         } catch (err) {
           console.error('[lesson-v2] forward answer (ok):', err)
@@ -556,6 +570,9 @@ function LessonPageInner({
               taskType,
               { correctValue },
             ),
+          )
+          convoCmdRef.current.sendContextualUpdate(
+            `Ребёнок только что ввёл неправильный ответ для ${taskId}: ${value} (правильный ${correctValue ?? '?'}). Мягко прокомментируй ГОЛОСОМ ПРЯМО СЕЙЧАС и подскажи следующий шаг.`,
           )
         } catch (err) {
           console.error('[lesson-v2] forward answer (wrong):', err)
