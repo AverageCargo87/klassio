@@ -262,6 +262,10 @@ function LessonPageInner({
   const [sessionStarted, setSessionStarted] = useState(false)
   const [micOn, setMicOn] = useState(false)
   const [boardOpen, setBoardOpen] = useState(false)
+  // Phase 8.7 UAT 2026-05-22 — robust draw trigger: when user opens the board,
+  // we stash the desired prompt here and BoardCanvasV2 picks it up on mount
+  // (replaces the prior bus-emit-with-setTimeout race).
+  const [pendingBoardPrompt, setPendingBoardPrompt] = useState<string | null>(null)
   const [teacherExpanded, setTeacherExpanded] = useState(true) // pinned by default
   const [teacherStatus, setTeacherStatus] = useState<TeacherStatus>('speaking')
   const [teacherLog, setTeacherLog] = useState<ChatMessage[]>([])
@@ -462,14 +466,9 @@ function LessonPageInner({
         drawPrompt = `Объясни на доске: ${screen.title}`
       }
       if (drawPrompt) {
-        // BoardCanvasV2 mounts via next/dynamic (tldraw is heavy, ~600kB).
-        // If we emit immediately, the lesson-bus subscription inside the canvas
-        // isn't set up yet — event is lost and the board stays empty.
-        // Delay to let the dynamic import resolve and the subscription attach.
-        const prompt = drawPrompt
-        setTimeout(() => {
-          bus.emit('board:draw_request', { prompt, lessonId })
-        }, 900)
+        // Stash the prompt — BoardCanvasV2 will execute it on mount.
+        // Reliable: no setTimeout race, no bus event lost during dynamic import.
+        setPendingBoardPrompt(drawPrompt)
       }
     }
   }
@@ -886,7 +885,11 @@ function LessonPageInner({
 
       {/* overlays */}
       <BoardOverlay open={boardOpen} onClose={() => setBoardOpen(false)} contextLabel={contextLabel}>
-        <BoardCanvasV2 lessonId={lessonId} />
+        <BoardCanvasV2
+          lessonId={lessonId}
+          initialPrompt={pendingBoardPrompt}
+          onPromptConsumed={() => setPendingBoardPrompt(null)}
+        />
       </BoardOverlay>
 
       <FloatingBoardToggle open={boardOpen} onToggle={() => setBoardOpenSafe(!boardOpen)} />

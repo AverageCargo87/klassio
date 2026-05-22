@@ -17,7 +17,7 @@
 // board:draw_request on the bus → this component reacts.
 
 import dynamic from 'next/dynamic'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import 'tldraw/tldraw.css'
 import type { Editor } from 'tldraw'
 import { executeToolCall } from '@/lib/board'
@@ -35,17 +35,25 @@ const Tldraw = dynamic(() => import('tldraw').then((m) => m.Tldraw), {
 
 interface BoardCanvasV2Props {
   lessonId: string
+  /** Phase 8.7 UAT 2026-05-22 — robust mount-time draw trigger.
+   *  Parent passes a pending prompt; the canvas executes it as soon as
+   *  the tldraw editor is ready. Replaces the earlier setTimeout(900ms)
+   *  hack which lost events on slow dynamic imports. */
+  initialPrompt?: string | null
+  onPromptConsumed?: () => void
 }
 
-export function BoardCanvasV2({ lessonId }: BoardCanvasV2Props) {
+export function BoardCanvasV2({ lessonId, initialPrompt, onPromptConsumed }: BoardCanvasV2Props) {
   const editorRef = useRef<Editor | null>(null)
   const runningRef = useRef(false)
+  const [editorReady, setEditorReady] = useState(false)
   const bus = useLessonBus()
 
   const onMount = useCallback((editor: Editor) => {
     editorRef.current = editor
     editor.setCamera({ x: 0, y: 0, z: 1 })
     editor.updateInstanceState({ isGridMode: false })
+    setEditorReady(true)
   }, [])
 
   const handleClear = useCallback(() => {
@@ -182,6 +190,16 @@ export function BoardCanvasV2({ lessonId }: BoardCanvasV2Props) {
   useLessonBusEvent('board:clear_request', () => {
     handleClear()
   })
+
+  // Phase 8.7 UAT 2026-05-22 — consume initialPrompt as soon as the editor
+  // is ready. Avoids the previous bus-emit race (board:draw_request fired
+  // before BoardCanvasV2's subscription was active).
+  useEffect(() => {
+    if (!editorReady || !initialPrompt) return
+    const prompt = initialPrompt
+    onPromptConsumed?.()
+    void executeDraw(prompt)
+  }, [editorReady, initialPrompt, onPromptConsumed, executeDraw])
 
   // ESLint placeholder — bus is consumed via hooks, this prevents the
   // "useLessonBus called but result unused" warning when only emits are read
