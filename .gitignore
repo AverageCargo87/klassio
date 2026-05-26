@@ -10,6 +10,10 @@ Thumbs.db
 # Planning codebase snapshots (GSD internal)
 .planning/codebase
 
+# Reference materials (textbooks/workbooks/sample HTML trainers) — local only,
+# heavy PDFs not for git. Hand-off doc references files by relative path.
+materials/
+
 # Next.js
 .next/
 out/
