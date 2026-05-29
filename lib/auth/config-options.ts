@@ -37,7 +37,9 @@ export const authConfigOptions = {
       const isLoggedIn = !!auth?.user
       const path = request.nextUrl.pathname
       const isProtected =
-        path.startsWith('/lessons') || path.startsWith('/lesson/')
+        path.startsWith('/lessons') ||
+        path.startsWith('/lesson/') ||
+        path.startsWith('/cabinet')
       if (isProtected && !isLoggedIn) return false // → /login
       return true
     },

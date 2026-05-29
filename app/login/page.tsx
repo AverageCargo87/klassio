@@ -21,7 +21,7 @@ export default async function LoginPage({
   searchParams: Promise<{ sent?: string }>
 }) {
   const session = await auth()
-  if (session?.user) redirect('/lessons')
+  if (session?.user) redirect('/cabinet')
   const { sent } = await searchParams
 
   async function loginAction(formData: FormData) {

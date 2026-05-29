@@ -12,5 +12,5 @@ export default middleware((_req) => {
 })
 
 export const config = {
-  matcher: ['/lessons/:path*', '/lesson/:path*'],
+  matcher: ['/lessons/:path*', '/lesson/:path*', '/cabinet/:path*'],
 }
