@@ -21,6 +21,12 @@ export type {
   // Phase 8 — Board control payloads (D-07, OQ-1, OQ-6)
   BoardDrawRequestPayload,
   BoardClearRequestPayload,
+  // AI-репетитор (June 2026 pivot)
+  TutorShowToolPayload,
+  TutorHideToolPayload,
+  TutorPhasePayload,
+  TutorRewardPayload,
+  TutorBreakPayload,
 } from './events'
 export { LessonBus } from './bus'
 export { LessonBusProvider, LessonBusContext } from './provider'

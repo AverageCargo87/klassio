@@ -39,6 +39,21 @@ export type VoiceTranscriptPayload = { text: string; role: 'user' | 'agent'; tim
 // This avoids exposing tldraw Editor across the React tree (Option B per RESEARCH OQ-1).
 export type BoardDrawRequestPayload  = { prompt: string; lessonId: string }
 export type BoardClearRequestPayload = Record<string, never>
+
+// AI-репетитор (June 2026 pivot) — agent tool-on-demand reveal + lesson state.
+// Emitted by the tutor client-tool handlers (lib/tutor-tools); subscribed by the
+// tutor page components (components/tutor) which reveal/hide the board/trainer.
+export type TutorShowToolPayload = {
+  tool: 'board' | 'trainer' | 'photo'
+  /** board variant id (solar-system / sun-vs-earth / orbits / planet-sizes). */
+  variant?: string
+  /** trainer task id (task-1, …). */
+  taskId?: string
+}
+export type TutorHideToolPayload = Record<string, never>
+export type TutorPhasePayload  = { phase: string }
+export type TutorRewardPayload = { label?: string }
+export type TutorBreakPayload  = { active: boolean }
 // Phase 8 UAT fix — emitted by BoardPanel when executeDraw's SSE stream completes
 // (either 'done' or 'error' or early-return). Subscribed by VoicePanel's draw_explanation
 // client tool handler to resolve its Promise — this makes draw_explanation BLOCKING from
@@ -70,6 +85,12 @@ export type LessonBusEvent =
   | { type: 'board:draw_request';  payload: BoardDrawRequestPayload }
   | { type: 'board:clear_request'; payload: BoardClearRequestPayload }
   | { type: 'board:draw_complete'; payload: BoardDrawCompletePayload }
+  // AI-репетитор (June 2026 pivot)
+  | { type: 'tutor:show_tool'; payload: TutorShowToolPayload }
+  | { type: 'tutor:hide_tool'; payload: TutorHideToolPayload }
+  | { type: 'tutor:phase';     payload: TutorPhasePayload }
+  | { type: 'tutor:reward';    payload: TutorRewardPayload }
+  | { type: 'tutor:break';     payload: TutorBreakPayload }
 
 // Helper: extract payload type for a given event type string.
 // Usage: EventPayload<'lesson:test'> → { source: string; counter: number }
