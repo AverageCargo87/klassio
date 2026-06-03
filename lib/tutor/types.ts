@@ -62,6 +62,8 @@ export interface TutorDynamicVariables {
   lesson_topic: string
   /** 'да' on the child's first-ever tutor lesson, else 'нет' (prompt reads RU). */
   is_first_lesson: 'да' | 'нет'
+  /** Human phrase for the prompt's opening line. */
+  is_first_lesson_phrase: string
   prior_lessons_done: number
   attempt_number: number
 }

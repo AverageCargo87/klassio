@@ -17,6 +17,9 @@ export function buildTutorDynamicVariables(input: {
     lesson_title: input.lessonTitle,
     lesson_topic: input.lessonTopic,
     is_first_lesson: input.isFirstEver ? 'да' : 'нет',
+    is_first_lesson_phrase: input.isFirstEver
+      ? 'первый урок — вы знакомитесь'
+      : 'продолжающий урок — вы уже занимались раньше',
     prior_lessons_done: input.priorLessonsDone,
     attempt_number: input.attemptNumber,
   }
