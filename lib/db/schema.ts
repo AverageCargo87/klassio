@@ -11,6 +11,10 @@ import {
   pgEnum,
   uuid,
   index,
+  uniqueIndex,
+  boolean,
+  real,
+  jsonb,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccountType } from '@auth/core/adapters'
 
@@ -111,5 +115,145 @@ export const lessons = pgTable(
   (t) => [
     index('lesson_user_id_idx').on(t.userId),
     index('lesson_scheduled_at_idx').on(t.scheduledAt),
+  ],
+)
+
+// ════════════════════════════════════════════════════════════════════════════
+// AI-репетитор tracking (June 2026 pivot — see LESSON-FLOW.md §7 + memory
+// klassio-pivot-ai-tutor-first). One tracking mechanism feeds three consumers:
+// (a) adaptive difficulty, (b) parent cabinet reports, (c) next-lesson planning.
+//
+// IMPORTANT: curriculum lessons (lib/curriculum/*.ts) are STATIC slugs, NOT rows
+// in the `lesson` table (that table holds the old scheduled math sessions). The
+// tutor tracks a child's journey through curriculum lessons via `tutor_session`
+// keyed by (subjectId, lessonSlug), independent of the legacy `lesson` table.
+// ════════════════════════════════════════════════════════════════════════════
+
+// State-machine phases from LESSON-FLOW.md §4.
+export const tutorPhaseEnum = pgEnum('tutor_phase', [
+  'connecting', // подключение
+  'warmup',     // разогрев / smalltalk
+  'diagnostic', // диагностика (1-й урок)
+  'bridge',     // мостик
+  'cycle',      // цикл теория→практика
+  'pause',      // пауза при усталости
+  'summary',    // итог
+  'farewell',   // прощание
+])
+
+export const tutorSessionStatusEnum = pgEnum('tutor_session_status', [
+  'in_progress',
+  'completed',
+  'abandoned',
+])
+
+// One row per started tutor lesson. `attemptNumber` = how many times THIS child
+// has started THIS (subjectId, lessonSlug) — 1 on the very first run. The
+// "первый урок vs продолжаем" signal (LESSON-FLOW §6, dynamic_variables) is
+// derived from this + a count of the child's prior completed sessions.
+export const tutorSessions = pgTable(
+  'tutor_session',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    subjectId: text('subject_id').notNull(),   // e.g. 'okr-mir-4'
+    lessonSlug: text('lesson_slug').notNull(),  // e.g. 'astronom'
+    attemptNumber: integer('attempt_number').notNull().default(1),
+    phase: tutorPhaseEnum('phase').notNull().default('connecting'),
+    status: tutorSessionStatusEnum('status').notNull().default('in_progress'),
+    startedAt: timestamp('started_at', { mode: 'date' }).defaultNow().notNull(),
+    endedAt: timestamp('ended_at', { mode: 'date' }),
+    durationSec: integer('duration_sec'),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('tutor_session_user_id_idx').on(t.userId),
+    index('tutor_session_lesson_idx').on(t.userId, t.subjectId, t.lessonSlug),
+  ],
+)
+
+// Per-task tracking within a session (LESSON-FLOW §7 "per задание"). One row per
+// (session, taskId) — upserted as the child accrues attempts/hints. `correct` is
+// the final verdict; `attempts`/`hintsUsed` accumulate; `reactionMs` is time from
+// task shown to FIRST answer.
+export const lessonAttempts = pgTable(
+  'lesson_attempt',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    sessionId: uuid('session_id').notNull().references(() => tutorSessions.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    taskId: text('task_id').notNull(),       // 'task-3' or a question id
+    skillTag: text('skill_tag'),             // e.g. 'solar-system-order' (feeds skill_mastery)
+    correct: boolean('correct').notNull().default(false),
+    attempts: integer('attempts').notNull().default(1),
+    hintsUsed: integer('hints_used').notNull().default(0),
+    reactionMs: integer('reaction_ms'),
+    answeredAt: timestamp('answered_at', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('lesson_attempt_session_idx').on(t.sessionId),
+    index('lesson_attempt_user_idx').on(t.userId),
+    uniqueIndex('lesson_attempt_session_task_uniq').on(t.sessionId, t.taskId),
+  ],
+)
+
+// Per-child skill aggregate (LESSON-FLOW §7 "освоенные темы, слабые места").
+// Upserted on every graded attempt. `masteryLevel` is a 0..1 EWMA of correctness
+// (recent answers weighted higher) so a child can recover from early mistakes.
+export const skillMastery = pgTable(
+  'skill_mastery',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    subjectId: text('subject_id').notNull(),
+    skillTag: text('skill_tag').notNull(),
+    attemptsTotal: integer('attempts_total').notNull().default(0),
+    correctTotal: integer('correct_total').notNull().default(0),
+    masteryLevel: real('mastery_level').notNull().default(0), // 0..1
+    lastPracticedAt: timestamp('last_practiced_at', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('skill_mastery_user_skill_uniq').on(t.userId, t.skillTag),
+    index('skill_mastery_user_idx').on(t.userId),
+  ],
+)
+
+// Event firehose — phase transitions, tool use, fatigue, rewards, AND behavior
+// moderation incidents (LESSON-FLOW §7 ⚠ Модерация). `payload` is free-form JSON.
+// `acknowledgedAt` lets the parent cabinet mark a moderation notice as seen.
+export const progressEventTypeEnum = pgEnum('progress_event_type', [
+  'session_started',
+  'session_completed',
+  'phase_change',
+  'tool_used',
+  'task_correct',
+  'task_wrong',
+  'hint_shown',
+  'fatigue_signal',
+  'pause_started',
+  'pause_ended',
+  'reward_given',
+  'diagnostic_result',
+  'moderation_warning',     // 1-е спокойное предупреждение
+  'moderation_escalation',  // повтор → запись + уведомление родителю
+])
+
+export const progressEvents = pgTable(
+  'progress_event',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    // Nullable: account-level events (not tied to a session) are allowed.
+    sessionId: uuid('session_id').references(() => tutorSessions.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    eventType: progressEventTypeEnum('event_type').notNull(),
+    payload: jsonb('payload'),
+    // Parent-cabinet acknowledgement (used for moderation notifications).
+    acknowledgedAt: timestamp('acknowledged_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('progress_event_user_idx').on(t.userId),
+    index('progress_event_session_idx').on(t.sessionId),
+    index('progress_event_type_idx').on(t.eventType),
   ],
 )

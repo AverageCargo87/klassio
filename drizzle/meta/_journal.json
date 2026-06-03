@@ -22,6 +22,13 @@
       "when": 1778376795967,
       "tag": "0002_lesson_timestamps",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780504236482,
+      "tag": "0003_lyrical_richard_fisk",
+      "breakpoints": true
     }
   ]
 }
