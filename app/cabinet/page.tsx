@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { countUnacknowledgedModeration } from '@/lib/tutor'
 
 interface Subject {
   id: string
@@ -41,6 +42,10 @@ export default async function CabinetPage() {
   if (!session?.user) redirect('/login')
 
   const displayName = session.user.childName || session.user.name || 'друг'
+  // Parent-facing: count of unacknowledged behaviour notices (cabinet badge).
+  const unackNotices = session.user.id
+    ? await countUnacknowledgedModeration(session.user.id).catch(() => 0)
+    : 0
 
   return (
     <main className="container mx-auto p-6 max-w-3xl">
@@ -69,6 +74,30 @@ export default async function CabinetPage() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Parent: reports & behaviour */}
+      <div className="mt-8">
+        <Link href="/cabinet/reports">
+          <Card className="hover:bg-accent/40 transition-colors">
+            <CardContent className="py-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl" aria-hidden>📊</span>
+                <div>
+                  <p className="text-sm font-medium">Отчёты и прогресс</p>
+                  <p className="text-xs text-muted-foreground">
+                    Результаты занятий, освоенные темы, поведение.
+                  </p>
+                </div>
+              </div>
+              {unackNotices > 0 && (
+                <span className="inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-xs text-destructive-foreground shrink-0">
+                  {unackNotices}
+                </span>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
       </div>
     </main>
   )
