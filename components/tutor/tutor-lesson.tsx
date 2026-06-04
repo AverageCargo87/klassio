@@ -50,6 +50,7 @@ interface KlassioEngine {
   setStatus: (s: 'listening' | 'speaking' | 'thinking') => void
   setCaption: (t: string) => void
   setMuted: (m: boolean) => void
+  setChildName: (name: string) => void
   showBoard: (variant: string, animate?: boolean) => void
   showTask: (step: unknown, animate?: boolean) => void
   hideTool: (animate?: boolean) => void
@@ -164,6 +165,12 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         return active ? 'Пауза' : 'Возвращаемся к уроку'
       },
       lesson_state: () => getState(),
+      set_child_name: (p: Record<string, unknown>) => {
+        const name = typeof p.name === 'string' ? p.name.trim() : ''
+        if (!name) return 'Error: пустое имя'
+        engine()?.setChildName(name)
+        return `Имя запомнено: ${name}`
+      },
     }),
     [engine, realLesson, getState, post, sessionId],
   )

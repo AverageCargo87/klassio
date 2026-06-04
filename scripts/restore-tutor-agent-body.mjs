@@ -165,6 +165,22 @@ export const TUTOR_TOOLS = [
     execution_mode: 'immediate',
     parameters: { type: 'object', properties: {} },
   },
+  {
+    type: 'client',
+    name: 'set_child_name',
+    description:
+      'Запомнить имя ребёнка, чтобы его реплики в чате были подписаны его именем. Зови ОДИН раз, сразу как ребёнок назвал, как его зовут.',
+    response_timeout_secs: 5,
+    expects_response: false,
+    execution_mode: 'immediate',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Имя ребёнка, как он его назвал, например "Гриша".' },
+      },
+      required: ['name'],
+    },
+  },
 ]
 
 export const TUTOR_TOOL_NAMES = TUTOR_TOOLS.map((t) => t.name)

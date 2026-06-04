@@ -42,7 +42,7 @@ const SUPPRESS =
   '<script>/*KLASSIO-LIVE*/' +
   'window.__KLASSIO_REAL_LESSON=window.LESSON;' +
   "window.LESSON=[{type:'say',section:'',board:null,status:'listening',lines:[]}];" +
-  'window.__KLASSIO_LIVE=true;' +
+  "window.__KLASSIO_LIVE=true;window.__klassioChildName='Ты';" +
   '</script>\n'
 replaceOnce(ENGINE_OPEN, SUPPRESS + ENGINE_OPEN, 'suppress-autoplay')
 
@@ -67,14 +67,26 @@ const ENGINE_API = `    goTo(0, false);
       hideTool: function (animate) { try { slideCenter(animate !== false); hideTool(animate !== false); } catch (e) {} },
       pushBubble: function (w, t) {
         try {
-          var b = makeBubble({ w: w, t: t }); chat.appendChild(b); toBottom();
+          var b = makeBubble({ w: w, t: t });
+          // child label = the name the child told Аня (fallback «Ты»), not the
+          // demo's hard-coded «Макс».
+          if (w === 'child') { var who0 = b.querySelector('.who'); if (who0) who0.textContent = window.__klassioChildName || 'Ты'; }
+          chat.appendChild(b); toBottom();
           setStatus(w === 'tutor' ? 'speaking' : 'listening');
           if (RM) { revealWords(b); return; }
-          var words = b.querySelectorAll('.w'); var stg = w === 'tutor' ? 0.09 : 0.04;
-          gsap.fromTo(b, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: .35, ease: 'power3.out' });
-          gsap.fromTo(words, { opacity: 0, y: 8, filter: 'blur(5px)' }, { opacity: 1, y: 0, filter: 'blur(0px)', duration: .5, stagger: stg, ease: 'power3.out', onUpdate: toBottom });
-          setTimeout(function () { revealWords(b); toBottom(); }, words.length * (stg * 1000) + 900);
+          // Fast type-in so the chat keeps up with the live voice.
+          var words = b.querySelectorAll('.w'); var stg = 0.025;
+          gsap.fromTo(b, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: .2, ease: 'power3.out' });
+          gsap.fromTo(words, { opacity: 0, y: 6, filter: 'blur(4px)' }, { opacity: 1, y: 0, filter: 'blur(0px)', duration: .3, stagger: stg, ease: 'power3.out', onUpdate: toBottom });
+          setTimeout(function () { revealWords(b); toBottom(); }, words.length * (stg * 1000) + 400);
         } catch (e) { console.error('[klassio] pushBubble', e); }
+      },
+      setChildName: function (name) {
+        try {
+          if (!name) return;
+          window.__klassioChildName = String(name).trim();
+          document.querySelectorAll('#chat .bubble.child .who').forEach(function (el) { el.textContent = window.__klassioChildName; });
+        } catch (e) {}
       },
       setMuted: function (m) { try { setMuted(!!m); } catch (e) {} },
       onMute: null,
