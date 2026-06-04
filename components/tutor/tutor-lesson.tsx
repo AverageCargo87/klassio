@@ -53,6 +53,8 @@ interface KlassioEngine {
   setChildName: (name: string) => void
   showStartButton: () => void
   hideStartButton: () => void
+  setStartButtonText: (text: string, disabled: boolean) => void
+  startTimer: () => void
   onStart: null | (() => void)
   showBoard: (variant: string, animate?: boolean) => void
   showTask: (step: unknown, animate?: boolean) => void
@@ -77,6 +79,7 @@ export function TutorLesson(props: TutorLessonProps) {
 function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLessonProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [engineReady, setEngineReady] = useState(false)
   const isStartingRef = useRef(false)
 
   // voice picker
@@ -303,7 +306,8 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         e.onMute = (isMuted) => muteHandlerRef.current(isMuted)
         e.onSolve = (step) => solveHandlerRef.current(step)
         e.setCaption('')
-      } else if (++tries > 100) {
+        setEngineReady(true) // → the status effect reveals the Start button (now safe to click)
+      } else if (++tries > 600) {
         window.clearInterval(id)
         console.warn('[tutor] __klassioEngine never appeared')
       }
@@ -311,13 +315,24 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     return () => window.clearInterval(id)
   }, [engine])
 
-  // show/hide the design's centre «Начать урок» button by session state
+  // drive the design's centre button by connection state. Runs only once the
+  // engine is ready (onStart wired) — so the button appears only when a click
+  // will actually work, and shows «Подключение…» while connecting.
   useEffect(() => {
     const e = engine()
-    if (!e) return
-    if (isActive) e.hideStartButton()
-    else e.showStartButton()
-  }, [isActive, engine])
+    if (!e || !engineReady) return
+    const s = conversation.status
+    if (s === 'connected') {
+      e.hideStartButton()
+      e.startTimer() // lesson timer starts when the teacher connects, not on page-load
+    } else if (s === 'connecting') {
+      e.showStartButton()
+      e.setStartButtonText('Подключение…', true)
+    } else {
+      e.showStartButton()
+      e.setStartButtonText('Начать урок', false)
+    }
+  }, [conversation.status, engineReady, engine])
 
   // periodic fatigue signal
   useEffect(() => {

@@ -91,6 +91,8 @@ const ENGINE_API = `    goTo(0, false);
       setMuted: function (m) { try { setMuted(!!m); } catch (e) {} },
       showStartButton: function () { var el = document.getElementById('klassio-start'); if (el) el.style.display = 'flex'; },
       hideStartButton: function () { var el = document.getElementById('klassio-start'); if (el) el.style.display = 'none'; },
+      setStartButtonText: function (txt, disabled) { try { var w = document.getElementById('klassio-start'); if (!w) return; var b = w.querySelector('button'); if (!b) return; b.textContent = txt; b.disabled = !!disabled; b.style.opacity = disabled ? '0.65' : '1'; } catch (e) {} },
+      startTimer: function () { try { if (window.__klassioTimerStarted) return; window.__klassioTimerStarted = true; startTimer(); } catch (e) {} },
       onStart: null,
       onMute: null,
       onSolve: null,
@@ -104,11 +106,13 @@ const ENGINE_API = `    goTo(0, false);
     (function () {
       var wrap = document.createElement('div');
       wrap.id = 'klassio-start';
-      wrap.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:60;pointer-events:none';
+      // hidden until React has wired onStart (avoids a dead click during the
+      // big iframe load), then shown by the React status effect.
+      wrap.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:60;pointer-events:none';
       var b = document.createElement('button');
       b.className = 'submit-btn';
       b.textContent = 'Начать урок';
-      b.style.cssText = 'pointer-events:auto;background:var(--accent);color:#fff;font-size:18px;font-weight:800;padding:16px 44px;border:none;cursor:pointer';
+      b.style.cssText = 'pointer-events:auto;background:var(--accent);color:#fff;font-size:23px;font-weight:800;padding:30px 62px;border:none;cursor:pointer;line-height:1.1';
       b.onclick = function () { if (window.__klassioEngine && window.__klassioEngine.onStart) window.__klassioEngine.onStart(); };
       wrap.appendChild(b); document.body.appendChild(wrap);
     })();
@@ -123,6 +127,11 @@ const ONSOLVED_HOOK =
   '    if (window.__KLASSIO_LIVE && window.__klassioEngine && window.__klassioEngine.onSolve) { try { window.__klassioEngine.onSolve(step); } catch (e) {} }\n' +
   '    if (solvedTasks.has(step.id)) return; solvedTasks.add(step.id);'
 replaceOnce(ONSOLVED, ONSOLVED_HOOK, 'onsolve-hook')
+
+// ── 4. Lesson timer starts on CONNECT, not on page-load ──────────────────────
+const TIMER_CALL = '    // таймер урока — идёт с открытия\n    startTimer();'
+const TIMER_REPLACE = '    // KLASSIO-LIVE: таймер стартует при подключении учителя (engine.startTimer)'
+replaceOnce(TIMER_CALL, TIMER_REPLACE, 'timer-on-connect')
 
 mkdirSync(dirname(OUT), { recursive: true })
 writeFileSync(OUT, html, 'utf8')
