@@ -51,6 +51,9 @@ interface KlassioEngine {
   setCaption: (t: string) => void
   setMuted: (m: boolean) => void
   setChildName: (name: string) => void
+  showStartButton: () => void
+  hideStartButton: () => void
+  onStart: null | (() => void)
   showBoard: (variant: string, animate?: boolean) => void
   showTask: (step: unknown, animate?: boolean) => void
   hideTool: (animate?: boolean) => void
@@ -271,6 +274,9 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     post('/api/tutor/complete', { sessionId })
   }, [conversation, post, sessionId])
 
+  // design's centre «Начать урок» button → start the session
+  const startHandlerRef = useRef<() => void>(() => {})
+  startHandlerRef.current = () => { void startSession() }
   // mic = mute/unmute (design's mic button → here), never ends the session
   const muteHandlerRef = useRef<(isMuted: boolean) => void>(() => {})
   muteHandlerRef.current = (isMuted: boolean) => {
@@ -293,6 +299,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
       const e = engine()
       if (e) {
         window.clearInterval(id)
+        e.onStart = () => startHandlerRef.current()
         e.onMute = (isMuted) => muteHandlerRef.current(isMuted)
         e.onSolve = (step) => solveHandlerRef.current(step)
         e.setCaption('')
@@ -303,6 +310,14 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     }, 100)
     return () => window.clearInterval(id)
   }, [engine])
+
+  // show/hide the design's centre «Начать урок» button by session state
+  useEffect(() => {
+    const e = engine()
+    if (!e) return
+    if (isActive) e.hideStartButton()
+    else e.showStartButton()
+  }, [isActive, engine])
 
   // periodic fatigue signal
   useEffect(() => {
@@ -356,22 +371,8 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         ))}
       </div>
 
-      {/* centre Start button — shown until the session is live */}
-      {!isActive && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
-          <button
-            onClick={() => void startSession()}
-            className="pointer-events-auto inline-flex items-center gap-3 rounded-2xl px-10 h-16 text-lg font-extrabold uppercase tracking-wide text-white shadow-2xl transition-transform active:translate-y-0.5"
-            style={{ background: '#C9A227', boxShadow: '0 8px 0 rgba(0,0,0,0.25)' }}
-          >
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden>
-              <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z" />
-              <path d="M19 11a1 1 0 0 0-2 0 5 5 0 0 1-10 0 1 1 0 0 0-2 0 7 7 0 0 0 6 6.92V21H8a1 1 0 0 0 0 2h8a1 1 0 0 0 0-2h-2v-3.08A7 7 0 0 0 19 11z" />
-            </svg>
-            Начать урок
-          </button>
-        </div>
-      )}
+      {/* centre «Начать урок» button lives INSIDE the design (build injection) —
+          a .submit-btn clone with ButtonFX, coloured like the mic. */}
 
       {/* End button — shown while live */}
       {isActive && (

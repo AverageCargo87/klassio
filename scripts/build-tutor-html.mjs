@@ -89,12 +89,29 @@ const ENGINE_API = `    goTo(0, false);
         } catch (e) {}
       },
       setMuted: function (m) { try { setMuted(!!m); } catch (e) {} },
+      showStartButton: function () { var el = document.getElementById('klassio-start'); if (el) el.style.display = 'flex'; },
+      hideStartButton: function () { var el = document.getElementById('klassio-start'); if (el) el.style.display = 'none'; },
+      onStart: null,
       onMute: null,
       onSolve: null,
     };
     /* mic button = MUTE/UNMUTE only (never starts/ends the lesson). Toggles the
        design's own visual mute, then notifies React to mute the live SDK. */
     micBtn.onclick = function () { setMuted(!muted); if (window.__klassioEngine.onMute) window.__klassioEngine.onMute(muted); };
+    /* in-design START button: a clone of the test buttons (class .submit-btn →
+       inherits the design CSS + ButtonFX hover/press animation), coloured like
+       the mic (var(--accent)). React registers __klassioEngine.onStart. */
+    (function () {
+      var wrap = document.createElement('div');
+      wrap.id = 'klassio-start';
+      wrap.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:60;pointer-events:none';
+      var b = document.createElement('button');
+      b.className = 'submit-btn';
+      b.textContent = 'Начать урок';
+      b.style.cssText = 'pointer-events:auto;background:var(--accent);color:#fff;font-size:18px;font-weight:800;padding:16px 44px;border:none;cursor:pointer';
+      b.onclick = function () { if (window.__klassioEngine && window.__klassioEngine.onStart) window.__klassioEngine.onStart(); };
+      wrap.appendChild(b); document.body.appendChild(wrap);
+    })();
   }`
 replaceOnce(INIT_END, ENGINE_API, 'engine-api')
 
