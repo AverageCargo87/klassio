@@ -50,6 +50,11 @@ const VOICE_STORAGE = 'klassio-tutor-voice'
 // skips a board and always starts with the cover (title) slide.
 const BOARD_ORDER = ['cover', 'etymology', 'bodies', 'solar', 'facts'] as const
 
+// Minimum time a board/task stays in the centre before another can replace it —
+// a safety net so a board doesn't "flash" when Аня chains show_board+show_trainer
+// in one turn. When she paces properly (narrates, then advances) this is a no-op.
+const MIN_DWELL_MS = 6500
+
 interface KlassioEngine {
   setStatus: (s: 'listening' | 'speaking' | 'thinking') => void
   setCaption: (t: string) => void
@@ -121,6 +126,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
   const boardIndexRef = useRef<number>(0)
   const consecutiveErrorsRef = useRef<number>(0)
   const currentTaskIdRef = useRef<string>('')
+  const lastStageAtRef = useRef<number>(0)
   const startTimeRef = useRef<number>(0)
   const convoCmdRef = useRef<{ sendContextualUpdate: (t: string) => void; sendUserMessage: (t: string) => void }>({
     sendContextualUpdate: () => {},
@@ -153,13 +159,24 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
       .catch((e) => console.error('[tutor] POST failed', url, e))
   }, [])
 
+  // Schedule a centre-stage change, never sooner than MIN_DWELL_MS after the
+  // previous one — so a board can't flash when Аня chains two reveals in a turn.
+  const revealStage = useCallback((fn: () => void) => {
+    const now = Date.now()
+    const since = now - lastStageAtRef.current
+    const wait = since >= MIN_DWELL_MS ? 0 : MIN_DWELL_MS - since
+    lastStageAtRef.current = now + wait
+    if (wait) window.setTimeout(fn, wait)
+    else fn()
+  }, [])
+
   // ── agent client tools → drive the design ─────────────────────────────────
   const clientTools: ClientTools = useMemo(
     () => ({
       show_board: (p: Record<string, unknown>) => {
         const board = typeof p.board === 'string' ? p.board.trim() : ''
         if (!board) return 'Error: пустой board'
-        engine()?.showBoard(board)
+        revealStage(() => engine()?.showBoard(board))
         shownBoardsRef.current.add(board)
         const oi = (BOARD_ORDER as readonly string[]).indexOf(board)
         if (oi >= 0) boardIndexRef.current = Math.max(boardIndexRef.current, oi + 1)
@@ -171,7 +188,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         const i = Math.min(boardIndexRef.current, BOARD_ORDER.length - 1)
         const board = BOARD_ORDER[i]
         boardIndexRef.current = i + 1
-        engine()?.showBoard(board)
+        revealStage(() => engine()?.showBoard(board))
         shownBoardsRef.current.add(board)
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'board', variant: board, via: 'next' } })
         return `OK, показана доска "${board}" (${i + 1}/${BOARD_ORDER.length}).`
@@ -182,7 +199,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         const tasks = realLesson().filter((s) => s?.type === 'task')
         const step = Number.isFinite(n) ? tasks[n - 1] : undefined
         if (!step) return `Error: задача "${taskId}" не найдена`
-        engine()?.showTask(step)
+        revealStage(() => engine()?.showTask(step))
         currentTaskIdRef.current = taskId
         shownTasksRef.current.add(taskId)
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'trainer', taskId } })
@@ -203,7 +220,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
       },
       give_reward: (p: Record<string, unknown>) => {
         const label = typeof p.label === 'string' ? p.label.trim() : undefined
-        engine()?.showBoard('reward')
+        revealStage(() => engine()?.showBoard('reward'))
         post('/api/tutor/event', { sessionId, eventType: 'reward_given', payload: { label: label ?? null } })
         // reward = end of the lesson → mark the session completed
         post('/api/tutor/complete', { sessionId })
@@ -224,7 +241,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         return `Имя запомнено: ${name}`
       },
     }),
-    [engine, realLesson, getState, post, sessionId],
+    [engine, realLesson, getState, post, revealStage, sessionId],
   )
 
   // ── SDK callbacks ─────────────────────────────────────────────────────────
