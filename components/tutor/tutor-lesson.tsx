@@ -61,7 +61,6 @@ export function TutorLesson(props: TutorLessonProps) {
 function TutorLessonInner({ sessionId, lessonTitle, lessonSubtitle, dynamicVariables }: TutorLessonProps) {
   const bus = useLessonBus()
   const [error, setError] = useState<string | null>(null)
-  const [usingFallbackAgent, setUsingFallbackAgent] = useState(false)
   const isStartingRef = useRef(false)
 
   // ── tracking refs (read by tools + fatigue; never trigger re-render) ──────
@@ -256,8 +255,7 @@ function TutorLessonInner({ sessionId, lessonTitle, lessonSubtitle, dynamicVaria
         setError('Не удалось получить ссылку. Попробуй снова.')
         return
       }
-      const data = (await res.json()) as { signedUrl: string; usingFallbackAgent?: boolean }
-      if (data.usingFallbackAgent) setUsingFallbackAgent(true)
+      const data = (await res.json()) as { signedUrl: string }
 
       startTimeRef.current = Date.now()
       conversation.startSession({
@@ -369,12 +367,6 @@ function TutorLessonInner({ sessionId, lessonTitle, lessonSubtitle, dynamicVaria
           >
             Завершить урок
           </button>
-        )}
-        {usingFallbackAgent && (
-          <p className="text-[11px] text-center max-w-md" style={{ color: BEIGE.sub }}>
-            ⚠ Голос временно использует математический агент — задай ELEVENLABS_TUTOR_AGENT_ID
-            (scripts/restore-tutor-agent.mjs), чтобы говорила Аня.
-          </p>
         )}
         {error && (
           <p className="text-xs text-center max-w-md" style={{ color: '#C0392B' }}>{error}</p>
