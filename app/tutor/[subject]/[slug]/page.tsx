@@ -6,13 +6,13 @@
 // NOTE: this page is a FUNCTIONAL integration harness for the tutor backend
 // (voice + tools + moderation + tracking). The rich Claude-Design visual port
 // (.tmp/sketches/tutor/anya-tutor-clean.html) layers on top of this wiring.
-import { auth } from '@/auth'
 import { redirect, notFound } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
 import { resolveLesson } from '@/lib/curriculum'
 import { getOrStartSession, buildTutorDynamicVariables } from '@/lib/tutor'
+import { getUserId } from '@/lib/tutor/http'
 import { TutorLesson } from '@/components/tutor/tutor-lesson'
 
 export const dynamic = 'force-dynamic'
@@ -24,14 +24,14 @@ export default async function TutorLessonRoute({
 }) {
   const { subject, slug } = await params
 
-  const session = await auth()
-  if (!session?.user?.id) redirect('/login')
+  const userId = await getUserId()
+  if (!userId) redirect('/login')
 
   const lesson = resolveLesson(subject, slug)
   if (!lesson) notFound()
 
   const start = await getOrStartSession({
-    userId: session.user.id,
+    userId,
     subjectId: subject,
     lessonSlug: slug,
   })
@@ -39,7 +39,7 @@ export default async function TutorLessonRoute({
   const [u] = await db
     .select({ childName: users.childName })
     .from(users)
-    .where(eq(users.id, session.user.id))
+    .where(eq(users.id, userId))
     .limit(1)
 
   const dynamicVariables = buildTutorDynamicVariables({
