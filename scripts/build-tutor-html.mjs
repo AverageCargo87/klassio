@@ -95,7 +95,22 @@ const ENGINE_API = `    goTo(0, false);
       hideStartButton: function () { var el = document.getElementById('klassio-start'); if (el) el.style.display = 'none'; },
       setStartButtonText: function (txt, disabled) { try { var w = document.getElementById('klassio-start'); if (!w) return; var b = w.querySelector('button'); if (!b) return; b.textContent = txt; b.disabled = !!disabled; b.style.opacity = disabled ? '0.65' : '1'; } catch (e) {} },
       startTimer: function () { try { if (window.__klassioTimerStarted) return; window.__klassioTimerStarted = true; startTimer(); } catch (e) {} },
+      setVoiceMenu: function (voices, selectedKey) {
+        try {
+          var m = document.getElementById('klassio-voice-menu'); if (!m) return;
+          m.innerHTML = '';
+          (voices || []).forEach(function (v) {
+            var b = document.createElement('button');
+            b.textContent = v.label;
+            b.style.cssText = 'border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;text-align:left;white-space:nowrap;background:' + (v.key === selectedKey ? 'var(--accent)' : 'transparent') + ';color:' + (v.key === selectedKey ? '#fff' : '#3a3a3a');
+            b.onclick = function (e) { e.stopPropagation(); if (window.__klassioEngine && window.__klassioEngine.onVoiceSelect) window.__klassioEngine.onVoiceSelect(v.key); };
+            m.appendChild(b);
+          });
+        } catch (e) {}
+      },
       onStart: null,
+      onWrong: null,
+      onVoiceSelect: null,
       onMute: null,
       onSolve: null,
     };
@@ -118,6 +133,42 @@ const ENGINE_API = `    goTo(0, false);
       b.onclick = function () { if (window.__klassioEngine && window.__klassioEngine.onStart) window.__klassioEngine.onStart(); };
       wrap.appendChild(b); document.body.appendChild(wrap);
     })();
+    /* wrong-answer signal: the design marks a wrong option .wrong/.bad but gives
+       no callback — observe it and notify React so Аня can help (not stay silent). */
+    (function () {
+      var lastWrong = 0;
+      var mo = new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+          var t = muts[i].target;
+          if (t && t.classList && (t.classList.contains('wrong') || t.classList.contains('bad'))) {
+            var now = Date.now();
+            if (now - lastWrong < 1500) return;
+            lastWrong = now;
+            if (window.__klassioEngine && window.__klassioEngine.onWrong) { try { window.__klassioEngine.onWrong(); } catch (e) {} }
+            return;
+          }
+        }
+      });
+      mo.observe(toolZone, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    })();
+    /* voice picker as a hover-dropdown on Аня's avatar (.av-mini) in the header. */
+    (function () {
+      var av = document.querySelector('.av-mini');
+      if (!av) return;
+      av.style.position = 'relative'; av.style.cursor = 'pointer';
+      var menu = document.createElement('div');
+      menu.id = 'klassio-voice-menu';
+      menu.style.cssText = 'position:absolute;top:calc(100% + 10px);left:50%;transform:translate(-50%,-6px);background:#fff;border-radius:14px;box-shadow:0 10px 28px rgba(0,0,0,.18);padding:6px;display:flex;flex-direction:column;gap:3px;opacity:0;pointer-events:none;transition:opacity .22s ease, transform .22s ease;z-index:90';
+      av.appendChild(menu);
+      av.addEventListener('mouseenter', function () { menu.style.opacity = '1'; menu.style.transform = 'translate(-50%,0)'; menu.style.pointerEvents = 'auto'; });
+      av.addEventListener('mouseleave', function () { menu.style.opacity = '0'; menu.style.transform = 'translate(-50%,-6px)'; menu.style.pointerEvents = 'none'; });
+    })();
+    /* wire the design's own «Выйти» button → leave to the cabinet (React cleanup
+       ends the voice session). */
+    (function () {
+      var ex = document.querySelector('.exit');
+      if (ex) ex.onclick = function () { try { window.top.location.href = '/cabinet/okr-mir-4'; } catch (e) { window.location.href = '/cabinet/okr-mir-4'; } };
+    })();
   }`
 replaceOnce(INIT_END, ENGINE_API, 'engine-api')
 
@@ -126,7 +177,9 @@ const ONSOLVED =
   '  function onTaskSolved(step) {\n    if (solvedTasks.has(step.id)) return; solvedTasks.add(step.id);'
 const ONSOLVED_HOOK =
   '  function onTaskSolved(step) {\n' +
-  '    if (window.__KLASSIO_LIVE && window.__klassioEngine && window.__klassioEngine.onSolve) { try { window.__klassioEngine.onSolve(step); } catch (e) {} }\n' +
+  // LIVE: notify React (once) and RETURN — skip the demo\'s hard-coded "explain"
+  // bubble; the real Аня reacts via voice + her own chat message instead.
+  '    if (window.__KLASSIO_LIVE) { if (!solvedTasks.has(step.id)) { solvedTasks.add(step.id); if (window.__klassioEngine && window.__klassioEngine.onSolve) { try { window.__klassioEngine.onSolve(step); } catch (e) {} } } return; }\n' +
   '    if (solvedTasks.has(step.id)) return; solvedTasks.add(step.id);'
 replaceOnce(ONSOLVED, ONSOLVED_HOOK, 'onsolve-hook')
 

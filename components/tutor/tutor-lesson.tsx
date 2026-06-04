@@ -55,7 +55,10 @@ interface KlassioEngine {
   hideStartButton: () => void
   setStartButtonText: (text: string, disabled: boolean) => void
   startTimer: () => void
+  setVoiceMenu: (voices: Array<{ key: string; label: string }>, selectedKey: string) => void
   onStart: null | (() => void)
+  onWrong: null | (() => void)
+  onVoiceSelect: null | ((key: string) => void)
   showBoard: (variant: string, animate?: boolean) => void
   showTask: (step: unknown, animate?: boolean) => void
   hideTool: (animate?: boolean) => void
@@ -101,8 +104,12 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
   const solvedRef = useRef<Set<string>>(new Set())
   const shownTasksRef = useRef<Set<string>>(new Set())
   const consecutiveErrorsRef = useRef<number>(0)
+  const currentTaskIdRef = useRef<string>('')
   const startTimeRef = useRef<number>(0)
-  const convoCmdRef = useRef<{ sendContextualUpdate: (t: string) => void }>({ sendContextualUpdate: () => {} })
+  const convoCmdRef = useRef<{ sendContextualUpdate: (t: string) => void; sendUserMessage: (t: string) => void }>({
+    sendContextualUpdate: () => {},
+    sendUserMessage: () => {},
+  })
 
   const engine = useCallback((): KlassioEngine | null => {
     const w = iframeRef.current?.contentWindow as KlassioWindow | null
@@ -146,6 +153,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         const step = Number.isFinite(n) ? tasks[n - 1] : undefined
         if (!step) return `Error: задача "${taskId}" не найдена`
         engine()?.showTask(step)
+        currentTaskIdRef.current = taskId
         shownTasksRef.current.add(taskId)
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'trainer', taskId } })
         return `OK, задание ${taskId} показано.`
@@ -161,6 +169,8 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         const label = typeof p.label === 'string' ? p.label.trim() : undefined
         engine()?.showBoard('reward')
         post('/api/tutor/event', { sessionId, eventType: 'reward_given', payload: { label: label ?? null } })
+        // reward = end of the lesson → mark the session completed
+        post('/api/tutor/complete', { sessionId })
         return 'Награда показана'
       },
       take_break: (p: Record<string, unknown>) => {
@@ -222,7 +232,10 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     onMessage: handleMessage,
     onError: handleError,
   })
-  convoCmdRef.current = conversation as unknown as { sendContextualUpdate: (t: string) => void }
+  convoCmdRef.current = conversation as unknown as {
+    sendContextualUpdate: (t: string) => void
+    sendUserMessage: (t: string) => void
+  }
   const isActive = conversation.status === 'connected' || conversation.status === 'connecting'
 
   // ── start / stop ──────────────────────────────────────────────────────────
@@ -272,10 +285,6 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     }
   }, [conversation, sessionId, dynamicVariables, engine, isActive])
 
-  const stopSession = useCallback(() => {
-    try { conversation.endSession() } catch (e) { console.error('[tutor] stop', e) }
-    post('/api/tutor/complete', { sessionId })
-  }, [conversation, post, sessionId])
 
   // design's centre «Начать урок» button → start the session
   const startHandlerRef = useRef<() => void>(() => {})
@@ -288,11 +297,28 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
   }
   const solveHandlerRef = useRef<(step: { id?: string; skill?: string }) => void>(() => {})
   solveHandlerRef.current = (step) => {
-    const taskId = step?.id ?? 'task'
+    const taskId = currentTaskIdRef.current || step?.id || 'task'
     solvedRef.current.add(taskId)
     consecutiveErrorsRef.current = 0
     post('/api/tutor/attempt', { sessionId, taskId, correct: true, skillTag: step?.skill })
-    try { convoCmdRef.current.sendContextualUpdate(`[ПЛАТФОРМА] Ребёнок решил задание ${taskId}. Похвали и продолжай.`) } catch {/* noop */}
+    // sendUserMessage (not sendContextualUpdate) → 11labs treats it as input so
+    // Аня reacts NOW instead of buffering behind her turn (the 5-10 s lag).
+    try {
+      convoCmdRef.current.sendUserMessage(
+        '[ПЛАТФОРМА] Ребёнок выбрал ПРАВИЛЬНЫЙ ответ на экране. Коротко похвали ПРЯМО СЕЙЧАС и веди дальше к следующему блоку/заданию.',
+      )
+    } catch {/* noop */}
+  }
+  // child picked a WRONG trainer option → Аня helps instead of staying silent
+  const wrongHandlerRef = useRef<() => void>(() => {})
+  wrongHandlerRef.current = () => {
+    consecutiveErrorsRef.current += 1
+    if (currentTaskIdRef.current) post('/api/tutor/attempt', { sessionId, taskId: currentTaskIdRef.current, correct: false })
+    try {
+      convoCmdRef.current.sendUserMessage(
+        '[ПЛАТФОРМА] Ребёнок выбрал НЕВЕРНЫЙ ответ на экране. Мягко поддержи и подскажи ПРЯМО СЕЙЧАС, не давай сразу правильный ответ. НЕ переходи дальше — дождись верного выбора.',
+      )
+    } catch {/* noop */}
   }
 
   // wire into the design once its engine is ready
@@ -305,6 +331,8 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         e.onStart = () => startHandlerRef.current()
         e.onMute = (isMuted) => muteHandlerRef.current(isMuted)
         e.onSolve = (step) => solveHandlerRef.current(step)
+        e.onWrong = () => wrongHandlerRef.current()
+        e.onVoiceSelect = (key) => selectVoice(key)
         e.setCaption('')
         setEngineReady(true) // → the status effect reveals the Start button (now safe to click)
       } else if (++tries > 600) {
@@ -333,6 +361,12 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
       e.setStartButtonText('Начать урок', false)
     }
   }, [conversation.status, engineReady, engine])
+
+  // (re)build the voice menu on Аня's avatar, highlighting the current choice
+  useEffect(() => {
+    if (!engineReady) return
+    engine()?.setVoiceMenu(TUTOR_VOICES.map((v) => ({ key: v.key, label: v.label })), voiceKey)
+  }, [voiceKey, engineReady, engine])
 
   // periodic fatigue signal
   useEffect(() => {
@@ -369,35 +403,10 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         allow="microphone; autoplay"
       />
 
-      {/* voice / tutor picker — top-left */}
-      <div className="absolute top-3 left-3 z-50 flex gap-1 rounded-full bg-black/45 backdrop-blur px-1 py-1">
-        {TUTOR_VOICES.map((o) => (
-          <button
-            key={o.key}
-            onClick={() => selectVoice(o.key)}
-            disabled={isActive}
-            title="Выбор голоса репетитора"
-            className={`text-xs font-semibold px-3 py-1 rounded-full transition-colors disabled:opacity-50 ${
-              o.key === voiceKey ? 'bg-white text-black' : 'text-white/85 hover:text-white'
-            }`}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-
-      {/* centre «Начать урок» button lives INSIDE the design (build injection) —
-          a .submit-btn clone with ButtonFX, coloured like the mic. */}
-
-      {/* End button — shown while live */}
-      {isActive && (
-        <button
-          onClick={stopSession}
-          className="absolute top-3 right-3 z-50 rounded-full bg-black/45 backdrop-blur text-white/90 hover:text-white text-xs font-semibold px-4 py-1.5"
-        >
-          Завершить урок
-        </button>
-      )}
+      {/* All chrome lives INSIDE the design now: the voice picker is a hover
+          dropdown on Аня's avatar, «Начать урок» is the centered button, and
+          «Выйти» (top-right) ends the lesson — all wired via the build bridge.
+          React owns only voice + the error toast. */}
 
       {error && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-red-600 text-white text-sm px-3 py-2 shadow-lg">
