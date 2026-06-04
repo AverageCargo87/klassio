@@ -55,7 +55,11 @@ export const TUTOR_TOOLS = [
     type: 'client',
     name: 'show_board',
     description:
-      'Показать на доске наглядную схему по теме. Передай board: "solar-system" (Солнечная система), "sun-vs-earth" (размеры Солнца и Земли), "orbits" (орбиты планет), "planet-sizes" (сравнение размеров планет). Говори ПАРАЛЛЕЛЬНО с показом, чуть медленнее. Потом убери через hide_tool.',
+      'Показать на доске готовую наглядную схему урока «Мир глазами астронома». Допустимые board: ' +
+      '"cover" (обложка урока), "etymology" (что такое астрономия — слово от «астрон» = звезда), ' +
+      '"bodies" (небесные тела: звёзды, планеты, спутники, кометы), ' +
+      '"solar" (карта Солнечной системы с планетами — крутится, можно кликать планеты), ' +
+      '"facts" (карточки интересных фактов). Говори ПАРАЛЛЕЛЬНО с показом, чуть медленнее. Потом убери через hide_tool.',
     response_timeout_secs: 20,
     expects_response: true,
     execution_mode: 'immediate',
@@ -64,29 +68,10 @@ export const TUTOR_TOOLS = [
       properties: {
         board: {
           type: 'string',
-          description: 'ID доски: solar-system | sun-vs-earth | orbits | planet-sizes.',
+          description: 'ID доски: cover | etymology | bodies | solar | facts.',
         },
       },
       required: ['board'],
-    },
-  },
-  {
-    type: 'client',
-    name: 'draw_board',
-    description:
-      'Нарисовать произвольное объяснение на доске, если готовой доски нет. Возвращает ack мгновенно — голос идёт параллельно с рисованием, чуть замедли темп.',
-    response_timeout_secs: 20,
-    expects_response: true,
-    execution_mode: 'immediate',
-    parameters: {
-      type: 'object',
-      properties: {
-        prompt: {
-          type: 'string',
-          description: 'Что нарисовать простыми словами, например "орбиты планет вокруг Солнца".',
-        },
-      },
-      required: ['prompt'],
     },
   },
   {

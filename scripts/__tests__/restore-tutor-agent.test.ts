@@ -14,8 +14,8 @@ const tutorNames = TUTOR_TOOL_NAMES as string[]
 const mathNames = PHASE_8_TOOL_NAMES as string[]
 
 describe('tutor agent — tool definitions', () => {
-  it('defines 8 well-formed client tools', () => {
-    expect(tools).toHaveLength(8)
+  it('defines 7 well-formed client tools', () => {
+    expect(tools).toHaveLength(7)
     for (const t of tools) {
       expect(t.type).toBe('client')
       expect(typeof t.name).toBe('string')

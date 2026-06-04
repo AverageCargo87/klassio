@@ -26,13 +26,9 @@ export const OKR_MIR_4_LESSONS: CurriculumLesson[] = [
     number: 1,
     title: 'Мир глазами астронома',
     subtitle: 'Что такое астрономия, Вселенная, Солнечная система. Солнце как звезда.',
-    // href is WIRED to the tutor route, but status stays 'coming-soon' until the
-    // lesson actually works for a real child. To flip to 'available':
-    //   1. Provision the «Аня» agent: `node scripts/restore-tutor-agent.mjs --create`
-    //      and set ELEVENLABS_TUTOR_AGENT_ID (else voice falls back to the math agent).
-    //   2. (recommended) port the Claude-Design visuals into components/tutor.
-    //   3. change status → 'available' (href below already points at the route).
-    status: 'coming-soon',
+    // LIVE: served via app/tutor/[subject]/[slug] → the Claude-Design front-end
+    // (public/tutor/anya.html) with the live «Аня» agent bolted on.
+    status: 'available',
     href: '/tutor/okr-mir-4/astronom',
   },
   {
