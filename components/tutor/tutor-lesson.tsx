@@ -71,9 +71,18 @@ interface KlassioEngine {
   onMute: null | ((isMuted: boolean) => void)
   onSolve: null | ((step: { id?: string; skill?: string }) => void)
 }
+interface LessonStep {
+  type?: string
+  id?: string
+  skill?: string
+  q?: string
+  answer?: string
+  explain?: string
+  options?: Array<{ t: string; correct?: boolean }>
+}
 interface KlassioWindow extends Window {
   __klassioEngine?: KlassioEngine
-  __KLASSIO_REAL_LESSON?: Array<{ type?: string; id?: string; skill?: string }>
+  __KLASSIO_REAL_LESSON?: LessonStep[]
 }
 
 export function TutorLesson(props: TutorLessonProps) {
@@ -177,7 +186,13 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         currentTaskIdRef.current = taskId
         shownTasksRef.current.add(taskId)
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'trainer', taskId } })
-        return `OK, задание ${taskId} показано.`
+        // Return the EXACT task content so Аня introduces the question that's
+        // actually on screen (fixes «спрашивает одно — на тесте другое»).
+        const opts = Array.isArray(step.options) ? step.options.map((o) => o.t).join(' / ') : (step.answer ?? '')
+        const correct = Array.isArray(step.options)
+          ? (step.options.find((o) => o.correct)?.t ?? '')
+          : (step.answer ?? '')
+        return `OK, на экране задание ${taskId}: «${step.q ?? ''}». Варианты: ${opts}. Правильный: ${correct}. Объяви ИМЕННО этот вопрос своими словами и попроси выбрать ответ на экране. НЕ называй правильный ответ вслух.`
       },
       hide_tool: () => { engine()?.hideTool(); return 'Холст очищен' },
       set_phase: (p: Record<string, unknown>) => {

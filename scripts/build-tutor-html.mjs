@@ -76,11 +76,12 @@ const ENGINE_API = `    goTo(0, false);
           chat.appendChild(b); toBottom();
           setStatus(w === 'tutor' ? 'speaking' : 'listening');
           if (RM) { revealWords(b); return; }
-          // Fast type-in so the chat keeps up with the live voice.
-          var words = b.querySelectorAll('.w'); var stg = 0.025;
+          // Type-in: starts immediately (when she starts speaking) but the words
+          // "run" gently so the chat reads at a calm pace alongside her voice.
+          var words = b.querySelectorAll('.w'); var stg = 0.06;
           gsap.fromTo(b, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: .2, ease: 'power3.out' });
-          gsap.fromTo(words, { opacity: 0, y: 6, filter: 'blur(4px)' }, { opacity: 1, y: 0, filter: 'blur(0px)', duration: .3, stagger: stg, ease: 'power3.out', onUpdate: toBottom });
-          setTimeout(function () { revealWords(b); toBottom(); }, words.length * (stg * 1000) + 400);
+          gsap.fromTo(words, { opacity: 0, y: 6, filter: 'blur(4px)' }, { opacity: 1, y: 0, filter: 'blur(0px)', duration: .45, stagger: stg, ease: 'power3.out', onUpdate: toBottom });
+          setTimeout(function () { revealWords(b); toBottom(); }, words.length * (stg * 1000) + 600);
         } catch (e) { console.error('[klassio] pushBubble', e); }
       },
       setChildName: function (name) {

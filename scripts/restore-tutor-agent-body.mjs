@@ -234,7 +234,9 @@ export function buildTutorAgentPatchBody({ prompt, firstMessage, voiceId, toolId
         max_duration_seconds: MAX_CONVERSATION_DURATION_SEC,
       },
       turn: {
-        turn_timeout: TURN_TIMEOUT_SEC,
+        // Tutor: 45s of silence before Аня re-engages (+20s vs the math agent —
+        // a 9-year-old needs more time to think). Operator-requested.
+        turn_timeout: 45,
         turn_eagerness: TURN_EAGERNESS,
       },
       asr: {
