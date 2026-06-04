@@ -15,8 +15,10 @@
 //   3. Notify the React layer when a trainer task is solved (for tracking).
 //
 // The design's markup / CSS / animations are untouched. Run: node scripts/build-tutor-html.mjs
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { dirname, resolve, join } from 'node:path'
+import { createHash } from 'node:crypto'
+import sharp from 'sharp'
 
 const SRC = resolve(process.cwd(), '.tmp/sketches/tutor/anya-tutor-clean.html')
 const OUT = resolve(process.cwd(), 'public/tutor/anya.html')
@@ -133,6 +135,51 @@ const TIMER_CALL = '    // таймер урока — идёт с открыт�
 const TIMER_REPLACE = '    // KLASSIO-LIVE: таймер стартует при подключении учителя (engine.startTimer)'
 replaceOnce(TIMER_CALL, TIMER_REPLACE, 'timer-on-connect')
 
+// ── 5. Externalize + shrink embedded images (30 MB → ~1-2 MB) ────────────────
+// 98% of the page is base64 PNGs (planets at 1254px). Pull each out to a file
+// under public/tutor/assets, downscale to ≤768px, convert to WebP (alpha-safe),
+// and replace the data: URI with a URL. The page HTML itself drops to ~540 KB →
+// it loads instantly (and the Start button no longer races a multi-MB download).
+const ASSETS = resolve(process.cwd(), 'public/tutor/assets')
+rmSync(ASSETS, { recursive: true, force: true })
+mkdirSync(ASSETS, { recursive: true })
+
+const DATA_URI = /data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/=]+)/g
+const urlByB64 = new Map()
+let origBytes = 0
+let outBytes = 0
+for (const mm of html.matchAll(DATA_URI)) {
+  const ext = mm[1]
+  const b64 = mm[2]
+  if (urlByB64.has(b64)) continue
+  const buf = Buffer.from(b64, 'base64')
+  // Keep small images (<40 KB) inline — they're cheap and some (the canvas-drawn
+  // mini-earth that fills the Sun) need to be available without a network fetch.
+  if (buf.length < 40_000) continue
+  origBytes += buf.length
+  const hash = createHash('sha1').update(b64).digest('hex').slice(0, 12)
+  let out
+  let name
+  try {
+    out = await sharp(buf)
+      .resize({ width: 768, height: 768, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 86 })
+      .toBuffer()
+    name = `a${hash}.webp`
+  } catch {
+    // Fallback: keep the original bytes/format (still externalized).
+    out = buf
+    name = `a${hash}.${ext === 'jpeg' ? 'jpg' : ext}`
+  }
+  writeFileSync(join(ASSETS, name), out)
+  outBytes += out.length
+  urlByB64.set(b64, `/tutor/assets/${name}`)
+}
+html = html.replace(DATA_URI, (full, _ext, b64) => urlByB64.get(b64) || full)
+console.log(
+  `[build-tutor] externalized ${urlByB64.size} images: ${(origBytes / 1e6).toFixed(1)}MB → ${(outBytes / 1e6).toFixed(2)}MB (in /public/tutor/assets)`,
+)
+
 mkdirSync(dirname(OUT), { recursive: true })
 writeFileSync(OUT, html, 'utf8')
-console.log(`[build-tutor] wrote ${OUT} (${(html.length / 1e6).toFixed(1)} MB)`)
+console.log(`[build-tutor] wrote ${OUT} (${(html.length / 1e6).toFixed(2)} MB)`)
