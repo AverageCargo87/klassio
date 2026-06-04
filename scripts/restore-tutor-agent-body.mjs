@@ -36,7 +36,7 @@ export { buildToolCreateBody }
 // First message greets the child by name via a dynamic variable (provided by
 // /api/tutor/session at startSession). Greeting by name is a core pivot feature.
 export const TUTOR_FIRST_MESSAGE =
-  'Привет, {{child_name}}! Меня зовут Аня, сегодня я твой проводник в мир вокруг нас. Как ты, как настроение?'
+  'Привет! Меня зовут Аня, сегодня мы вместе изучаем окружающий мир. А тебя как зовут?'
 
 // ASR keyword bias for astronomy vocabulary (lesson 1 «Мир глазами астронома»).
 export const TUTOR_ASR_KEYWORDS = [

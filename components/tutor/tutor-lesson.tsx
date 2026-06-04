@@ -3,16 +3,17 @@
 // Design front-end.
 //
 // The design (public/tutor/anya.html) is served UNCHANGED inside a full-screen
-// iframe. This thin React layer owns ONLY the voice stack (proven 11labs React
-// SDK) and drives the design through `window.__klassioEngine` — the bridge the
-// build step exposes over the design's OWN engine functions. No visual UI of our
-// own: everything the child sees is the design.
+// iframe. This thin React layer owns the voice stack (11labs React SDK) + three
+// small overlays the operator asked for (a centred Start button, an End button,
+// a voice/tutor picker) and drives the design through window.__klassioEngine —
+// the bridge the build step exposes over the design's OWN engine functions.
 //
-//   mic button (design)         → start/stop the live session
-//   Аня's real speech           → engine.pushBubble('tutor', …) + avatar speaking
-//   child's speech              → engine.pushBubble('child', …) + moderation check
-//   Аня's tool calls            → engine.showBoard / showTask / hideTool (your slides)
-//   trainer solved              → record attempt + tell Аня
+//   centre «Начать урок» → start the live session
+//   mic button (design)  → MUTE / UNMUTE only (never ends the lesson)
+//   «Завершить урок»      → end the session
+//   Аня's real speech    → engine.pushBubble('tutor', …) + avatar speaking
+//   child's speech        → engine.pushBubble('child', …) + server moderation
+//   Аня's tool calls      → engine.showBoard / showTask / hideTool (your slides)
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import type { ClientTools } from '@elevenlabs/react'
@@ -26,16 +27,35 @@ interface TutorLessonProps {
   dynamicVariables: TutorDynamicVariables
 }
 
-// Minimal shape of the bridge the design exposes (build-tutor-html.mjs).
+// Tutor voices. The design always shows the teacher as «Аня», so every option
+// introduces itself as Аня — only the voice timbre changes. firstMessage ASKS
+// the child's name (operator: «пусть спрашивает моё имя»).
+const TUTOR_VOICES = [
+  {
+    key: 'warm',
+    label: 'Аня · тёплый',
+    voiceId: 'gedzfqL7OGdPbwm0ynTP',
+    firstMessage: 'Привет! Меня зовут Аня, сегодня мы вместе изучаем окружающий мир. А тебя как зовут?',
+  },
+  {
+    key: 'soft',
+    label: 'Аня · мягкий',
+    voiceId: 'd5ruruBhXNbnS7Va7n23',
+    firstMessage: 'Привет! Меня зовут Аня, сегодня мы вместе изучаем окружающий мир. А тебя как зовут?',
+  },
+] as const
+const VOICE_STORAGE = 'klassio-tutor-voice'
+
 interface KlassioEngine {
   setStatus: (s: 'listening' | 'speaking' | 'thinking') => void
   setCaption: (t: string) => void
+  setMuted: (m: boolean) => void
   showBoard: (variant: string, animate?: boolean) => void
   showTask: (step: unknown, animate?: boolean) => void
   hideTool: (animate?: boolean) => void
   pushBubble: (w: 'tutor' | 'child', t: string) => void
-  onMic: null | (() => void)
-  onSolve: null | ((step: { id?: string }) => void)
+  onMute: null | ((isMuted: boolean) => void)
+  onSolve: null | ((step: { id?: string; skill?: string }) => void)
 }
 interface KlassioWindow extends Window {
   __klassioEngine?: KlassioEngine
@@ -55,7 +75,21 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
   const [error, setError] = useState<string | null>(null)
   const isStartingRef = useRef(false)
 
-  // ── tracking refs (read by tools/fatigue; no re-render) ───────────────────
+  // voice picker
+  const [voiceKey, setVoiceKey] = useState<string>(TUTOR_VOICES[0].key)
+  useEffect(() => {
+    const v = localStorage.getItem(VOICE_STORAGE)
+    if (v && TUTOR_VOICES.some((o) => o.key === v)) setVoiceKey(v)
+  }, [])
+  const selectVoice = useCallback((k: string) => {
+    setVoiceKey(k)
+    try { localStorage.setItem(VOICE_STORAGE, k) } catch {/* noop */}
+  }, [])
+  const voice = useMemo(() => TUTOR_VOICES.find((o) => o.key === voiceKey) ?? TUTOR_VOICES[0], [voiceKey])
+  const voiceRef = useRef(voice)
+  voiceRef.current = voice
+
+  // tracking refs
   const phaseRef = useRef<string>('connecting')
   const solvedRef = useRef<Set<string>>(new Set())
   const shownTasksRef = useRef<Set<string>>(new Set())
@@ -73,29 +107,23 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
   }, [])
 
   const getState = useCallback(
-    () =>
-      formatTutorState({
-        phase: phaseRef.current,
-        solvedCount: solvedRef.current.size,
-        totalShown: shownTasksRef.current.size,
-        consecutiveErrors: consecutiveErrorsRef.current,
-      }),
+    () => formatTutorState({
+      phase: phaseRef.current,
+      solvedCount: solvedRef.current.size,
+      totalShown: shownTasksRef.current.size,
+      consecutiveErrors: consecutiveErrorsRef.current,
+    }),
     [],
   )
 
-  // ── fire-and-forget tracking POSTs ────────────────────────────────────────
   const post = useCallback((url: string, body: unknown) => {
-    void fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }).catch((e) => console.error('[tutor] POST failed', url, e))
+    void fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .catch((e) => console.error('[tutor] POST failed', url, e))
   }, [])
 
-  // ── the agent's client tools → drive the design ───────────────────────────
+  // ── agent client tools → drive the design ─────────────────────────────────
   const clientTools: ClientTools = useMemo(
     () => ({
-      // Reveal one of the design's prebuilt boards.
       show_board: (p: Record<string, unknown>) => {
         const board = typeof p.board === 'string' ? p.board.trim() : ''
         if (!board) return 'Error: пустой board'
@@ -104,7 +132,6 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'board', variant: board } })
         return `OK, доска "${board}" показана — рассказывай чуть медленнее.`
       },
-      // Reveal an interactive trainer task ("task-1", "task-2"…).
       show_trainer: (p: Record<string, unknown>) => {
         const taskId = typeof p.taskId === 'string' ? p.taskId.trim() : ''
         const n = parseInt(taskId.replace(/[^0-9]/g, ''), 10)
@@ -116,10 +143,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'trainer', taskId } })
         return `OK, задание ${taskId} показано.`
       },
-      hide_tool: () => {
-        engine()?.hideTool()
-        return 'Холст очищен'
-      },
+      hide_tool: () => { engine()?.hideTool(); return 'Холст очищен' },
       set_phase: (p: Record<string, unknown>) => {
         const phase = typeof p.phase === 'string' ? p.phase.trim() : ''
         phaseRef.current = phase
@@ -133,8 +157,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         return 'Награда показана'
       },
       take_break: (p: Record<string, unknown>) => {
-        const mode = typeof p.active === 'string' ? p.active.trim() : ''
-        const active = mode === 'start'
+        const active = (typeof p.active === 'string' ? p.active.trim() : '') === 'start'
         engine()?.hideTool()
         engine()?.setStatus('listening')
         post('/api/tutor/event', { sessionId, eventType: active ? 'pause_started' : 'pause_ended', payload: {} })
@@ -154,18 +177,13 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     async (text: string) => {
       try {
         const res = await fetch('/api/tutor/moderation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId, text }),
         })
         if (!res.ok) return
         const data = (await res.json()) as { action: string; contextualUpdate: string | null }
-        if (data.action !== 'none' && data.contextualUpdate) {
-          convoCmdRef.current.sendContextualUpdate(data.contextualUpdate)
-        }
-      } catch (e) {
-        console.error('[tutor] moderation failed', e)
-      }
+        if (data.action !== 'none' && data.contextualUpdate) convoCmdRef.current.sendContextualUpdate(data.contextualUpdate)
+      } catch (e) { console.error('[tutor] moderation failed', e) }
     },
     [sessionId],
   )
@@ -192,19 +210,18 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     onError: handleError,
   })
   convoCmdRef.current = conversation as unknown as { sendContextualUpdate: (t: string) => void }
+  const isActive = conversation.status === 'connected' || conversation.status === 'connecting'
 
-  // ── start / stop (driven by the design's mic button) ──────────────────────
+  // ── start / stop ──────────────────────────────────────────────────────────
   const startSession = useCallback(async () => {
-    if (isStartingRef.current) return
+    if (isStartingRef.current || isActive) return
     isStartingRef.current = true
     setError(null)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch((err: { name?: string }) => {
         setError(
-          err?.name === 'NotAllowedError'
-            ? 'Разреши доступ к микрофону в браузере.'
-            : err?.name === 'NotFoundError'
-              ? 'Микрофон не найден.'
+          err?.name === 'NotAllowedError' ? 'Разреши доступ к микрофону в браузере.'
+            : err?.name === 'NotFoundError' ? 'Микрофон не найден.'
               : 'Не удалось получить микрофон.',
         )
         return null
@@ -213,19 +230,26 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
       stream.getTracks().forEach((t) => t.stop())
 
       const res = await fetch('/api/tutor/signed-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId }),
       })
       if (!res.ok) { setError('Не удалось подключиться. Попробуй ещё раз.'); return }
       const data = (await res.json()) as { signedUrl: string }
 
       startTimeRef.current = Date.now()
+      engine()?.setMuted(false)
       engine()?.setCaption('Соединяюсь…')
       conversation.startSession({
         signedUrl: data.signedUrl,
         connectionType: 'websocket',
         dynamicVariables: { ...dynamicVariables },
+        // Voice + first-message override (requires Voice + First message toggles
+        // enabled in the 11labs agent Security tab — they are, inherited from the
+        // reused agent). The first message ASKS the child's name.
+        overrides: {
+          tts: { voiceId: voiceRef.current.voiceId },
+          agent: { firstMessage: voiceRef.current.firstMessage },
+        },
       })
     } catch (e) {
       console.error('[tutor] start failed', e)
@@ -233,18 +257,18 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     } finally {
       isStartingRef.current = false
     }
-  }, [conversation, sessionId, dynamicVariables, engine])
+  }, [conversation, sessionId, dynamicVariables, engine, isActive])
 
   const stopSession = useCallback(() => {
     try { conversation.endSession() } catch (e) { console.error('[tutor] stop', e) }
     post('/api/tutor/complete', { sessionId })
   }, [conversation, post, sessionId])
 
-  // Latest mic handler via ref (so the engine callback stays stable).
-  const micHandlerRef = useRef<() => void>(() => {})
-  micHandlerRef.current = () => {
-    if (conversation.status === 'connected' || conversation.status === 'connecting') stopSession()
-    else void startSession()
+  // mic = mute/unmute (design's mic button → here), never ends the session
+  const muteHandlerRef = useRef<(isMuted: boolean) => void>(() => {})
+  muteHandlerRef.current = (isMuted: boolean) => {
+    if (conversation.status !== 'connected') return
+    try { conversation.setMuted(isMuted) } catch (e) { console.error('[tutor] setMuted', e) }
   }
   const solveHandlerRef = useRef<(step: { id?: string; skill?: string }) => void>(() => {})
   solveHandlerRef.current = (step) => {
@@ -252,21 +276,19 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     solvedRef.current.add(taskId)
     consecutiveErrorsRef.current = 0
     post('/api/tutor/attempt', { sessionId, taskId, correct: true, skillTag: step?.skill })
-    try {
-      convoCmdRef.current.sendContextualUpdate(`[ПЛАТФОРМА] Ребёнок решил задание ${taskId}. Похвали и продолжай.`)
-    } catch {/* noop */}
+    try { convoCmdRef.current.sendContextualUpdate(`[ПЛАТФОРМА] Ребёнок решил задание ${taskId}. Похвали и продолжай.`) } catch {/* noop */}
   }
 
-  // ── wire into the design once its engine is ready ─────────────────────────
+  // wire into the design once its engine is ready
   useEffect(() => {
     let tries = 0
     const id = window.setInterval(() => {
       const e = engine()
       if (e) {
         window.clearInterval(id)
-        e.onMic = () => micHandlerRef.current()
+        e.onMute = (isMuted) => muteHandlerRef.current(isMuted)
         e.onSolve = (step) => solveHandlerRef.current(step)
-        e.setCaption('Нажми микрофон, чтобы начать урок')
+        e.setCaption('')
       } else if (++tries > 100) {
         window.clearInterval(id)
         console.warn('[tutor] __klassioEngine never appeared')
@@ -275,7 +297,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     return () => window.clearInterval(id)
   }, [engine])
 
-  // ── periodic fatigue signal ───────────────────────────────────────────────
+  // periodic fatigue signal
   useEffect(() => {
     if (conversation.status !== 'connected') return
     const id = window.setInterval(() => {
@@ -295,9 +317,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
   useEffect(() => {
     return () => {
       const c = conversationRef.current
-      if (c.status === 'connected' || c.status === 'connecting') {
-        try { c.endSession() } catch {/* noop */}
-      }
+      if (c.status === 'connected' || c.status === 'connecting') { try { c.endSession() } catch {/* noop */} }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -311,8 +331,53 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         className="w-full h-full border-0 block"
         allow="microphone; autoplay"
       />
+
+      {/* voice / tutor picker — top-left */}
+      <div className="absolute top-3 left-3 z-50 flex gap-1 rounded-full bg-black/45 backdrop-blur px-1 py-1">
+        {TUTOR_VOICES.map((o) => (
+          <button
+            key={o.key}
+            onClick={() => selectVoice(o.key)}
+            disabled={isActive}
+            title="Выбор голоса репетитора"
+            className={`text-xs font-semibold px-3 py-1 rounded-full transition-colors disabled:opacity-50 ${
+              o.key === voiceKey ? 'bg-white text-black' : 'text-white/85 hover:text-white'
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      {/* centre Start button — shown until the session is live */}
+      {!isActive && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
+          <button
+            onClick={() => void startSession()}
+            className="pointer-events-auto inline-flex items-center gap-3 rounded-2xl px-10 h-16 text-lg font-extrabold uppercase tracking-wide text-white shadow-2xl transition-transform active:translate-y-0.5"
+            style={{ background: '#C9A227', boxShadow: '0 8px 0 rgba(0,0,0,0.25)' }}
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden>
+              <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z" />
+              <path d="M19 11a1 1 0 0 0-2 0 5 5 0 0 1-10 0 1 1 0 0 0-2 0 7 7 0 0 0 6 6.92V21H8a1 1 0 0 0 0 2h8a1 1 0 0 0 0-2h-2v-3.08A7 7 0 0 0 19 11z" />
+            </svg>
+            Начать урок
+          </button>
+        </div>
+      )}
+
+      {/* End button — shown while live */}
+      {isActive && (
+        <button
+          onClick={stopSession}
+          className="absolute top-3 right-3 z-50 rounded-full bg-black/45 backdrop-blur text-white/90 hover:text-white text-xs font-semibold px-4 py-1.5"
+        >
+          Завершить урок
+        </button>
+      )}
+
       {error && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-red-600 text-white text-sm px-3 py-2 shadow-lg">
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-red-600 text-white text-sm px-3 py-2 shadow-lg">
           {error}
         </div>
       )}

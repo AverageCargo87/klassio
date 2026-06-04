@@ -76,10 +76,13 @@ const ENGINE_API = `    goTo(0, false);
           setTimeout(function () { revealWords(b); toBottom(); }, words.length * (stg * 1000) + 900);
         } catch (e) { console.error('[klassio] pushBubble', e); }
       },
-      onMic: null,
+      setMuted: function (m) { try { setMuted(!!m); } catch (e) {} },
+      onMute: null,
       onSolve: null,
     };
-    micBtn.onclick = function () { if (window.__klassioEngine.onMic) window.__klassioEngine.onMic(); else setMuted(!muted); };
+    /* mic button = MUTE/UNMUTE only (never starts/ends the lesson). Toggles the
+       design's own visual mute, then notifies React to mute the live SDK. */
+    micBtn.onclick = function () { setMuted(!muted); if (window.__klassioEngine.onMute) window.__klassioEngine.onMute(muted); };
   }`
 replaceOnce(INIT_END, ENGINE_API, 'engine-api')
 

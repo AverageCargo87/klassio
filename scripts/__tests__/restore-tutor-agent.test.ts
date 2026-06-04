@@ -45,7 +45,7 @@ describe('tutor agent — patch body', () => {
     expect(cc.agent.language).toBe('ru')
     expect(cc.agent.prompt.prompt).toBe('тест')
     expect(cc.agent.prompt.tool_ids).toEqual(['a', 'b', 'c'])
-    expect(cc.agent.first_message).toContain('{{child_name}}')
+    expect(cc.agent.first_message).toContain('как зовут') // asks the child's name
     expect(cc.tts.voice_id).toBeTruthy()
     expect(cc.asr.keywords).toBe(TUTOR_ASR_KEYWORDS)
     expect((cc.asr.keywords as string[]).length).toBeGreaterThan(10)
