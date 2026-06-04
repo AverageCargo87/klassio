@@ -46,6 +46,10 @@ const TUTOR_VOICES = [
 ] as const
 const VOICE_STORAGE = 'klassio-tutor-voice'
 
+// Canonical theory-board order — next_slide advances through this so Аня never
+// skips a board and always starts with the cover (title) slide.
+const BOARD_ORDER = ['cover', 'etymology', 'bodies', 'solar', 'facts'] as const
+
 interface KlassioEngine {
   setStatus: (s: 'listening' | 'speaking' | 'thinking') => void
   setCaption: (t: string) => void
@@ -59,6 +63,7 @@ interface KlassioEngine {
   onStart: null | (() => void)
   onWrong: null | (() => void)
   onVoiceSelect: null | ((key: string) => void)
+  onPlanetClick: null | ((name: string) => void)
   showBoard: (variant: string, animate?: boolean) => void
   showTask: (step: unknown, animate?: boolean) => void
   hideTool: (animate?: boolean) => void
@@ -103,6 +108,8 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
   const phaseRef = useRef<string>('connecting')
   const solvedRef = useRef<Set<string>>(new Set())
   const shownTasksRef = useRef<Set<string>>(new Set())
+  const shownBoardsRef = useRef<Set<string>>(new Set())
+  const boardIndexRef = useRef<number>(0)
   const consecutiveErrorsRef = useRef<number>(0)
   const currentTaskIdRef = useRef<string>('')
   const startTimeRef = useRef<number>(0)
@@ -120,15 +127,17 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     return w?.__KLASSIO_REAL_LESSON ?? []
   }, [])
 
-  const getState = useCallback(
-    () => formatTutorState({
+  const getState = useCallback(() => {
+    const shown = BOARD_ORDER.filter((b) => shownBoardsRef.current.has(b))
+    const left = BOARD_ORDER.filter((b) => !shownBoardsRef.current.has(b))
+    const base = formatTutorState({
       phase: phaseRef.current,
       solvedCount: solvedRef.current.size,
       totalShown: shownTasksRef.current.size,
       consecutiveErrors: consecutiveErrorsRef.current,
-    }),
-    [],
-  )
+    })
+    return `${base} | доски показаны: [${shown.join(',') || '—'}], осталось: [${left.join(',') || '—'}]`
+  }, [])
 
   const post = useCallback((url: string, body: unknown) => {
     void fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -142,9 +151,21 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         const board = typeof p.board === 'string' ? p.board.trim() : ''
         if (!board) return 'Error: пустой board'
         engine()?.showBoard(board)
-        shownTasksRef.current.add('board:' + board)
+        shownBoardsRef.current.add(board)
+        const oi = (BOARD_ORDER as readonly string[]).indexOf(board)
+        if (oi >= 0) boardIndexRef.current = Math.max(boardIndexRef.current, oi + 1)
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'board', variant: board } })
         return `OK, доска "${board}" показана — рассказывай чуть медленнее.`
+      },
+      // advance the theory boards strictly in order (skip-proof + cover first)
+      next_slide: () => {
+        const i = Math.min(boardIndexRef.current, BOARD_ORDER.length - 1)
+        const board = BOARD_ORDER[i]
+        boardIndexRef.current = i + 1
+        engine()?.showBoard(board)
+        shownBoardsRef.current.add(board)
+        post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'board', variant: board, via: 'next' } })
+        return `OK, показана доска "${board}" (${i + 1}/${BOARD_ORDER.length}).`
       },
       show_trainer: (p: Record<string, unknown>) => {
         const taskId = typeof p.taskId === 'string' ? p.taskId.trim() : ''
@@ -309,6 +330,16 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
       )
     } catch {/* noop */}
   }
+  // child clicked a planet on the Solar-System board → Аня narrates it (she
+  // promised «кликай — расскажу», so she must actually react).
+  const planetHandlerRef = useRef<(name: string) => void>(() => {})
+  planetHandlerRef.current = (name: string) => {
+    try {
+      convoCmdRef.current.sendUserMessage(
+        `[ПЛАТФОРМА] Ребёнок кликнул на «${name}» на карте Солнечной системы. Расскажи об этом небесном теле коротко и по-доброму (2-3 предложения), как и обещала.`,
+      )
+    } catch {/* noop */}
+  }
   // child picked a WRONG trainer option → Аня helps instead of staying silent
   const wrongHandlerRef = useRef<() => void>(() => {})
   wrongHandlerRef.current = () => {
@@ -332,6 +363,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         e.onMute = (isMuted) => muteHandlerRef.current(isMuted)
         e.onSolve = (step) => solveHandlerRef.current(step)
         e.onWrong = () => wrongHandlerRef.current()
+        e.onPlanetClick = (name) => planetHandlerRef.current(name)
         e.onVoiceSelect = (key) => selectVoice(key)
         e.setCaption('')
         setEngineReady(true) // → the status effect reveals the Start button (now safe to click)

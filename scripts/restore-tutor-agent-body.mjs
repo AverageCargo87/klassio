@@ -76,6 +76,16 @@ export const TUTOR_TOOLS = [
   },
   {
     type: 'client',
+    name: 'next_slide',
+    description:
+      'Показать СЛЕДУЮЩУЮ доску урока строго по порядку (cover → etymology → bodies → solar → facts). Используй это, чтобы вести теорию по порядку и ничего не пропустить. Самый первый вызов покажет обложку урока (cover).',
+    response_timeout_secs: 20,
+    expects_response: true,
+    execution_mode: 'immediate',
+    parameters: { type: 'object', properties: {} },
+  },
+  {
+    type: 'client',
     name: 'show_trainer',
     description:
       'Показать ребёнку интерактивное задание для практики. Зови, когда пора потренироваться. Потом убери через hide_tool.',

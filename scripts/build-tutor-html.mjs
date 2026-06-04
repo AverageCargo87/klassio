@@ -111,6 +111,7 @@ const ENGINE_API = `    goTo(0, false);
       onStart: null,
       onWrong: null,
       onVoiceSelect: null,
+      onPlanetClick: null,
       onMute: null,
       onSolve: null,
     };
@@ -168,6 +169,27 @@ const ENGINE_API = `    goTo(0, false);
     (function () {
       var ex = document.querySelector('.exit');
       if (ex) ex.onclick = function () { try { window.top.location.href = '/cabinet/okr-mir-4'; } catch (e) { window.location.href = '/cabinet/okr-mir-4'; } };
+    })();
+    /* planet/sun clicks on the Solar-System board → tell Аня so she narrates
+       (CAPTURE phase: the design calls stopPropagation() on the planet button). */
+    (function () {
+      var last = 0;
+      document.addEventListener('click', function (e) {
+        var t = e.target;
+        while (t && t.nodeType === 1) {
+          if (t.classList && t.classList.contains('p3')) {
+            var lbl = t.querySelector('.p3-lbl');
+            var name = ((lbl && lbl.textContent) ? lbl.textContent : (t.title || '')).trim();
+            var now = Date.now();
+            if (name && now - last > 800) {
+              last = now;
+              if (window.__klassioEngine && window.__klassioEngine.onPlanetClick) { try { window.__klassioEngine.onPlanetClick(name); } catch (e2) {} }
+            }
+            return;
+          }
+          t = t.parentNode;
+        }
+      }, true);
     })();
   }`
 replaceOnce(INIT_END, ENGINE_API, 'engine-api')
