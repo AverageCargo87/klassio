@@ -36,7 +36,31 @@ export { buildToolCreateBody }
 // First message greets the child by name via a dynamic variable (provided by
 // /api/tutor/session at startSession). Greeting by name is a core pivot feature.
 export const TUTOR_FIRST_MESSAGE =
-  'Привет! Меня зовут Аня, сегодня мы вместе изучаем окружающий мир. А тебя как зовут?'
+  'Привет! Меня зовут Аня. А тебя как зовут?'
+
+// TTS model for the tutor agent.
+// 2026-06-04 A/B RESULT — REVERTED TO multilingual_v2:
+// Tried eleven_flash_v2_5 for lower latency. Operator heard audible stutter/sag
+// («звук провисает») AND it gave NO real latency win: turn latency
+// (ASR-final→first audio) median was 584 ms on flash vs 425 ms on multilingual
+// (within 5-7-turn noise; mean/max barely moved). The bottleneck is LLM +
+// tool-turns + VAD, NOT TTS first-byte — so flash is not worth the quality drop.
+// Keeping the higher-quality multilingual_v2. (To retry flash: set back to
+// 'eleven_flash_v2_5' and re-run scripts/restore-tutor-agent.mjs on the VPS.)
+// Math agent is unaffected — it uses the shared TTS_MODEL_ID directly.
+export const TUTOR_TTS_MODEL_ID = 'eleven_multilingual_v2'
+
+// Tutor TTS stability. 2026-06: raised 0.35 → 0.45 to cut «garbled/alien» phoneme
+// hallucinations — multilingual_v2 gets unstable at low stability on rare/foreign
+// tokens (numbers, units, Greek words). Trade-off: a touch less lively intonation.
+// Math agent is unaffected (keeps the shared TTS_STABILITY).
+export const TUTOR_TTS_STABILITY = 0.40
+
+// Tutor LLM. 2026-06: gpt-4.1-mini → gpt-5.4-mini — newer/smarter mini (better
+// pacing + instruction-following) AND lower latency (~598ms vs ~876ms), modest
+// cost (+~27₽/lesson, unit-econ still < 200₽). 400K context window is ample — a
+// 45-60min lesson peaks ~30-50K tokens (no RAG/KB). Math agent keeps LLM_MODEL.
+export const TUTOR_LLM_MODEL = 'gpt-4.1-mini'
 
 // ASR keyword bias for astronomy vocabulary (lesson 1 «Мир глазами астронома»).
 export const TUTOR_ASR_KEYWORDS = [
@@ -59,7 +83,8 @@ export const TUTOR_TOOLS = [
       '"cover" (обложка урока), "etymology" (что такое астрономия — слово от «астрон» = звезда), ' +
       '"bodies" (небесные тела: звёзды, планеты, спутники, кометы), ' +
       '"solar" (карта Солнечной системы с планетами — крутится, можно кликать планеты), ' +
-      '"facts" (карточки интересных фактов). Говори ПАРАЛЛЕЛЬНО с показом, чуть медленнее. Потом убери через hide_tool.',
+      '"sunEarth" (Солнце против Земли — интерактив: диаметр / масса-качели / расстояние и свет 8 минут), ' +
+      '"facts" (карточки интересных фактов о Солнце). Говори ПАРАЛЛЕЛЬНО с показом, чуть медленнее. Потом убери через hide_tool.',
     response_timeout_secs: 20,
     expects_response: true,
     execution_mode: 'immediate',
@@ -68,7 +93,7 @@ export const TUTOR_TOOLS = [
       properties: {
         board: {
           type: 'string',
-          description: 'ID доски: cover | etymology | bodies | solar | facts.',
+          description: 'ID доски: cover | etymology | bodies | solar | sunEarth | facts.',
         },
       },
       required: ['board'],
@@ -78,7 +103,7 @@ export const TUTOR_TOOLS = [
     type: 'client',
     name: 'next_slide',
     description:
-      'Показать СЛЕДУЮЩУЮ доску урока строго по порядку (cover → etymology → bodies → solar → facts). Используй это, чтобы вести теорию по порядку и ничего не пропустить. Самый первый вызов покажет обложку урока (cover).',
+      'Показать СЛЕДУЮЩУЮ доску урока строго по порядку (cover → etymology → bodies → solar → sunEarth → facts). Используй это, чтобы вести теорию по порядку и ничего не пропустить. Самый первый вызов покажет обложку урока (cover).',
     response_timeout_secs: 20,
     expects_response: true,
     execution_mode: 'immediate',
@@ -217,14 +242,14 @@ export function buildTutorAgentPatchBody({ prompt, firstMessage, voiceId, toolId
         first_message: firstMessage,
         prompt: {
           prompt,
-          llm: LLM_MODEL,
+          llm: TUTOR_LLM_MODEL,
           tool_ids: toolIds,
         },
       },
       tts: {
         voice_id: voiceId || TEACHER_VOICE_ID,
-        model_id: TTS_MODEL_ID,
-        stability: TTS_STABILITY,
+        model_id: TUTOR_TTS_MODEL_ID,
+        stability: TUTOR_TTS_STABILITY,
         similarity_boost: TTS_SIMILARITY_BOOST,
         speed: TTS_SPEED,
         text_normalisation_type: TTS_TEXT_NORMALISATION,

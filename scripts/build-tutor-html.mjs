@@ -73,6 +73,7 @@ const ENGINE_API = `    goTo(0, false);
           // child label = the name the child told Аня (fallback «Ты»), not the
           // demo's hard-coded «Макс».
           if (w === 'child') { var who0 = b.querySelector('.who'); if (who0) who0.textContent = window.__klassioChildName || 'Ты'; }
+          if (w === 'tutor') { var who1 = b.querySelector('.who'); if (who1) who1.textContent = window.__klassioTutorName || 'Аня'; }
           chat.appendChild(b); toBottom();
           setStatus(w === 'tutor' ? 'speaking' : 'listening');
           if (RM) { revealWords(b); return; }
@@ -89,6 +90,20 @@ const ENGINE_API = `    goTo(0, false);
           if (!name) return;
           window.__klassioChildName = String(name).trim();
           document.querySelectorAll('#chat .bubble.child .who').forEach(function (el) { el.textContent = window.__klassioChildName; });
+        } catch (e) {}
+      },
+      // Set the TEACHER's display name everywhere: the avatar letter (CSS
+      // ::before, overridden via an injected <style>) + every tutor bubble label.
+      // Lets each voice be a distinct named teacher (Надя / Аня / Рина).
+      setTeacherName: function (name) {
+        try {
+          if (!name) return;
+          window.__klassioTutorName = String(name).trim();
+          var L = window.__klassioTutorName.charAt(0).toUpperCase();
+          document.querySelectorAll('#chat .bubble:not(.child) .who').forEach(function (el) { el.textContent = window.__klassioTutorName; });
+          var st = document.getElementById('klassio-av-letter');
+          if (!st) { st = document.createElement('style'); st.id = 'klassio-av-letter'; document.head.appendChild(st); }
+          st.textContent = '.av-mini .disc::before{content:"' + L + '"!important}';
         } catch (e) {}
       },
       setMuted: function (m) { try { setMuted(!!m); } catch (e) {} },

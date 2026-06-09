@@ -27,39 +27,57 @@ interface TutorLessonProps {
   dynamicVariables: TutorDynamicVariables
 }
 
-// Tutor voices. The design always shows the teacher as «Аня», so every option
-// introduces itself as Аня — only the voice timbre changes. firstMessage ASKS
-// the child's name (operator: «пусть спрашивает моё имя»).
+// Tutor voices = distinct named teachers. Picking one makes the teacher that
+// person everywhere: her intro (firstMessage built from `name`), the chat labels
+// + avatar letter (engine.setTeacherName), and her self-name in the agent prompt
+// (the {{teacher_name}} dynamic variable). 11labs voice timbre matches the name.
 const TUTOR_VOICES = [
-  {
-    key: 'warm',
-    label: 'Аня · тёплый',
-    voiceId: 'gedzfqL7OGdPbwm0ynTP',
-    firstMessage: 'Привет! Меня зовут Аня, сегодня мы вместе изучаем окружающий мир. А тебя как зовут?',
-  },
-  {
-    key: 'soft',
-    label: 'Аня · мягкий',
-    voiceId: 'd5ruruBhXNbnS7Va7n23',
-    firstMessage: 'Привет! Меня зовут Аня, сегодня мы вместе изучаем окружающий мир. А тебя как зовут?',
-  },
+  { key: 'nadia', name: 'Надя', label: 'Надя · тёплый', voiceId: 'gedzfqL7OGdPbwm0ynTP' },
+  { key: 'anna', name: 'Аня', label: 'Аня · мягкий', voiceId: 'd5ruruBhXNbnS7Va7n23' },
+  { key: 'rina', name: 'Рина', label: 'Рина · спокойный', voiceId: 'ycbyWsnf4hqZgdpKHqiU' },
 ] as const
 const VOICE_STORAGE = 'klassio-tutor-voice'
 
 // Canonical theory-board order — next_slide advances through this so Аня never
-// skips a board and always starts with the cover (title) slide.
-const BOARD_ORDER = ['cover', 'etymology', 'bodies', 'solar', 'facts'] as const
+// skips a board and always starts with the cover (title) slide. NOTE: the design
+// has SIX boards; `sunEarth` (interactive Sun-vs-Earth: diameter/mass/distance,
+// tasks q8-q10) was previously missing here, so next_slide skipped it and the
+// child never saw it (operator feedback 2026-06-04).
+const BOARD_ORDER = ['cover', 'etymology', 'bodies', 'solar', 'sunEarth', 'facts'] as const
 
 // Minimum time a board/task stays in the centre before another can replace it —
-// a safety net so a board doesn't "flash" when Аня chains show_board+show_trainer
-// in one turn. When she paces properly (narrates, then advances) this is a no-op.
-const MIN_DWELL_MS = 6500
+// a safety FLOOR so every slide is readable and Аня can't flip through them
+// (operator: «пусть каждый слайд не менее 15 секунд показывается»). Only bites
+// when she rushes; if she paces properly (narrates + waits for a reaction) it's a
+// no-op, because the child has usually spent longer than this anyway.
+const MIN_DWELL_MS = 15000
+
+// After a task is solved Аня usually chains straight into the next tool
+// (task→task or task→board). hide_tool collapses the canvas back to the centred
+// chat; if the next show came 2-3 s later, the chat bounced to centre and back.
+// So hide_tool is DEFERRED by this grace window — any show_* within it cancels
+// the collapse and the centre just swaps content (no bounce). A real return to
+// conversation (no tool follows) still collapses once the window elapses.
+const HIDE_GRACE_MS = 2600
+
+// The lesson has 13 tasks. The «урок пройден» reward screen + session-complete
+// only fire once ALL of them are solved — a hard guard, because gpt-5.4-mini
+// sometimes tries to reward right after the first task.
+const TOTAL_TASKS = 13
+
+// Every THEORY board must stay in the centre at least this long — a hard FLOOR,
+// NOT an auto-advance (operator: «не меньше 60 секунд, а там по ситуации»). After
+// it elapses, the prompt's «move by the child's reaction» takes over. The cover
+// (title) and reward screens are exempt.
+const BOARD_MIN_MS = 60000
+const THEORY_BOARDS = new Set(['etymology', 'bodies', 'solar', 'sunEarth', 'facts'])
 
 interface KlassioEngine {
   setStatus: (s: 'listening' | 'speaking' | 'thinking') => void
   setCaption: (t: string) => void
   setMuted: (m: boolean) => void
   setChildName: (name: string) => void
+  setTeacherName: (name: string) => void
   showStartButton: () => void
   hideStartButton: () => void
   setStartButtonText: (text: string, disabled: boolean) => void
@@ -78,6 +96,7 @@ interface KlassioEngine {
 }
 interface LessonStep {
   type?: string
+  variant?: string // 'choice' (pick an option) | 'blank' (type the answer into a field)
   id?: string
   skill?: string
   q?: string
@@ -101,7 +120,15 @@ export function TutorLesson(props: TutorLessonProps) {
 function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLessonProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [moderationNotice, setModerationNotice] = useState<string | null>(null)
+  const [completionStats, setCompletionStats] = useState<null | {
+    solved: number; total: number; wrong: number; minutes: number
+    perTask: Array<{ n: number; sec: number | null; wrong: number }>
+  }>(null)
   const [engineReady, setEngineReady] = useState(false)
+  // optimistic «Подключение…» the instant Start is clicked — before mic + signed-url
+  // resolve (that wait was the 2-3 s the operator saw the button stay «Начать урок»).
+  const [starting, setStarting] = useState(false)
   const isStartingRef = useRef(false)
 
   // voice picker
@@ -126,8 +153,22 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
   const boardIndexRef = useRef<number>(0)
   const consecutiveErrorsRef = useRef<number>(0)
   const currentTaskIdRef = useRef<string>('')
+  // per-task stats for the completion screen: shown/solved timestamps + wrong count
+  const taskStatsRef = useRef<Record<string, { shownAt: number; solvedAt?: number; wrong: number }>>({})
+  // Slide-pacing guards: which board is centre & when it appeared (60 s floor on
+  // theory boards), and whether a task is on screen still unanswered (can't be
+  // swapped away until it's solved).
+  const currentBoardRef = useRef<string>('')
+  const boardShownAtRef = useRef<number>(0)
+  const taskActiveRef = useRef<boolean>(false)
   const lastStageAtRef = useRef<number>(0)
+  const pendingHideRef = useRef<number | null>(null) // deferred hide_tool timer (anti-bounce)
+  const moderationNoticeTimer = useRef<number | null>(null) // auto-hide for the «parent notified» banner
   const startTimeRef = useRef<number>(0)
+  // latency probe: marks when the child's transcript was finalized, so the next
+  // onModeChange→speaking yields the round-trip («felt») answer time.
+  const turnTimingRef = useRef<{ at: number; text: string } | null>(null)
+  const agentBubbleShownRef = useRef(false) // tutor bubble already shown this turn (from the tentative draft)
   const convoCmdRef = useRef<{ sendContextualUpdate: (t: string) => void; sendUserMessage: (t: string) => void }>({
     sendContextualUpdate: () => {},
     sendUserMessage: () => {},
@@ -162,6 +203,9 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
   // Schedule a centre-stage change, never sooner than MIN_DWELL_MS after the
   // previous one — so a board can't flash when Аня chains two reveals in a turn.
   const revealStage = useCallback((fn: () => void) => {
+    // Showing something cancels a pending collapse-to-centre → no bounce when
+    // Аня chains hide_tool → next tool (the user's «чат прыгает в центр на 2с»).
+    if (pendingHideRef.current !== null) { window.clearTimeout(pendingHideRef.current); pendingHideRef.current = null }
     const now = Date.now()
     const since = now - lastStageAtRef.current
     const wait = since >= MIN_DWELL_MS ? 0 : MIN_DWELL_MS - since
@@ -170,13 +214,34 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     else fn()
   }, [])
 
+  // True while a THEORY board has been in the centre for less than its 60 s floor —
+  // used to refuse swapping it for a task or another slide too early.
+  const leavingBoardTooSoon = useCallback(
+    () => THEORY_BOARDS.has(currentBoardRef.current) && Date.now() - boardShownAtRef.current < BOARD_MIN_MS,
+    [],
+  )
+
   // ── agent client tools → drive the design ─────────────────────────────────
   const clientTools: ClientTools = useMemo(
     () => ({
       show_board: (p: Record<string, unknown>) => {
         const board = typeof p.board === 'string' ? p.board.trim() : ''
         if (!board) return 'Error: пустой board'
+        if (board === 'reward') {
+          return solvedRef.current.size >= TOTAL_TASKS
+            ? 'Для экрана «урок пройден» используй give_reward (в самом конце).'
+            : `Рано: экран «урок пройден» — только после всех ${TOTAL_TASKS} заданий (решено ${solvedRef.current.size}). Не показывай его сейчас.`
+        }
+        if (board !== currentBoardRef.current && leavingBoardTooSoon()) {
+          return `Рано уходить со слайда — теоретический слайд держится не меньше ${BOARD_MIN_MS / 1000} секунд. Разбери его, дай ребёнку рассмотреть, потом переходи.`
+        }
+        if (taskActiveRef.current) {
+          return 'Рано показывать доску: на экране задание, на которое ребёнок ещё не ответил. Помоги на нём и дождись ответа.'
+        }
         revealStage(() => engine()?.showBoard(board))
+        currentBoardRef.current = board
+        boardShownAtRef.current = Date.now()
+        taskActiveRef.current = false
         shownBoardsRef.current.add(board)
         const oi = (BOARD_ORDER as readonly string[]).indexOf(board)
         if (oi >= 0) boardIndexRef.current = Math.max(boardIndexRef.current, oi + 1)
@@ -187,31 +252,59 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
       next_slide: () => {
         const i = Math.min(boardIndexRef.current, BOARD_ORDER.length - 1)
         const board = BOARD_ORDER[i]
+        if (board !== currentBoardRef.current && leavingBoardTooSoon()) {
+          return `Рано листать дальше — теоретический слайд держится не меньше ${BOARD_MIN_MS / 1000} секунд. Разбери текущий, потом следующий.`
+        }
+        if (taskActiveRef.current) {
+          return 'Рано листать дальше: на экране задание без ответа — дождись, пока ребёнок ответит.'
+        }
         boardIndexRef.current = i + 1
         revealStage(() => engine()?.showBoard(board))
+        currentBoardRef.current = board
+        boardShownAtRef.current = Date.now()
+        taskActiveRef.current = false
         shownBoardsRef.current.add(board)
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'board', variant: board, via: 'next' } })
         return `OK, показана доска "${board}" (${i + 1}/${BOARD_ORDER.length}).`
       },
       show_trainer: (p: Record<string, unknown>) => {
         const taskId = typeof p.taskId === 'string' ? p.taskId.trim() : ''
+        if (leavingBoardTooSoon()) {
+          return `Рано показывать задание — теоретический слайд держится не меньше ${BOARD_MIN_MS / 1000} секунд. Разбери доску и дай ребёнку рассмотреть, потом задание.`
+        }
+        if (taskActiveRef.current && taskId !== currentTaskIdRef.current) {
+          return 'Рано: предыдущее задание ещё не решено. Дождись ответа на него, потом давай следующее.'
+        }
         const n = parseInt(taskId.replace(/[^0-9]/g, ''), 10)
         const tasks = realLesson().filter((s) => s?.type === 'task')
         const step = Number.isFinite(n) ? tasks[n - 1] : undefined
         if (!step) return `Error: задача "${taskId}" не найдена`
         revealStage(() => engine()?.showTask(step))
         currentTaskIdRef.current = taskId
+        currentBoardRef.current = '' // a task occupies the centre now, not a board
+        taskActiveRef.current = true
         shownTasksRef.current.add(taskId)
+        if (!taskStatsRef.current[taskId]) taskStatsRef.current[taskId] = { shownAt: Date.now(), wrong: 0 }
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'trainer', taskId } })
-        // Return the EXACT task content so Аня introduces the question that's
-        // actually on screen (fixes «спрашивает одно — на тесте другое»).
-        const opts = Array.isArray(step.options) ? step.options.map((o) => o.t).join(' / ') : (step.answer ?? '')
-        const correct = Array.isArray(step.options)
-          ? (step.options.find((o) => o.correct)?.t ?? '')
-          : (step.answer ?? '')
-        return `OK, на экране задание ${taskId}: «${step.q ?? ''}». Варианты: ${opts}. Правильный: ${correct}. Объяви ИМЕННО этот вопрос своими словами и попроси выбрать ответ на экране. НЕ называй правильный ответ вслух.`
+        // Return the EXACT task content + INPUT TYPE so Аня introduces what's
+        // actually on screen (choice = pick an option; blank = type into a field)
+        // and phrases the ask right (fixes «просит выбрать вариант на blank-задании»).
+        const choiceOpts = Array.isArray(step.options) && step.options.length > 0 ? step.options : null
+        const correct = choiceOpts ? (choiceOpts.find((o) => o.correct)?.t ?? '') : (step.answer ?? '')
+        return choiceOpts
+          ? `OK, на экране задание ${taskId} (ВЫБОР варианта): «${step.q ?? ''}». Варианты: ${choiceOpts.map((o) => o.t).join(' / ')}. Правильный: ${correct}. Объяви ИМЕННО этот вопрос своими словами и попроси ребёнка ВЫБРАТЬ правильный вариант на экране. Правильный ответ вслух НЕ называй.`
+          : `OK, на экране задание ${taskId} (ПОЛЕ ВВОДА — ребёнок печатает сам): «${step.q ?? ''}». Правильный ответ: ${correct}. Объяви ИМЕННО этот вопрос своими словами и попроси ребёнка ВПИСАТЬ ответ в окошко на экране (это НЕ выбор варианта). Правильный ответ вслух НЕ называй.`
       },
-      hide_tool: () => { engine()?.hideTool(); return 'Холст очищен' },
+      hide_tool: () => {
+        // Defer the collapse-to-centre. If a show_* lands within HIDE_GRACE_MS,
+        // revealStage cancels this and the centre swaps in place — no bounce.
+        if (pendingHideRef.current !== null) window.clearTimeout(pendingHideRef.current)
+        pendingHideRef.current = window.setTimeout(() => {
+          pendingHideRef.current = null
+          engine()?.hideTool()
+        }, HIDE_GRACE_MS)
+        return 'Холст очищен'
+      },
       set_phase: (p: Record<string, unknown>) => {
         const phase = typeof p.phase === 'string' ? p.phase.trim() : ''
         phaseRef.current = phase
@@ -220,14 +313,36 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
       },
       give_reward: (p: Record<string, unknown>) => {
         const label = typeof p.label === 'string' ? p.label.trim() : undefined
+        const solved = solvedRef.current.size
+        if (solved < TOTAL_TASKS) {
+          // HARD guard: «урок пройден» is end-of-lesson ONLY. gpt-5.4-mini sometimes
+          // fires this after the very first task — refuse until everything is solved.
+          return `Рано: экран «урок пройден» показывается ТОЛЬКО в самом конце. Сейчас решено ${solved} из ${TOTAL_TASKS} — продолжай урок, награду пока не показывай.`
+        }
         revealStage(() => engine()?.showBoard('reward'))
+        // build the per-task stats for the completion overlay
+        const perTask = Object.entries(taskStatsRef.current)
+          .map(([id, s]) => ({
+            n: parseInt(id.replace(/\D/g, ''), 10) || 0,
+            sec: s.solvedAt ? Math.max(0, Math.round((s.solvedAt - s.shownAt) / 1000)) : null,
+            wrong: s.wrong,
+          }))
+          .sort((a, b) => a.n - b.n)
+        setCompletionStats({
+          solved,
+          total: TOTAL_TASKS,
+          wrong: perTask.reduce((acc, t) => acc + t.wrong, 0),
+          minutes: startTimeRef.current ? Math.max(1, Math.round((Date.now() - startTimeRef.current) / 60000)) : 0,
+          perTask,
+        })
         post('/api/tutor/event', { sessionId, eventType: 'reward_given', payload: { label: label ?? null } })
-        // reward = end of the lesson → mark the session completed
-        post('/api/tutor/complete', { sessionId })
-        return 'Награда показана'
+        post('/api/tutor/complete', { sessionId }) // reward = end of lesson → mark complete
+        return 'Награда показана — урок завершён.'
       },
       take_break: (p: Record<string, unknown>) => {
         const active = (typeof p.active === 'string' ? p.active.trim() : '') === 'start'
+        // Genuine return to conversation → collapse now (and drop any deferred hide).
+        if (pendingHideRef.current !== null) { window.clearTimeout(pendingHideRef.current); pendingHideRef.current = null }
         engine()?.hideTool()
         engine()?.setStatus('listening')
         post('/api/tutor/event', { sessionId, eventType: active ? 'pause_started' : 'pause_ended', payload: {} })
@@ -241,12 +356,21 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         return `Имя запомнено: ${name}`
       },
     }),
-    [engine, realLesson, getState, post, revealStage, sessionId],
+    [engine, realLesson, getState, post, revealStage, leavingBoardTooSoon, sessionId],
   )
 
   // ── SDK callbacks ─────────────────────────────────────────────────────────
   const handleModeChange = useCallback(({ mode }: { mode: 'speaking' | 'listening' }) => {
     engine()?.setStatus(mode)
+    // TURN-latency probe: time from the child's finalized transcript to Аня's
+    // first audio = ASR-final + LLM + TTS-first-byte + network (the felt «~2 s»).
+    if (mode === 'speaking' && turnTimingRef.current) {
+      const dt = Math.round(performance.now() - turnTimingRef.current.at)
+      console.log(`[latency:turn] Аня ответила через ${dt} мс — «${turnTimingRef.current.text.slice(0, 48)}»`)
+      const w = window as unknown as { __klassioTurnLatency?: number[] }
+      w.__klassioTurnLatency = [...(w.__klassioTurnLatency ?? []), dt]
+      turnTimingRef.current = null
+    }
   }, [engine])
 
   const checkModeration = useCallback(
@@ -257,8 +381,14 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
           body: JSON.stringify({ sessionId, text }),
         })
         if (!res.ok) return
-        const data = (await res.json()) as { action: string; contextualUpdate: string | null }
+        const data = (await res.json()) as { action: string; contextualUpdate: string | null; notifyParent?: boolean }
         if (data.action !== 'none' && data.contextualUpdate) convoCmdRef.current.sendContextualUpdate(data.contextualUpdate)
+        if (data.notifyParent) {
+          // Repeat offence → parent is notified (recorded server-side). Confirm it on screen.
+          setModerationNotice('Уведомление о поведении отправлено родителям')
+          if (moderationNoticeTimer.current) window.clearTimeout(moderationNoticeTimer.current)
+          moderationNoticeTimer.current = window.setTimeout(() => setModerationNotice(null), 7000)
+        }
       } catch (e) { console.error('[tutor] moderation failed', e) }
     },
     [sessionId],
@@ -268,11 +398,33 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     (payload: { message: string; role: 'user' | 'agent' }) => {
       const text = (payload?.message ?? '').trim()
       if (!text) return
-      engine()?.pushBubble(payload.role === 'agent' ? 'tutor' : 'child', text)
-      if (payload.role === 'user') void checkModeration(text)
+      if (payload.role === 'agent') {
+        // The tutor bubble is normally shown EARLY from the tentative draft
+        // (handleDebug, fires as she STARTS speaking). Push here only as a fallback
+        // if that didn't fire, then reset the flag for the next turn.
+        if (!agentBubbleShownRef.current) engine()?.pushBubble('tutor', text)
+        agentBubbleShownRef.current = false
+        return
+      }
+      agentBubbleShownRef.current = false // child spoke → new turn, allow the next tutor bubble
+      engine()?.pushBubble('child', text)
+      turnTimingRef.current = { at: performance.now(), text } // start the turn-latency clock
+      void checkModeration(text)
     },
     [engine, checkModeration],
   )
+
+  // 11labs emits a TENTATIVE agent draft (onDebug) the moment the LLM finishes the
+  // text — right as Аня starts speaking — well before the final agent_response.
+  // Render the chat bubble from it so the text keeps pace with her voice instead of
+  // lagging to the end of her turn.
+  const handleDebug = useCallback((info: { type?: string; response?: string }) => {
+    if (info?.type !== 'tentative_agent_response') return
+    const text = (info.response ?? '').trim()
+    if (!text || agentBubbleShownRef.current) return
+    engine()?.pushBubble('tutor', text)
+    agentBubbleShownRef.current = true
+  }, [engine])
 
   const handleError = useCallback((message: string) => {
     console.error('[tutor] SDK error', message)
@@ -283,6 +435,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     clientTools,
     onModeChange: handleModeChange,
     onMessage: handleMessage,
+    onDebug: handleDebug,
     onError: handleError,
   })
   convoCmdRef.current = conversation as unknown as {
@@ -296,6 +449,8 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     if (isStartingRef.current || isActive) return
     isStartingRef.current = true
     setError(null)
+    setStarting(true) // paint «Подключение…» NOW, before mic + signed-url (the 2-3 s gap)
+    const t0 = performance.now()
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch((err: { name?: string }) => {
         setError(
@@ -305,15 +460,22 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         )
         return null
       })
-      if (!stream) return
+      if (!stream) { setStarting(false); return }
       stream.getTracks().forEach((t) => t.stop())
+      const tMic = performance.now()
 
       const res = await fetch('/api/tutor/signed-url', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId }),
       })
-      if (!res.ok) { setError('Не удалось подключиться. Попробуй ещё раз.'); return }
-      const data = (await res.json()) as { signedUrl: string }
+      if (!res.ok) { setError('Не удалось подключиться. Попробуй ещё раз.'); setStarting(false); return }
+      const data = (await res.json()) as { signedUrl: string; proxied?: boolean; usingFallbackAgent?: boolean }
+      const tUrl = performance.now()
+      // START-latency breakdown (explains the «Начать урок»→«Подключение…» gap):
+      console.log(
+        `[latency:start] mic ${Math.round(tMic - t0)} мс · signed-url ${Math.round(tUrl - tMic)} мс · ` +
+          `proxied=${data.proxied ?? false} fallbackAgent=${data.usingFallbackAgent ?? false}`,
+      )
 
       startTimeRef.current = Date.now()
       engine()?.setMuted(false)
@@ -321,18 +483,19 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
       conversation.startSession({
         signedUrl: data.signedUrl,
         connectionType: 'websocket',
-        dynamicVariables: { ...dynamicVariables },
+        dynamicVariables: { ...dynamicVariables, teacher_name: voiceRef.current.name },
         // Voice + first-message override (requires Voice + First message toggles
-        // enabled in the 11labs agent Security tab — they are, inherited from the
-        // reused agent). The first message ASKS the child's name.
+        // enabled in the 11labs agent Security tab). The first message introduces
+        // the teacher by HER name (Надя/Аня/Рина) and asks the child's name.
         overrides: {
           tts: { voiceId: voiceRef.current.voiceId },
-          agent: { firstMessage: voiceRef.current.firstMessage },
+          agent: { firstMessage: `Привет! Меня зовут ${voiceRef.current.name}. А тебя как зовут?` },
         },
       })
     } catch (e) {
       console.error('[tutor] start failed', e)
       setError('Ошибка голосового сервиса.')
+      setStarting(false)
     } finally {
       isStartingRef.current = false
     }
@@ -353,12 +516,14 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     const taskId = currentTaskIdRef.current || step?.id || 'task'
     solvedRef.current.add(taskId)
     consecutiveErrorsRef.current = 0
+    taskActiveRef.current = false // answered → boards / the next task may proceed
+    { const st = taskStatsRef.current[taskId]; if (st && !st.solvedAt) st.solvedAt = Date.now() }
     post('/api/tutor/attempt', { sessionId, taskId, correct: true, skillTag: step?.skill })
     // sendUserMessage (not sendContextualUpdate) → 11labs treats it as input so
     // Аня reacts NOW instead of buffering behind her turn (the 5-10 s lag).
     try {
       convoCmdRef.current.sendUserMessage(
-        '[ПЛАТФОРМА] Ребёнок выбрал ПРАВИЛЬНЫЙ ответ на экране. Коротко похвали ПРЯМО СЕЙЧАС и веди дальше к следующему блоку/заданию.',
+        '[ПЛАТФОРМА] Ребёнок ответил ПРАВИЛЬНО. Тепло похвали и веди дальше сама — когда расскажешь связку, покажи следующее (show_trainer / next_slide). НЕ спрашивай «готов?» и не жди, пока ребёнок попросит, но и не части — спокойно и по-доброму.',
       )
     } catch {/* noop */}
   }
@@ -376,6 +541,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
   const wrongHandlerRef = useRef<() => void>(() => {})
   wrongHandlerRef.current = () => {
     consecutiveErrorsRef.current += 1
+    { const st = taskStatsRef.current[currentTaskIdRef.current]; if (st) st.wrong += 1 }
     if (currentTaskIdRef.current) post('/api/tutor/attempt', { sessionId, taskId: currentTaskIdRef.current, correct: false })
     try {
       convoCmdRef.current.sendUserMessage(
@@ -417,20 +583,29 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     if (s === 'connected') {
       e.hideStartButton()
       e.startTimer() // lesson timer starts when the teacher connects, not on page-load
-    } else if (s === 'connecting') {
+    } else if (s === 'connecting' || starting) {
+      // `starting` paints «Подключение…» the instant Start is clicked, before the
+      // SDK has even reached 'connecting' (mic + signed-url take 2-3 s on RU).
       e.showStartButton()
       e.setStartButtonText('Подключение…', true)
     } else {
       e.showStartButton()
       e.setStartButtonText('Начать урок', false)
     }
-  }, [conversation.status, engineReady, engine])
+  }, [conversation.status, engineReady, engine, starting])
+
+  // Once the SDK actually takes over (status leaves 'disconnected'), drop the
+  // optimistic flag so connection status becomes the single source of truth.
+  useEffect(() => {
+    if (conversation.status === 'connecting' || conversation.status === 'connected') setStarting(false)
+  }, [conversation.status])
 
   // (re)build the voice menu on Аня's avatar, highlighting the current choice
   useEffect(() => {
     if (!engineReady) return
     engine()?.setVoiceMenu(TUTOR_VOICES.map((v) => ({ key: v.key, label: v.label })), voiceKey)
-  }, [voiceKey, engineReady, engine])
+    engine()?.setTeacherName(voice.name) // teacher's display name (avatar + chat) follows the chosen voice
+  }, [voiceKey, engineReady, engine, voice.name])
 
   // periodic fatigue signal
   useEffect(() => {
@@ -451,6 +626,8 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
   conversationRef.current = conversation
   useEffect(() => {
     return () => {
+      if (pendingHideRef.current !== null) window.clearTimeout(pendingHideRef.current)
+      if (moderationNoticeTimer.current !== null) window.clearTimeout(moderationNoticeTimer.current)
       const c = conversationRef.current
       if (c.status === 'connected' || c.status === 'connecting') { try { c.endSession() } catch {/* noop */} }
     }
@@ -475,6 +652,39 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
       {error && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-red-600 text-white text-sm px-3 py-2 shadow-lg">
           {error}
+        </div>
+      )}
+
+      {moderationNotice && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-lg bg-amber-500 text-white text-sm font-medium px-4 py-2 shadow-lg">
+          <span aria-hidden>📩</span>{moderationNotice}
+        </div>
+      )}
+
+      {/* Completion stats — shown UNDER the design's «Урок пройден» reward screen */}
+      {completionStats && (
+        <div className="absolute left-1/2 -translate-x-1/2 z-40 w-[640px] max-w-[92vw]" style={{ top: '61%' }}>
+          <div className="rounded-2xl bg-white/95 backdrop-blur shadow-xl ring-1 ring-black/5 px-6 py-4 text-[#3a3a3a]">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <span className="font-extrabold text-lg">Итоги урока</span>
+              <span className="text-sm text-[#6b6b6b]">
+                решено <b className="text-[#3a3a3a]">{completionStats.solved}/{completionStats.total}</b>
+                {' · '}ошибок <b className="text-[#3a3a3a]">{completionStats.wrong}</b>
+                {' · '}<b className="text-[#3a3a3a]">{completionStats.minutes}</b> мин
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-1 text-sm max-h-[34vh] overflow-auto">
+              {completionStats.perTask.map((t) => (
+                <div key={t.n} className="flex items-center justify-between border-b border-black/5 py-1">
+                  <span className="text-[#6b6b6b]">Задание {t.n}</span>
+                  <span className="tabular-nums">
+                    {t.sec != null ? `${t.sec} с` : '—'}
+                    <span className={t.wrong > 0 ? 'text-[#c0392b] ml-2' : 'text-[#9a9a9a] ml-2'}>{t.wrong} ош.</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

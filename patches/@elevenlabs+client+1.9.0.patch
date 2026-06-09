@@ -1,0 +1,26 @@
+diff --git a/node_modules/@elevenlabs/client/dist/platform/web/output.js b/node_modules/@elevenlabs/client/dist/platform/web/output.js
+index a6bd190..36afa1c 100644
+--- a/node_modules/@elevenlabs/client/dist/platform/web/output.js
++++ b/node_modules/@elevenlabs/client/dist/platform/web/output.js
+@@ -136,8 +136,19 @@ export class MediaDeviceOutput {
+         }
+         // Send interrupt message to worklet to flush queued buffers
+         this.worklet.port.postMessage({ type: "interrupt" });
+-        // Fade out audio gain
+-        this.gain.gain.exponentialRampToValueAtTime(0.0001, this.context.currentTime + resetDuration / 1000);
++        // Klassio patch (patches/@elevenlabs+client+1.9.0.patch): gentler, slightly
++        // longer barge-in fade-out. The stock code did a steep exponential to ~0 over
++        // the full resetDuration; we instead ramp smoothly from the CURRENT gain over
++        // ~0.9 s so her voice trails off softly instead of snapping. Buffers still
++        // clear at resetDuration below (keeps the 1.9.0 "don't drop audio arriving
++        // right after the interruption" behaviour).
++        {
++            const __now = this.context.currentTime;
++            const __fade = 0.9;
++            this.gain.gain.cancelScheduledValues(__now);
++            this.gain.gain.setValueAtTime(Math.max(this.gain.gain.value, 0.0001), __now);
++            this.gain.gain.exponentialRampToValueAtTime(0.0001, __now + __fade);
++        }
+         // After fade completes, restore volume and accept new audio
+         this.interruptTimeout = setTimeout(() => {
+             this.interrupted = false;
