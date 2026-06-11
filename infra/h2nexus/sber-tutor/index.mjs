@@ -175,6 +175,9 @@ async function runTurn(session) {
   if (session.busy) { session.pendingTurn = true; return }
   session.busy = true
   send(ws, { type: 'mode', mode: 'thinking' })
+  // per-turn latency breakdown → journald (сравнение с 11labs: у того answer-time ~1.3s серверных)
+  const tTurn = Date.now()
+  let llmMs = 0, llmSteps = 0, ttsFirstAt = null
   let finalText = ''
   try {
     await ensureTokens()
@@ -183,7 +186,9 @@ async function runTurn(session) {
     // so the cap is also a token-economy guard (each call re-sends the ~7k prompt).
     let refusalStreak = 0 // consecutive «Рано…» guard refusals — stubborn-model cutoff
     for (let step = 0; step < 8; step++) {
+      const tLlm = Date.now()
       const j = await gigaChat(session.messages)
+      llmMs += Date.now() - tLlm; llmSteps++
       const msg = j.choices?.[0]?.message
       if (!msg) break
       session.messages.push(msg)
@@ -207,7 +212,9 @@ async function runTurn(session) {
       // The tool-loop ate the whole budget without speaking (base GigaChat loves
       // chaining calls). Force a SPOKEN wrap-up with functions disabled — Аня
       // must never end a turn mute.
+      const tLlm = Date.now()
       const j = await gigaChat(session.messages, { noTools: true })
+      llmMs += Date.now() - tLlm; llmSteps++
       const msg = j.choices?.[0]?.message
       if (msg) { session.messages.push(msg); finalText = (msg.content || '').trim() }
     }
@@ -221,9 +228,16 @@ async function runTurn(session) {
     send(ws, { type: 'mode', mode: 'speaking' })
     let seq = 0
     for (const sentence of splitSentences(finalText)) {
-      try { send(ws, { type: 'audio', seq: seq++, b64: await ttsB64(sentence, session.voice) }) } catch (e) { console.error('[sber-tutor] tts:', e?.message || e) }
+      try {
+        const b64 = await ttsB64(sentence, session.voice)
+        if (ttsFirstAt === null) ttsFirstAt = Date.now() - tTurn
+        send(ws, { type: 'audio', seq: seq++, b64 })
+      } catch (e) { console.error('[sber-tutor] tts:', e?.message || e) }
     }
   }
+  console.log(
+    `[turn] sid=${session.sessionId.slice(0, 8)} llm=${llmMs}ms/${llmSteps}x · 1й-звук=${ttsFirstAt ?? '—'}ms · всего=${Date.now() - tTurn}ms · model=${activeModel}`,
+  )
   trimHistory(session)
   send(ws, { type: 'agent_done' })
   send(ws, { type: 'mode', mode: 'listening' })
@@ -234,7 +248,9 @@ async function runTurn(session) {
 async function handleAudio(session, pcmBuf) {
   try {
     await ensureTokens()
+    const tStt = Date.now()
     const transcript = await stt(pcmBuf)
+    console.log(`[stt] sid=${session.sessionId.slice(0, 8)} ${Date.now() - tStt}ms · ${Math.round(pcmBuf.length / 32)}ms звука · «${transcript.slice(0, 60)}»`)
     send(session.ws, { type: 'transcript', role: 'user', text: transcript })
     session.messages.push({ role: 'user', content: transcript || '(не расслышала)' })
     await runTurn(session)
