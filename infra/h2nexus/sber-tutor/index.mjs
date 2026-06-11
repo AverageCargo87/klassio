@@ -147,13 +147,125 @@ async function gigaChat(messages, { noTools = false } = {}) {
   return JSON.parse(r.body.toString())
 }
 
+// ── GigaChat SSE (stream:true) — токены по мере генерации ───────────────────
+// Готовые предложения уходят в onSentence ЖИВЬЁМ (их тут же синтезирует
+// TTS-воркер, пока модель дописывает остальное). Function-call'ы собираются из
+// дельт; junk-контент « function:\n» при finish=function_call НЕ озвучивается:
+// (а) у него нет терминатора предложения, (б) явный гвард по префиксу.
+function gigaChatSSEOnce(model, messages, noTools, onSentence) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({ model, messages, functions: GIGA_FUNCTIONS, function_call: noTools ? 'none' : 'auto', temperature: 0.4, stream: true })
+    const u = new URL('https://gigachat.devices.sberbank.ru/api/v1/chat/completions')
+    const r = https.request({
+      hostname: u.hostname, port: 443, path: u.pathname, method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + gigTok, 'Content-Type': 'application/json', 'Accept': 'text/event-stream' }, agent,
+    }, (res) => {
+      if (res.statusCode !== 200) {
+        const cs = []; res.on('data', (c) => cs.push(c))
+        res.on('end', () => {
+          const e = new Error('GigaChat HTTP ' + res.statusCode + ': ' + Buffer.concat(cs).toString().slice(0, 200))
+          e.status = res.statusCode; reject(e)
+        })
+        return
+      }
+      const t0 = Date.now()
+      let sseBuf = '', content = '', pend = '', firstTokenMs = null
+      let fcName = '', fcArgsStr = '', fcArgsObj = null
+      const JUNK_RE = /^\s*function\b/i
+      res.setEncoding('utf8')
+      res.on('data', (chunk) => {
+        sseBuf += chunk
+        let nl
+        while ((nl = sseBuf.indexOf('\n')) >= 0) {
+          const line = sseBuf.slice(0, nl); sseBuf = sseBuf.slice(nl + 1)
+          const m = line.match(/^data:\s*(.*)$/)
+          if (!m || m[1] === '[DONE]') continue
+          let d
+          try { d = JSON.parse(m[1])?.choices?.[0]?.delta } catch { continue }
+          if (!d) continue
+          if (d.function_call) {
+            if (typeof d.function_call.name === 'string') fcName += d.function_call.name
+            const a = d.function_call.arguments
+            if (a != null) { if (typeof a === 'string') fcArgsStr += a; else fcArgsObj = a }
+          }
+          if (typeof d.content === 'string' && d.content) {
+            if (firstTokenMs === null) firstTokenMs = Date.now() - t0
+            content += d.content; pend += d.content
+            if (!fcName && !JUNK_RE.test(content)) {
+              const { sentences, rest } = extractStreamSentences(pend)
+              pend = rest
+              for (const s of sentences) onSentence(s)
+            }
+          }
+        }
+      })
+      res.on('end', () => {
+        const isFc = !!fcName
+        if (!isFc && pend.trim() && !JUNK_RE.test(content)) onSentence(pend.trim())
+        let args = fcArgsObj
+        if (!args) { try { args = JSON.parse(fcArgsStr || '{}') } catch { args = {} } }
+        resolve({ content: isFc ? '' : content.trim(), functionCall: isFc ? { name: fcName, arguments: args } : null, firstTokenMs })
+      })
+      res.on('error', reject)
+    })
+    r.on('error', reject)
+    r.setTimeout(60000, () => r.destroy(new Error('GigaChat stream timeout')))
+    r.write(body); r.end()
+  })
+}
+// SENT_RE (выше) — то же правило границы предложения, но с остатком-фрагментом
+function extractStreamSentences(buf) {
+  const out = []; let rest = buf; let m
+  while ((m = rest.match(SENT_RE))) { const s = m[1].trim(); rest = m[2]; if (s) out.push(s) }
+  return { sentences: out, rest }
+}
+// 402-деградация + фолбэк на нестриминговый вызов, если стрим+functions
+// у GigaChat вдруг откажет (4xx) — урок важнее красоты.
+async function gigaChatStream(messages, { noTools = false } = {}, onSentence) {
+  // Страховка от двойного проигрывания: e.status бывает только у до-стримовых
+  // ошибок (HTTP-статус приходит раньше тела), но если предложения УЖЕ ушли в
+  // синтез — никакие повторы/фолбэки в этом же ходе недопустимы.
+  let pushed = 0
+  const onceSentence = (s) => { pushed++; onSentence(s) }
+  try {
+    return await gigaChatSSEOnce(activeModel, messages, noTools, onceSentence)
+  } catch (e) {
+    if (pushed > 0) throw e
+    if (e.status === 402 && activeModel !== 'GigaChat') {
+      console.error(`[sber-tutor] ${activeModel} → HTTP 402 (квота кончилась) — деградирую на GigaChat (base)`)
+      activeModel = 'GigaChat'
+      return await gigaChatSSEOnce(activeModel, messages, noTools, onceSentence)
+    }
+    if (e.status && e.status >= 400 && e.status < 500) {
+      console.error('[sber-tutor] stream → HTTP ' + e.status + ', фолбэк на нестриминговый вызов')
+      const j = await gigaChat(messages, { noTools })
+      const msg = j.choices?.[0]?.message || {}
+      if (msg.function_call?.name) {
+        let args = msg.function_call.arguments
+        if (typeof args === 'string') { try { args = JSON.parse(args) } catch { args = {} } }
+        return { content: '', functionCall: { name: msg.function_call.name, arguments: args || {} }, firstTokenMs: null }
+      }
+      const text = (msg.content || '').trim()
+      if (text) for (const s of splitSentences(text)) onSentence(s)
+      return { content: text, functionCall: null, firstTokenMs: null }
+    }
+    throw e
+  }
+}
+
 // ── per-connection session ───────────────────────────────────────────────────
 const send = (ws, obj) => { try { if (ws.readyState === 1) ws.send(JSON.stringify(obj)) } catch {} }
 
 function callBrowserTool(session, name, args) {
   return new Promise((resolve) => {
     const id = (session.toolSeq = (session.toolSeq || 0) + 1)
-    const timer = setTimeout(() => { session.pending.delete(id); resolve('OK') }, 8000) // never hang the lesson
+    // Таймаут ≠ успех: фиктивный «OK» отравлял историю — модель считала, что
+    // доска показана, хотя браузер молчал. Error-строка ведёт себя как отказ
+    // гварда (refusalStreak) → после двух подряд Аня просто говорит голосом.
+    const timer = setTimeout(() => {
+      session.pending.delete(id)
+      resolve('Error: браузер не ответил на инструмент за 8 секунд — считай, что показать НЕ удалось, продолжай голосом.')
+    }, 8000) // never hang the lesson
     session.pending.set(id, (result) => { clearTimeout(timer); resolve(typeof result === 'string' && result ? result : 'OK') })
     send(session.ws, { type: 'tool_call', id, name, args })
   })
@@ -177,8 +289,34 @@ async function runTurn(session) {
   send(ws, { type: 'mode', mode: 'thinking' })
   // per-turn latency breakdown → journald (сравнение с 11labs: у того answer-time ~1.3s серверных)
   const tTurn = Date.now()
-  let llmMs = 0, llmSteps = 0, ttsFirstAt = null
+  let llmMs = 0, llmSteps = 0, ttsFirstAt = null, firstSentenceAt = null
   let finalText = ''
+
+  // TTS-воркер: дренит очередь готовых предложений ПО ПОРЯДКУ, пока LLM ещё
+  // стримит остальное — «говорит, пока думает». seq растёт монотонно, браузер
+  // играет чанки в порядке прихода.
+  const sentenceQ = []
+  let qEnded = false, wake = null, seq = 0
+  const pushSentence = (s) => {
+    const t = String(s || '').trim()
+    if (!t) return
+    if (firstSentenceAt === null) firstSentenceAt = Date.now() - tTurn
+    sentenceQ.push(t)
+    if (wake) { const w = wake; wake = null; w() }
+  }
+  const ttsWorker = (async () => {
+    for (;;) {
+      while (sentenceQ.length === 0 && !qEnded) await new Promise((r) => { wake = r })
+      if (sentenceQ.length === 0 && qEnded) return
+      const text = sentenceQ.shift()
+      try {
+        const b64 = await ttsB64(text, session.voice)
+        if (ttsFirstAt === null) { ttsFirstAt = Date.now() - tTurn; send(ws, { type: 'mode', mode: 'speaking' }) }
+        send(ws, { type: 'audio', seq: seq++, b64 })
+      } catch (e) { console.error('[sber-tutor] tts:', e?.message || e) }
+    }
+  })()
+
   try {
     await ensureTokens()
     // 8 tool-calls per turn is plenty for a legit chain (set_phase + next_slide +
@@ -186,57 +324,51 @@ async function runTurn(session) {
     // so the cap is also a token-economy guard (each call re-sends the ~7k prompt).
     let refusalStreak = 0 // consecutive «Рано…» guard refusals — stubborn-model cutoff
     for (let step = 0; step < 8; step++) {
+      if (ws.readyState !== 1) break // клиент отвалился посреди хода — не жжём токены впустую
       const tLlm = Date.now()
-      const j = await gigaChat(session.messages)
+      const r = await gigaChatStream(session.messages, {}, pushSentence)
       llmMs += Date.now() - tLlm; llmSteps++
-      const msg = j.choices?.[0]?.message
-      if (!msg) break
-      session.messages.push(msg)
-      const fc = msg.function_call
-      if (fc && fc.name) {
-        let args = fc.arguments
-        if (typeof args === 'string') { try { args = JSON.parse(args) } catch { args = {} } }
-        const result = await callBrowserTool(session, fc.name, args || {})
+      if (r.functionCall) {
+        // arguments кладём ОБЪЕКТОМ — так их и возвращает API, и в истории
+        // объектный round-trip уже проверен спайком.
+        session.messages.push({ role: 'assistant', content: '', function_call: r.functionCall })
+        const result = await callBrowserTool(session, r.functionCall.name, r.functionCall.arguments || {})
         // GigaChat REQUIRES the function result content to be a JSON string.
-        session.messages.push({ role: 'function', name: fc.name, content: JSON.stringify({ result }) })
+        session.messages.push({ role: 'function', name: r.functionCall.name, content: JSON.stringify({ result }) })
         // The base model sometimes keeps ramming the pacing guards (each refused
         // call = another full LLM round-trip ≈ 1s of felt latency). Two refusals
         // in a row → stop the loop and force a spoken reply instead.
         if (/^(Рано|Error)/.test(result)) { if (++refusalStreak >= 2) break } else refusalStreak = 0
         continue
       }
-      finalText = (msg.content || '').trim() // NB: only spoken replies reach TTS; function-call junk content never does
+      finalText = r.content // предложения уже улетели в TTS по мере стрима
       break
     }
-    if (!finalText) {
+    if (!finalText && ws.readyState === 1) {
       // The tool-loop ate the whole budget without speaking (base GigaChat loves
       // chaining calls). Force a SPOKEN wrap-up with functions disabled — Аня
       // must never end a turn mute.
       const tLlm = Date.now()
-      const j = await gigaChat(session.messages, { noTools: true })
+      const r = await gigaChatStream(session.messages, { noTools: true }, pushSentence)
       llmMs += Date.now() - tLlm; llmSteps++
-      const msg = j.choices?.[0]?.message
-      if (msg) { session.messages.push(msg); finalText = (msg.content || '').trim() }
+      finalText = r.content
     }
+    if (finalText) session.messages.push({ role: 'assistant', content: finalText })
   } catch (e) {
     console.error('[sber-tutor] turn error:', e?.message || e)
     send(ws, { type: 'error', message: String(e?.message || e) })
   }
 
-  if (finalText) {
-    send(ws, { type: 'transcript', role: 'agent', text: finalText })
-    send(ws, { type: 'mode', mode: 'speaking' })
-    let seq = 0
-    for (const sentence of splitSentences(finalText)) {
-      try {
-        const b64 = await ttsB64(sentence, session.voice)
-        if (ttsFirstAt === null) ttsFirstAt = Date.now() - tTurn
-        send(ws, { type: 'audio', seq: seq++, b64 })
-      } catch (e) { console.error('[sber-tutor] tts:', e?.message || e) }
-    }
-  }
+  // Пузырь в чат — полным текстом по концу стрима (первый звук к этому моменту
+  // обычно уже играет; инкрементальные transcript'ы плодили бы пузыри на фронте).
+  if (finalText) send(ws, { type: 'transcript', role: 'agent', text: finalText })
+  qEnded = true
+  if (wake) { const w = wake; wake = null; w() }
+  // воркер не должен уметь падать (per-sentence try/catch), но если упадёт —
+  // ход обязан закрыться (busy=false), иначе сессия зависнет навсегда
+  await ttsWorker.catch((e) => console.error('[sber-tutor] tts worker:', e?.message || e))
   console.log(
-    `[turn] sid=${session.sessionId.slice(0, 8)} llm=${llmMs}ms/${llmSteps}x · 1й-звук=${ttsFirstAt ?? '—'}ms · всего=${Date.now() - tTurn}ms · model=${activeModel}`,
+    `[turn] sid=${session.sessionId.slice(0, 8)} llm=${llmMs}ms/${llmSteps}x · 1е-предл=${firstSentenceAt ?? '—'}ms · 1й-звук=${ttsFirstAt ?? '—'}ms · всего=${Date.now() - tTurn}ms · model=${activeModel}`,
   )
   trimHistory(session)
   send(ws, { type: 'agent_done' })
@@ -324,7 +456,7 @@ function onConnection(ws, sid) {
       case 'end': try { ws.close(1000) } catch {} ; break
     }
   })
-  ws.on('close', () => { for (const r of session.pending.values()) r('OK'); session.pending.clear(); console.log(`  sber-tutor close sid=${sid.slice(0, 8)}…`) })
+  ws.on('close', () => { for (const r of session.pending.values()) r('Error: соединение с учеником закрыто'); session.pending.clear(); console.log(`  sber-tutor close sid=${sid.slice(0, 8)}…`) })
   ws.on('error', (e) => console.error('  sber-tutor ws err:', e.message))
 }
 
