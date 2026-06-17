@@ -2,7 +2,7 @@
 // the parent dashboard: per-lesson results, skill mastery (weak spots first),
 // and behaviour-moderation notices with acknowledgement.
 import { db } from '@/lib/db'
-import { tutorSessions, lessonAttempts, skillMastery, progressEvents } from '@/lib/db/schema'
+import { tutorSessions, lessonAttempts, skillMastery, progressEvents, lessonTranscripts } from '@/lib/db/schema'
 import { and, eq, desc, asc, count, isNull, inArray, sql } from 'drizzle-orm'
 import { lessonTitle } from '@/lib/curriculum'
 import type { TutorPhase } from './types'
@@ -26,6 +26,10 @@ export interface SessionSummary {
   tasksCorrect: number
   /** 0..1 accuracy across graded tasks; null when no tasks graded. */
   accuracy: number | null
+  /** AI-резюме урока («замечания учителя»); null пока не сгенерировано. */
+  summary: string | null
+  /** Есть ли сохранённая запись урока (можно открыть полный транскрипт). */
+  hasTranscript: boolean
 }
 
 export interface SkillSummary {
@@ -80,6 +84,14 @@ export async function getChildReport(userId: string): Promise<ChildReport> {
     agg.map((a) => [a.sessionId, { total: num(a.tasksTotal), correct: num(a.tasksCorrect) }]),
   )
 
+  // Какие сессии имеют сохранённую запись урока (один сгруппированный запрос).
+  const trRows = await db
+    .select({ sessionId: lessonTranscripts.sessionId, c: count() })
+    .from(lessonTranscripts)
+    .where(eq(lessonTranscripts.userId, userId))
+    .groupBy(lessonTranscripts.sessionId)
+  const transcriptSessions = new Set(trRows.filter((r) => num(r.c) > 0).map((r) => r.sessionId))
+
   const sessions: SessionSummary[] = sessionRows.map((s) => {
     const a = aggBySession.get(s.id) ?? { total: 0, correct: 0 }
     return {
@@ -96,6 +108,8 @@ export async function getChildReport(userId: string): Promise<ChildReport> {
       tasksTotal: a.total,
       tasksCorrect: a.correct,
       accuracy: a.total > 0 ? a.correct / a.total : null,
+      summary: s.summary ?? null,
+      hasTranscript: transcriptSessions.has(s.id),
     }
   })
 

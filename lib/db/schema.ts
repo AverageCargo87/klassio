@@ -164,6 +164,9 @@ export const tutorSessions = pgTable(
     startedAt: timestamp('started_at', { mode: 'date' }).defaultNow().notNull(),
     endedAt: timestamp('ended_at', { mode: 'date' }),
     durationSec: integer('duration_sec'),
+    // AI-резюме урока («замечания учителя» в ЛК): что прошли, как справился,
+    // на что обратить внимание. Заполняется на завершении урока. NULL = ещё нет.
+    summary: text('summary'),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   },
   (t) => [
@@ -255,5 +258,57 @@ export const progressEvents = pgTable(
     index('progress_event_user_idx').on(t.userId),
     index('progress_event_session_idx').on(t.sessionId),
     index('progress_event_type_idx').on(t.eventType),
+  ],
+)
+
+// === Личный кабинет: запись урока + домашка (эпик «Образовательная платформа», июнь 2026) ===
+
+// Транскрипт урока — по реплике на строку, копится за сессию (родитель может
+// открыть полную запись в ЛК). ВАЖНО: это осознанно разворачивает прежнее
+// приватностное решение «детские реплики не пишем» (см. /api/tutor/moderation,
+// где намеренно пишутся только теги). Решение оператора 2026-06-17: храним
+// транскрипт + AI-резюме. Модерация по-прежнему НЕ пишет текст отдельно — теперь
+// он живёт здесь как часть учебной записи.
+export const lessonTranscripts = pgTable(
+  'lesson_transcript',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    sessionId: uuid('session_id').notNull().references(() => tutorSessions.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(), // 'agent' (Аня) | 'child'
+    text: text('text').notNull(),
+    seq: integer('seq').notNull(), // монотонный порядок реплики в сессии
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (t) => [
+    // UNIQUE — нужно для onConflictDoNothing (идемпотентный ретрай батча клиентом).
+    uniqueIndex('lesson_transcript_session_seq_uniq').on(t.sessionId, t.seq),
+    index('lesson_transcript_user_idx').on(t.userId),
+  ],
+)
+
+// Домашка — выдаётся в конце урока (Аня формирует), родитель/ребёнок видит в ЛК.
+// `items` = массив задач в том же формате, что задачи урока (см. canvas-contract §3),
+// чтобы переиспользовать тот же тренажёр для выполнения. v1: статус assigned/done,
+// без жёстких дедлайнов.
+export const homeworkStatusEnum = pgEnum('homework_status', ['assigned', 'done'])
+
+export const homeworkAssignments = pgTable(
+  'homework_assignment',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    sessionId: uuid('session_id').references(() => tutorSessions.id, { onDelete: 'set null' }), // урок-источник
+    subjectId: text('subject_id').notNull(),
+    lessonSlug: text('lesson_slug').notNull(),
+    title: text('title').notNull(),
+    items: jsonb('items').notNull(), // [{ q, answer, options?, skill? }]
+    status: homeworkStatusEnum('status').notNull().default('assigned'),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    completedAt: timestamp('completed_at', { mode: 'date' }),
+  },
+  (t) => [
+    index('homework_user_idx').on(t.userId),
+    index('homework_lesson_idx').on(t.userId, t.subjectId, t.lessonSlug),
   ],
 )

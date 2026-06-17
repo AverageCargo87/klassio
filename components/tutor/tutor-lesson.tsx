@@ -19,6 +19,7 @@ import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import type { ClientTools } from '@elevenlabs/react'
 import type { TutorDynamicVariables } from '@/lib/tutor/types'
 import { formatFatigueSignal, formatTutorState } from '@/lib/tutor/contextual-updates'
+import { useTranscriptLogger } from './use-transcript-logger'
 
 interface TutorLessonProps {
   sessionId: string
@@ -200,6 +201,9 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
       .catch((e) => console.error('[tutor] POST failed', url, e))
   }, [])
 
+  // Запись урока для ЛК — копит реплики и шлёт батчами (см. use-transcript-logger).
+  const { logLine, flush: flushTranscript } = useTranscriptLogger(sessionId)
+
   // Schedule a centre-stage change, never sooner than MIN_DWELL_MS after the
   // previous one — so a board can't flash when Аня chains two reveals in a turn.
   const revealStage = useCallback((fn: () => void) => {
@@ -336,7 +340,9 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
           perTask,
         })
         post('/api/tutor/event', { sessionId, eventType: 'reward_given', payload: { label: label ?? null } })
-        post('/api/tutor/complete', { sessionId }) // reward = end of lesson → mark complete
+        // Сначала дослать запись урока, потом complete — чтобы AI-резюме строилось
+        // по полному транскрипту (complete генерирует резюме из сохранённой записи).
+        void flushTranscript().then(() => post('/api/tutor/complete', { sessionId }))
         return 'Награда показана — урок завершён.'
       },
       take_break: (p: Record<string, unknown>) => {
@@ -356,7 +362,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         return `Имя запомнено: ${name}`
       },
     }),
-    [engine, realLesson, getState, post, revealStage, leavingBoardTooSoon, sessionId],
+    [engine, realLesson, getState, post, revealStage, leavingBoardTooSoon, sessionId, flushTranscript],
   )
 
   // ── SDK callbacks ─────────────────────────────────────────────────────────
@@ -404,14 +410,16 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
         // if that didn't fire, then reset the flag for the next turn.
         if (!agentBubbleShownRef.current) engine()?.pushBubble('tutor', text)
         agentBubbleShownRef.current = false
+        logLine('tutor', text) // запись урока (финальный текст реплики Ани)
         return
       }
       agentBubbleShownRef.current = false // child spoke → new turn, allow the next tutor bubble
       engine()?.pushBubble('child', text)
+      logLine('child', text) // запись урока (реплика ребёнка)
       turnTimingRef.current = { at: performance.now(), text } // start the turn-latency clock
       void checkModeration(text)
     },
-    [engine, checkModeration],
+    [engine, checkModeration, logLine],
   )
 
   // 11labs emits a TENTATIVE agent draft (onDebug) the moment the LLM finishes the

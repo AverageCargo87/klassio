@@ -29,3 +29,16 @@ export {
   type ModerationNotice,
   type ChildReport,
 } from './reports'
+export {
+  appendTranscript,
+  getTranscript,
+  type TranscriptLine,
+} from './transcript'
+export {
+  createHomework,
+  listHomework,
+  markHomeworkDone,
+  type HomeworkItem,
+  type HomeworkAssignment,
+} from './homework'
+export { generateLessonSummary, setSessionSummary } from './summary'

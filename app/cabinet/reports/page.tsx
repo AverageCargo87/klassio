@@ -7,8 +7,8 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { getChildReport } from '@/lib/tutor'
-import { ackModeration } from './actions'
+import { getChildReport, listHomework } from '@/lib/tutor'
+import { ackModeration, completeHomework } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,9 +46,15 @@ export default async function ReportsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect('/login')
 
-  const report = await getChildReport(session.user.id)
+  const [report, homework] = await Promise.all([
+    getChildReport(session.user.id),
+    listHomework(session.user.id),
+  ])
   const childName = session.user.childName || 'ребёнка'
   const unackNotices = report.moderation.filter((m) => !m.acknowledgedAt)
+  const currentLessons = report.sessions.filter((s) => s.status === 'in_progress')
+  const pastLessons = report.sessions.filter((s) => s.status !== 'in_progress')
+  const pendingHomework = homework.filter((h) => h.status === 'assigned')
 
   return (
     <main className="container mx-auto p-6 max-w-3xl">
@@ -132,14 +138,76 @@ export default async function ReportsPage() {
         </section>
       )}
 
-      {/* Lessons */}
+      {/* Current lessons (in progress) */}
+      {currentLessons.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-lg font-medium mb-3">Текущие уроки</h2>
+          <div className="space-y-2">
+            {currentLessons.map((s) => (
+              <Card key={s.id} className="border-primary/30 bg-primary/5">
+                <CardContent className="py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{s.lessonTitle}</p>
+                    <p className="text-xs text-muted-foreground">
+                      начат {dateFmt.format(s.startedAt)} · идёт
+                    </p>
+                  </div>
+                  <Link href={`/tutor/${s.subjectId}/${s.lessonSlug}`}>
+                    <Button size="sm" variant="outline">Продолжить</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Homework */}
+      {homework.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-lg font-medium mb-3">
+            Домашняя работа
+            {pendingHomework.length > 0 && (
+              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+                {pendingHomework.length} к выполнению
+              </span>
+            )}
+          </h2>
+          <div className="space-y-2">
+            {homework.map((h) => (
+              <Card key={h.id} className={h.status === 'done' ? 'opacity-60' : ''}>
+                <CardContent className="py-3">
+                  <div className="flex items-center justify-between gap-3 mb-1">
+                    <p className="text-sm font-medium">{h.title}</p>
+                    {h.status === 'done' ? (
+                      <span className="text-xs text-muted-foreground shrink-0">выполнено</span>
+                    ) : (
+                      <form action={completeHomework}>
+                        <input type="hidden" name="homeworkId" value={h.id} />
+                        <Button type="submit" size="sm" variant="outline">Отметить выполненным</Button>
+                      </form>
+                    )}
+                  </div>
+                  <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-0.5">
+                    {h.items.slice(0, 5).map((it, i) => (
+                      <li key={i}>{it.q}</li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Past lessons */}
       <section className="mb-8">
         <h2 className="text-lg font-medium mb-3">Уроки</h2>
-        {report.sessions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Занятий пока не было.</p>
+        {pastLessons.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Завершённых занятий пока нет.</p>
         ) : (
           <div className="space-y-2">
-            {report.sessions.map((s) => (
+            {pastLessons.map((s) => (
               <Card key={s.id}>
                 <CardContent className="py-3">
                   <div className="flex items-center justify-between gap-3">
@@ -157,6 +225,19 @@ export default async function ReportsPage() {
                       </p>
                     </div>
                   </div>
+                  {s.summary && (
+                    <p className="text-xs text-muted-foreground mt-2 line-clamp-2 border-t pt-2">
+                      {s.summary}
+                    </p>
+                  )}
+                  {(s.summary || s.hasTranscript) && (
+                    <Link
+                      href={`/cabinet/lessons/${s.id}`}
+                      className="text-xs text-primary hover:underline mt-2 inline-block"
+                    >
+                      Открыть запись урока →
+                    </Link>
+                  )}
                 </CardContent>
               </Card>
             ))}
