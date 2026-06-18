@@ -167,6 +167,9 @@ export const tutorSessions = pgTable(
     // AI-резюме урока («замечания учителя» в ЛК): что прошли, как справился,
     // на что обратить внимание. Заполняется на завершении урока. NULL = ещё нет.
     summary: text('summary'),
+    // Каким голосовым стеком шёл урок: 'elevenlabs' | 'sber'. Выбирается в меню
+    // выбора урока; показывается в записи урока. NULL = старые сессии до этой фичи.
+    voiceProvider: text('voice_provider'),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   },
   (t) => [
