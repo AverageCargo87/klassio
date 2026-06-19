@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSberConversation, type SberClientTools, type SberMode } from './use-sber-conversation'
 import type { TutorDynamicVariables } from '@/lib/tutor/types'
 import { formatFatigueSignal, formatTutorState } from '@/lib/tutor/contextual-updates'
+import { useTranscriptLogger } from './use-transcript-logger'
 
 interface TutorLessonProps {
   sessionId: string
@@ -157,6 +158,9 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables }: Tuto
       .catch((e) => console.error('[tutor-ru] POST failed', url, e))
   }, [])
 
+  // Запись урока для ЛК — копит реплики, шлёт батчами (как в 11labs-версии).
+  const { logLine, flush: flushTranscript } = useTranscriptLogger(sessionId)
+
   const revealStage = useCallback((fn: () => void) => {
     if (pendingHideRef.current !== null) { window.clearTimeout(pendingHideRef.current); pendingHideRef.current = null }
     const now = Date.now()
@@ -278,7 +282,8 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables }: Tuto
           perTask,
         })
         post('/api/tutor/event', { sessionId, eventType: 'reward_given', payload: { label: label ?? null } })
-        post('/api/tutor/complete', { sessionId })
+        // Сначала дослать запись урока, потом complete — резюме строится по транскрипту.
+        void flushTranscript().then(() => post('/api/tutor/complete', { sessionId }))
         return 'Награда показана — урок завершён.'
       },
       take_break: (p: Record<string, unknown>) => {
@@ -340,13 +345,15 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables }: Tuto
         // Оркестратор шлёт транскрипт Ани ДО синтеза аудио — пузырь не отстаёт
         // от голоса и без 11labs-овского tentative-черновика.
         engine()?.pushBubble('tutor', text)
+        logLine('tutor', text) // запись урока
         return
       }
       engine()?.pushBubble('child', text)
+      logLine('child', text) // запись урока
       turnTimingRef.current = { at: performance.now(), text }
       void checkModeration(text)
     },
-    [engine, checkModeration],
+    [engine, checkModeration, logLine],
   )
 
   const handleError = useCallback((message: string) => {

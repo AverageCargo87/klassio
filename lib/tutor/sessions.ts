@@ -17,8 +17,10 @@ export async function getOrStartSession(input: {
   userId: string
   subjectId: string
   lessonSlug: string
+  /** Каким голосовым стеком запускают урок ('sber' | 'elevenlabs'). */
+  voiceProvider?: string
 }): Promise<StartSessionResult> {
-  const { userId, subjectId, lessonSlug } = input
+  const { userId, subjectId, lessonSlug, voiceProvider } = input
 
   // Counts (completed runs of this lesson / of any lesson).
   const [thisDone] = await db
@@ -57,6 +59,14 @@ export async function getOrStartSession(input: {
     .limit(1)
 
   if (existing.length) {
+    // Возобновили урок: если стек указан и отличается — обновим (пользователь
+    // мог сменить голос в меню выбора между заходами).
+    if (voiceProvider && existing[0].voiceProvider !== voiceProvider) {
+      await db
+        .update(tutorSessions)
+        .set({ voiceProvider })
+        .where(eq(tutorSessions.id, existing[0].id))
+    }
     return {
       sessionId: existing[0].id,
       attemptNumber: existing[0].attemptNumber,
@@ -82,7 +92,7 @@ export async function getOrStartSession(input: {
 
   const inserted = await db
     .insert(tutorSessions)
-    .values({ userId, subjectId, lessonSlug, attemptNumber })
+    .values({ userId, subjectId, lessonSlug, attemptNumber, voiceProvider: voiceProvider ?? null })
     .returning({ id: tutorSessions.id })
   const sessionId = inserted[0].id
 

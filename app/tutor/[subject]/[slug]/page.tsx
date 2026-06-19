@@ -14,15 +14,27 @@ import { resolveLesson } from '@/lib/curriculum'
 import { getOrStartSession, buildTutorDynamicVariables } from '@/lib/tutor'
 import { getUserId } from '@/lib/tutor/http'
 import { TutorLesson } from '@/components/tutor/tutor-lesson'
+import { TutorLessonRu } from '@/components/tutor/tutor-lesson-ru'
 
 export const dynamic = 'force-dynamic'
 
+// Голосовой стек выбирается в меню выбора урока и приходит как ?stack=sber|elevenlabs.
+// Дефолт — Sber (RU-стек). Один и тот же урок (контент/auth/трекинг) рендерится
+// либо через TutorLesson (11labs), либо TutorLessonRu (Sber) — отличается только хук.
+function resolveStack(v: string | string[] | undefined): 'sber' | 'elevenlabs' {
+  const s = Array.isArray(v) ? v[0] : v
+  return s === 'elevenlabs' || s === '11labs' ? 'elevenlabs' : 'sber'
+}
+
 export default async function TutorLessonRoute({
   params,
+  searchParams,
 }: {
   params: Promise<{ subject: string; slug: string }>
+  searchParams: Promise<{ stack?: string | string[] }>
 }) {
   const { subject, slug } = await params
+  const stack = resolveStack((await searchParams).stack)
 
   const userId = await getUserId()
   if (!userId) redirect('/login')
@@ -34,6 +46,7 @@ export default async function TutorLessonRoute({
     userId,
     subjectId: subject,
     lessonSlug: slug,
+    voiceProvider: stack,
   })
 
   const [u] = await db
@@ -51,8 +64,18 @@ export default async function TutorLessonRoute({
     attemptNumber: start.attemptNumber,
   })
 
+  if (stack === 'elevenlabs') {
+    return (
+      <TutorLesson
+        sessionId={start.sessionId}
+        lessonTitle={lesson.title}
+        lessonSubtitle={lesson.subtitle}
+        dynamicVariables={dynamicVariables}
+      />
+    )
+  }
   return (
-    <TutorLesson
+    <TutorLessonRu
       sessionId={start.sessionId}
       lessonTitle={lesson.title}
       lessonSubtitle={lesson.subtitle}
