@@ -1,23 +1,16 @@
-// /cabinet/lessons/[sessionId] — запись прошедшего урока: AI-резюме («замечания
-// учителя») + полный транскрипт диалога. Только для владельца сессии.
+// /cabinet/lessons/[sessionId] — запись урока: AI-резюме («замечания учителя») +
+// полный транскрипт. Фирменный вид Klassio. Показывает, на каком стеке шёл урок.
 import { auth } from '@/auth'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Card, CardContent } from '@/components/ui/card'
 import { getSession, getTranscript } from '@/lib/tutor'
 import { lessonTitle } from '@/lib/curriculum'
 
 export const dynamic = 'force-dynamic'
 
-const dateFmt = new Intl.DateTimeFormat('ru-RU', {
-  day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
-})
+const dateFmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
 
-export default async function LessonRecordPage({
-  params,
-}: {
-  params: Promise<{ sessionId: string }>
-}) {
+export default async function LessonRecordPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params
   const session = await auth()
   if (!session?.user?.id) redirect('/login')
@@ -27,51 +20,39 @@ export default async function LessonRecordPage({
 
   const transcript = await getTranscript(sessionId, session.user.id)
   const title = lessonTitle(lesson.subjectId, lesson.lessonSlug)
+  const stack = lesson.voiceProvider === 'sber' ? 'Сбер' : lesson.voiceProvider === 'elevenlabs' ? '11labs' : null
 
   return (
-    <main className="container mx-auto p-6 max-w-3xl">
-      <div className="mb-6">
-        <Link href="/cabinet/reports" className="text-sm text-muted-foreground hover:underline">
-          ← К отчётам
-        </Link>
+    <main className="kc-shell">
+      <div className="kc-top">
+        <Link href={`/cabinet/${lesson.subjectId}`} className="kc-back">← Назад</Link>
+        {stack && <span className="kc-stack-badge">голос: {stack}</span>}
       </div>
 
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{dateFmt.format(lesson.startedAt)}</p>
+      <header style={{ marginBottom: 22 }}>
+        <h1 className="kc-h1">{title}</h1>
+        <p className="kc-sub" style={{ fontSize: 14, marginTop: 4 }}>{dateFmt.format(lesson.startedAt)}</p>
       </header>
 
-      {/* AI-резюме урока («замечания учителя») */}
       {lesson.summary && (
-        <section className="mb-8">
-          <h2 className="text-lg font-medium mb-3">Замечания учителя</h2>
-          <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="py-4 text-sm leading-relaxed whitespace-pre-line">
-              {lesson.summary}
-            </CardContent>
-          </Card>
+        <section className="kc-section" style={{ marginTop: 0 }}>
+          <h2 className="kc-section-title">Замечания учителя</h2>
+          <div className="kc-card" style={{ background: 'var(--accent-wash)' }}>
+            <p className="kc-kicker" style={{ marginBottom: 8 }}>Аня · по итогам урока</p>
+            <div style={{ fontSize: 15, lineHeight: 1.6, whiteSpace: 'pre-line' }}>{lesson.summary}</div>
+          </div>
         </section>
       )}
 
-      {/* Полный транскрипт */}
-      <section>
-        <h2 className="text-lg font-medium mb-3">Запись урока</h2>
+      <section className="kc-section">
+        <h2 className="kc-section-title">Запись урока</h2>
         {transcript.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Запись этого урока не сохранилась.</p>
+          <div className="kc-card-2"><span className="kc-empty">Запись этого урока не сохранилась.</span></div>
         ) : (
-          <div className="space-y-2">
+          <div className="kc-list">
             {transcript.map((line, i) => (
-              <div
-                key={i}
-                className={
-                  line.role === 'agent'
-                    ? 'rounded-lg bg-muted px-3 py-2 text-sm'
-                    : 'rounded-lg bg-primary/10 px-3 py-2 text-sm ml-8'
-                }
-              >
-                <span className="text-xs text-muted-foreground block mb-0.5">
-                  {line.role === 'agent' ? 'Учитель' : 'Ребёнок'}
-                </span>
+              <div key={i} className={`kc-tline ${line.role === 'agent' ? 'kc-agent' : 'kc-child'}`}>
+                <span className="kc-who-lbl">{line.role === 'agent' ? 'Учитель' : 'Ребёнок'}</span>
                 {line.text}
               </div>
             ))}

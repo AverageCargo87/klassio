@@ -1,0 +1,101 @@
+/* Klassio cabinet — фирменный визуал по дизайн-системе (тёплая бумага, терракота,
+   «подушечные» скруглённые карточки, Onest). Токены из Claude Design экспорта.
+   Всё под .kc-app, чтобы не течь в остальное приложение. */
+.kc-app {
+  --bg-0: #FBF8F1; --bg-1: #F6EFE3; --bg-2: #EFE5D5; --bg-3: #E7DAC6;
+  --ink: #2C2922; --ink-soft: rgba(44,41,34,.62); --ink-faint: rgba(44,41,34,.40); --ink-line: rgba(44,41,34,.08);
+  --accent: #CC7A50; --accent-soft: #DBA07A; --accent-deep: #B5663E; --accent-dark: #9E5F35; --accent-wash: rgba(204,122,80,.10);
+  --av-1: #D8CFF2; --av-2: #C7C0EE; --av-3: #A6C6E9;
+  --error: #C0392B;
+  --sh-soft: 0 2px 8px rgba(74,60,36,.05), 0 10px 30px rgba(74,60,36,.06);
+  --sh-raised: 0 4px 14px rgba(74,60,36,.07), 0 24px 60px rgba(74,60,36,.10);
+  --sh-accent: 0 10px 26px rgba(204,122,80,.34);
+
+  min-height: 100vh;
+  background: var(--bg-1);
+  color: var(--ink);
+  font-family: var(--kc-font, 'Onest'), -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -.005em;
+  -webkit-font-smoothing: antialiased;
+}
+.kc-shell { max-width: 760px; margin: 0 auto; padding: 28px 20px 80px; }
+
+/* header / brand */
+.kc-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+.kc-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+.kc-emblem { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, var(--av-1), var(--av-3)); }
+.kc-who { font-size: 13px; color: var(--ink-soft); background: var(--bg-0); border: 1px solid var(--ink-line); padding: 6px 12px; border-radius: 999px; }
+
+.kc-kicker { font-size: 12.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.kc-h1 { font-size: 26px; font-weight: 800; letter-spacing: -.018em; line-height: 1.2; }
+.kc-display { font-size: 38px; font-weight: 800; letter-spacing: -.018em; line-height: 1.2; }
+.kc-h2 { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.kc-sub { color: var(--ink-soft); font-size: 16px; line-height: 1.5; }
+.kc-section { margin-top: 30px; }
+.kc-section-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+
+/* cards */
+.kc-card { background: var(--bg-0); border-radius: 30px; box-shadow: var(--sh-soft); padding: 22px 24px; }
+.kc-card-2 { background: var(--bg-0); border-radius: 22px; box-shadow: var(--sh-soft); padding: 18px 20px; }
+.kc-hero { box-shadow: var(--sh-raised); }
+
+/* chips (notifications on subject cards) */
+.kc-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+.kc-chip { font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: var(--accent-wash); color: var(--accent-deep); display: inline-flex; align-items: center; gap: 5px; }
+.kc-chip--mod { background: rgba(192,57,43,.10); color: var(--error); }
+.kc-chip--calm { background: var(--bg-2); color: var(--ink-faint); }
+
+/* subject grid */
+.kc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 620px) { .kc-grid { grid-template-columns: 1fr; } }
+.kc-subject { display: block; text-decoration: none; color: inherit; background: var(--bg-0); border-radius: 30px; box-shadow: var(--sh-soft); padding: 22px; transition: transform .15s, box-shadow .15s; }
+.kc-subject:hover { transform: translateY(-2px); box-shadow: var(--sh-raised); }
+.kc-subject-ico { width: 52px; height: 52px; border-radius: 16px; background: var(--accent-wash); display: flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 14px; }
+.kc-subject-name { font-size: 20px; font-weight: 700; }
+.kc-subject-grade { color: var(--ink-faint); font-size: 13px; margin-top: 2px; }
+.kc-subject-next { color: var(--ink-soft); font-size: 14px; margin-top: 12px; }
+
+/* stat tiles */
+.kc-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.kc-stat { background: var(--bg-0); border-radius: 24px; box-shadow: var(--sh-soft); padding: 22px 16px; text-align: center; }
+.kc-stat-n { font-size: 34px; font-weight: 800; letter-spacing: -.02em; }
+.kc-stat-n.kc-accent { color: var(--accent); }
+.kc-stat-l { font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
+
+/* buttons */
+.kc-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-weight: 700; font-size: 15px; color: #fff; background: var(--accent); border: 0; border-radius: 999px; padding: 12px 22px; cursor: pointer; box-shadow: var(--sh-accent); text-decoration: none; transition: background .15s; }
+.kc-btn:hover { background: var(--accent-deep); }
+.kc-btn-ghost { background: var(--bg-2); color: var(--ink); box-shadow: none; }
+.kc-btn-ghost:hover { background: var(--bg-3); }
+.kc-btn-sm { padding: 8px 16px; font-size: 14px; }
+
+/* progress bar */
+.kc-bar { height: 9px; border-radius: 999px; background: var(--bg-2); overflow: hidden; }
+.kc-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+
+/* rows / lists */
+.kc-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.kc-list { display: flex; flex-direction: column; gap: 12px; }
+.kc-back { font-size: 14px; color: var(--ink-soft); text-decoration: none; }
+.kc-back:hover { color: var(--ink); }
+.kc-empty { color: var(--ink-faint); font-size: 14px; }
+.kc-divider { border: 0; border-top: 1px solid var(--ink-line); margin: 14px 0; }
+
+/* lesson program (subject page) */
+.kc-lesson { display: flex; align-items: center; gap: 14px; }
+.kc-lesson-num { width: 38px; height: 38px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; background: var(--bg-2); color: var(--ink-soft); }
+.kc-lesson-num.kc-done { background: var(--accent); color: #fff; }
+.kc-lesson-num.kc-next { background: var(--accent-wash); color: var(--accent-deep); border: 2px solid var(--accent); }
+.kc-soon { color: var(--ink-faint); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+
+/* segmented control (stack switch) */
+.kc-seg { display: inline-flex; background: var(--bg-2); border-radius: 999px; padding: 4px; gap: 4px; }
+.kc-seg a { text-decoration: none; font-size: 14px; font-weight: 700; color: var(--ink-soft); padding: 8px 18px; border-radius: 999px; }
+.kc-seg a.kc-on { background: var(--accent); color: #fff; box-shadow: var(--sh-accent); }
+
+/* transcript record */
+.kc-tline { padding: 11px 15px; border-radius: 18px; font-size: 15px; line-height: 1.5; max-width: 86%; }
+.kc-tline .kc-who-lbl { font-size: 11.5px; color: var(--ink-faint); display: block; margin-bottom: 3px; letter-spacing: .04em; }
+.kc-tline.kc-agent { background: var(--bg-2); }
+.kc-tline.kc-child { background: var(--accent-wash); margin-left: auto; }
+.kc-stack-badge { font-size: 12px; font-weight: 700; color: var(--ink-soft); background: var(--bg-2); padding: 4px 10px; border-radius: 999px; }
