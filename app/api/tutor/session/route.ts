@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
 
     const dynamicVariables = buildTutorDynamicVariables({
       childName: u?.childName,
+      lessonSlug: body.lessonSlug,
       lessonTitle: lesson.title,
       lessonTopic: lesson.subtitle,
       isFirstEver: start.isFirstEver,

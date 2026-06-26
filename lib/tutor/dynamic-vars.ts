@@ -6,6 +6,7 @@ import type { TutorDynamicVariables } from './types'
 
 export function buildTutorDynamicVariables(input: {
   childName?: string | null
+  lessonSlug: string
   lessonTitle: string
   lessonTopic: string
   isFirstEver: boolean
@@ -14,6 +15,7 @@ export function buildTutorDynamicVariables(input: {
 }): TutorDynamicVariables {
   return {
     child_name: input.childName?.trim() || 'друг',
+    lesson_slug: input.lessonSlug,
     lesson_title: input.lessonTitle,
     lesson_topic: input.lessonTopic,
     is_first_lesson: input.isFirstEver ? 'да' : 'нет',

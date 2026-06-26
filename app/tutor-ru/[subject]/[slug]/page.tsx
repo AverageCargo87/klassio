@@ -41,6 +41,7 @@ export default async function TutorLessonRuRoute({
 
   const dynamicVariables = buildTutorDynamicVariables({
     childName: u?.childName,
+    lessonSlug: slug,
     lessonTitle: lesson.title,
     lessonTopic: lesson.subtitle,
     isFirstEver: start.isFirstEver,
@@ -54,6 +55,7 @@ export default async function TutorLessonRuRoute({
       lessonTitle={lesson.title}
       lessonSubtitle={lesson.subtitle}
       dynamicVariables={dynamicVariables}
+      canvas={lesson.canvas}
     />
   )
 }

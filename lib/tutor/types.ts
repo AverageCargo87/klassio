@@ -60,6 +60,9 @@ export interface TutorDynamicVariables {
   child_name: string
   lesson_title: string
   lesson_topic: string
+  /** Lesson slug (e.g. 'investicii'). The Sber orchestrator uses it to pick the
+   *  lesson's own compact system prompt; 11labs ignores it (per-lesson agent). */
+  lesson_slug: string
   /** 'да' on the child's first-ever tutor lesson, else 'нет' (prompt reads RU). */
   is_first_lesson: 'да' | 'нет'
   /** Human phrase for the prompt's opening line. */

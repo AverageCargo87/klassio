@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ConversationProvider, useConversation } from '@elevenlabs/react'
 import type { ClientTools } from '@elevenlabs/react'
 import type { TutorDynamicVariables } from '@/lib/tutor/types'
+import type { LessonCanvas } from '@/lib/curriculum'
 import { formatFatigueSignal, formatTutorState } from '@/lib/tutor/contextual-updates'
 import { useTranscriptLogger } from './use-transcript-logger'
 
@@ -26,6 +27,7 @@ interface TutorLessonProps {
   lessonTitle: string
   lessonSubtitle: string
   dynamicVariables: TutorDynamicVariables
+  canvas?: LessonCanvas
 }
 
 // Tutor voices = distinct named teachers. Picking one makes the teacher that
@@ -44,7 +46,7 @@ const VOICE_STORAGE = 'klassio-tutor-voice'
 // has SIX boards; `sunEarth` (interactive Sun-vs-Earth: diameter/mass/distance,
 // tasks q8-q10) was previously missing here, so next_slide skipped it and the
 // child never saw it (operator feedback 2026-06-04).
-const BOARD_ORDER = ['cover', 'etymology', 'bodies', 'solar', 'sunEarth', 'facts'] as const
+const DEFAULT_BOARD_ORDER = ['cover', 'etymology', 'bodies', 'solar', 'sunEarth', 'facts'] as const
 
 // Minimum time a board/task stays in the centre before another can replace it —
 // a safety FLOOR so every slide is readable and Аня can't flip through them
@@ -64,14 +66,14 @@ const HIDE_GRACE_MS = 2600
 // The lesson has 13 tasks. The «урок пройден» reward screen + session-complete
 // only fire once ALL of them are solved — a hard guard, because gpt-5.4-mini
 // sometimes tries to reward right after the first task.
-const TOTAL_TASKS = 13
+const DEFAULT_TOTAL_TASKS = 13
 
 // Every THEORY board must stay in the centre at least this long — a hard FLOOR,
 // NOT an auto-advance (operator: «не меньше 60 секунд, а там по ситуации»). After
 // it elapses, the prompt's «move by the child's reaction» takes over. The cover
 // (title) and reward screens are exempt.
 const BOARD_MIN_MS = 60000
-const THEORY_BOARDS = new Set(['etymology', 'bodies', 'solar', 'sunEarth', 'facts'])
+const DEFAULT_THEORY_BOARDS = ['etymology', 'bodies', 'solar', 'sunEarth', 'facts']
 
 interface KlassioEngine {
   setStatus: (s: 'listening' | 'speaking' | 'thinking') => void
@@ -118,7 +120,13 @@ export function TutorLesson(props: TutorLessonProps) {
   )
 }
 
-function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLessonProps) {
+function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables, canvas }: TutorLessonProps) {
+  // Per-lesson canvas config — astronomy lesson uses these module defaults; other
+  // lessons (e.g. инвестиции) pass their own board order / html / task count.
+  const BOARD_ORDER = useMemo<readonly string[]>(() => canvas?.boardOrder ?? DEFAULT_BOARD_ORDER, [canvas])
+  const THEORY_BOARDS = useMemo(() => new Set<string>(canvas?.theoryBoards ?? DEFAULT_THEORY_BOARDS), [canvas])
+  const TOTAL_TASKS = canvas?.totalTasks ?? DEFAULT_TOTAL_TASKS
+  const htmlSrc = canvas?.htmlFile ?? '/tutor/anya.html'
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [moderationNotice, setModerationNotice] = useState<string | null>(null)
@@ -646,7 +654,7 @@ function TutorLessonInner({ sessionId, lessonTitle, dynamicVariables }: TutorLes
     <div className="fixed inset-0">
       <iframe
         ref={iframeRef}
-        src="/tutor/anya.html"
+        src={htmlSrc}
         title={lessonTitle}
         className="w-full h-full border-0 block"
         allow="microphone; autoplay"

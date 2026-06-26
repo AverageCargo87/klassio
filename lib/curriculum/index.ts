@@ -3,7 +3,7 @@
 // Today only «Окружающий мир · 4 класс» exists; add subjects here as they ship.
 import { OKR_MIR_4_LESSONS, type CurriculumLesson } from './okr-mir-4'
 
-export type { CurriculumLesson, LessonStatus } from './okr-mir-4'
+export type { CurriculumLesson, LessonStatus, LessonCanvas } from './okr-mir-4'
 export { OKR_MIR_4_LESSONS } from './okr-mir-4'
 
 export interface SubjectMeta {
@@ -22,7 +22,23 @@ const MATH_5_LESSONS: CurriculumLesson[] = [
   { slug: 'vychitanie-stolbik', number: 2, title: 'Вычитание в столбик', subtitle: 'Вычитаем с переходом через разряд.', status: 'coming-soon' },
 ]
 const FIN_LIT_LESSONS: CurriculumLesson[] = [
-  { slug: 'pervye-investicii', number: 1, title: 'Мои первые инвестиции', subtitle: 'Что такое деньги, накопления и зачем их вкладывают.', status: 'coming-soon' },
+  {
+    slug: 'investicii',
+    number: 1,
+    title: 'Инвестиции для начинающих',
+    subtitle: 'Как заставить деньги работать: инфляция, акции, риск и сила времени.',
+    status: 'available',
+    href: '/tutor/fin-gramotnost/investicii',
+    canvas: {
+      htmlFile: '/tutor/invest.html',
+      boardOrder: ['cover', 'inflation', 'shares', 'income', 'risk', 'compound', 'reward'],
+      theoryBoards: ['inflation', 'shares', 'income', 'risk', 'compound'],
+      totalTasks: 13,
+      // Свой 11labs-агент для инвестиций (промпт scripts/tutor-agent-prompt-invest.md).
+      // Поставь ELEVENLABS_INVEST_AGENT_ID в env — иначе откатится на общий тьютор-агент.
+      agentEnvVar: 'ELEVENLABS_INVEST_AGENT_ID',
+    },
+  },
 ]
 
 // Порядок = порядок карточек в кабинете/пикере.

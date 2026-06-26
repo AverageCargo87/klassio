@@ -10,6 +10,24 @@
 
 export type LessonStatus = 'available' | 'coming-soon'
 
+/** Per-lesson canvas wiring. When present, the tutor route serves this lesson's
+ *  own HTML/board config instead of the astronomy defaults baked into the tutor
+ *  components. Lets each Claude-Design lesson plug in without code changes. */
+export interface LessonCanvas {
+  /** Static HTML served in the tutor iframe (default: /tutor/anya.html). */
+  htmlFile: string
+  /** Board names in order; `next_slide` walks this. First must be the cover. */
+  boardOrder: string[]
+  /** Boards with the ≥60s dwell floor (theory boards; cover/reward exempt). */
+  theoryBoards: string[]
+  /** Tasks that must all be solved before the reward screen unlocks. */
+  totalTasks: number
+  /** Optional: name of the env var holding THIS lesson's own 11labs agent id
+   *  (e.g. 'ELEVENLABS_INVEST_AGENT_ID'). Absent → shared tutor agent. Lets each
+   *  lesson run its own agent/prompt without a shared-prompt conflict. */
+  agentEnvVar?: string
+}
+
 export interface CurriculumLesson {
   slug: string
   number: number
@@ -18,6 +36,8 @@ export interface CurriculumLesson {
   status: LessonStatus
   /** Where the "Начать урок" button should go when status === 'available'. */
   href?: string
+  /** Optional per-lesson canvas wiring; absent → astronomy defaults. */
+  canvas?: LessonCanvas
 }
 
 export const OKR_MIR_4_LESSONS: CurriculumLesson[] = [

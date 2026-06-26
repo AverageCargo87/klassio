@@ -36,6 +36,7 @@ import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
 import https from 'node:https'
 import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { config } from 'dotenv'
 
 config({ path: process.env.ENV_PATH || '/opt/klassio-sber-tutor/.env' })
@@ -47,6 +48,12 @@ const GIGA_KEY = process.env.GIGACHAT_AUTH_KEY
 const GIGA_MODEL = process.env.GIGA_MODEL || 'GigaChat-Pro' // spike: Pro = best pacing discipline
 const VOICE = process.env.SBER_VOICE || 'Nec_24000'
 const PROMPT_PATH = process.env.TUTOR_PROMPT_PATH || '/opt/klassio-sber-tutor/tutor-prompt.md'
+// Per-lesson prompts live as tutor-prompt-<slug>.md in PROMPT_DIR (default = the
+// dir of PROMPT_PATH). The browser sends lesson_slug in init → the orchestrator
+// loads THAT lesson's own compact prompt; an unknown/absent slug falls back to
+// PROMPT_PATH (astronomy). So ONE orchestrator serves many lessons without a
+// bloated system prompt — each session sees only its lesson's content.
+const PROMPT_DIR = process.env.TUTOR_PROMPT_DIR || dirname(PROMPT_PATH)
 const TTL_MS = 5 * 60 * 1000
 
 if (!SECRET || !SALUTE_KEY || !GIGA_KEY) {
@@ -54,8 +61,22 @@ if (!SECRET || !SALUTE_KEY || !GIGA_KEY) {
   process.exit(1)
 }
 
-// Prompt template (vars filled per session). Strip the HTML doc-comment header.
-const PROMPT_TEMPLATE = readFileSync(PROMPT_PATH, 'utf8').replace(/<!--[\s\S]*?-->/g, '').trim()
+// Prompt templates (vars filled per session). Strip the HTML doc-comment header.
+function loadPrompt(path) {
+  try { return readFileSync(path, 'utf8').replace(/<!--[\s\S]*?-->/g, '').trim() } catch { return '' }
+}
+const DEFAULT_PROMPT = loadPrompt(PROMPT_PATH)
+if (!DEFAULT_PROMPT) console.error(`[sber-tutor] WARN: default prompt ${PROMPT_PATH} empty/missing`)
+const promptCache = new Map([['', DEFAULT_PROMPT]])
+// Compact per-lesson prompt by slug (cached). The slug is sanitised to a safe
+// filename so it can never escape PROMPT_DIR.
+function getLessonPrompt(slug) {
+  const key = String(slug || '').toLowerCase().replace(/[^a-z0-9_-]/g, '')
+  if (promptCache.has(key)) return promptCache.get(key)
+  const t = loadPrompt(join(PROMPT_DIR, `tutor-prompt-${key}.md`)) || DEFAULT_PROMPT
+  promptCache.set(key, t)
+  return t
+}
 
 // ── Sber transport (node https + keepAlive + Russian CA) ─────────────────────
 const agent = new https.Agent({ keepAlive: true, rejectUnauthorized: false, maxSockets: 32 })
@@ -112,8 +133,8 @@ function splitSentences(text) {
 
 // ── GigaChat: the SAME 9 tutor tools (mirror of scripts/restore-tutor-agent-body.mjs) ──
 const GIGA_FUNCTIONS = [
-  { name: 'show_board', description: 'Показать на доске готовую схему урока. board: cover | etymology | bodies | solar | sunEarth | facts. Говори ПАРАЛЛЕЛЬНО, чуть медленнее. Потом убери через hide_tool.', parameters: { type: 'object', properties: { board: { type: 'string', description: 'cover | etymology | bodies | solar | sunEarth | facts' } }, required: ['board'] } },
-  { name: 'next_slide', description: 'Показать СЛЕДУЮЩУЮ доску строго по порядку (cover→etymology→bodies→solar→sunEarth→facts). Первый вызов покажет обложку cover. Веди теорию через него.', parameters: { type: 'object', properties: {} } },
+  { name: 'show_board', description: 'Показать доску урока по её id. Список допустимых id и их порядок — в системном промпте текущего урока. Говори ПАРАЛЛЕЛЬНО, чуть медленнее. Потом убери через hide_tool.', parameters: { type: 'object', properties: { board: { type: 'string', description: 'id доски из системного промпта урока (первая всегда cover).' } }, required: ['board'] } },
+  { name: 'next_slide', description: 'Показать СЛЕДУЮЩУЮ доску урока строго по порядку из системного промпта. Первый вызов покажет обложку (cover). Веди теорию через него, чтобы не пропустить доски.', parameters: { type: 'object', properties: {} } },
   { name: 'show_trainer', description: 'Показать интерактивное задание для практики. Потом убери через hide_tool.', parameters: { type: 'object', properties: { taskId: { type: 'string', description: 'ID задачи, напр. "task-1".' } }, required: ['taskId'] } },
   { name: 'hide_tool', description: 'Убрать доску/тренажёр, вернуть пустой холст. Зови ТОЛЬКО при переходе к разговору без инструментов (разогрев, пауза, прощание), НЕ между двумя инструментами.', parameters: { type: 'object', properties: {} } },
   { name: 'set_phase', description: 'Отметить переход фазы урока. phase: connecting | warmup | diagnostic | bridge | cycle | pause | summary | farewell.', parameters: { type: 'object', properties: { phase: { type: 'string', description: 'connecting | warmup | diagnostic | bridge | cycle | pause | summary | farewell' } }, required: ['phase'] } },
@@ -123,8 +144,8 @@ const GIGA_FUNCTIONS = [
   { name: 'set_child_name', description: 'Запомнить имя ребёнка для подписи реплик. Зови ОДИН раз, как только узнала имя.', parameters: { type: 'object', properties: { name: { type: 'string', description: 'Имя ребёнка, напр. "Гриша".' } }, required: ['name'] } },
 ]
 
-function buildSystem(vars = {}) {
-  return PROMPT_TEMPLATE.replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : `{{${k}}}`))
+function buildSystem(template, vars = {}) {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : `{{${k}}}`))
 }
 // Pro quota on the freemium key is prepaid and finite → on HTTP 402 we degrade
 // to the base model for the rest of the process (quota is account-level).
@@ -398,7 +419,10 @@ async function handleInit(session, { voiceName, voiceId, dynamicVariables }) {
   // Per-session SaluteSpeech voice (Nec/May/Ost — the front-end teacher picker).
   if (typeof voiceId === 'string' && /^[A-Za-z]+_(8000|24000)$/.test(voiceId)) session.voice = voiceId
   const vars = { teacher_name: name, ...(dynamicVariables || {}) }
-  session.messages = [{ role: 'system', content: buildSystem(vars) }]
+  // Pick THIS lesson's compact prompt by slug (browser sends lesson_slug); a
+  // missing/unknown slug falls back to the default (astronomy) prompt.
+  const template = getLessonPrompt(vars.lesson_slug)
+  session.messages = [{ role: 'system', content: buildSystem(template, vars) }]
   const greeting = `Привет! Меня зовут ${name}. А тебя как зовут?`
   session.messages.push({ role: 'assistant', content: greeting })
   send(session.ws, { type: 'ready' })
@@ -461,6 +485,6 @@ function onConnection(ws, sid) {
 }
 
 await ensureTokens().catch((e) => { console.error('[sber-tutor] initial OAuth failed:', e?.message || e); process.exit(1) })
-httpServer.listen(PORT, '127.0.0.1', () => console.log(`klassio-sber-tutor on 127.0.0.1:${PORT} · model=${GIGA_MODEL} · voice=${VOICE} · prompt ${PROMPT_TEMPLATE.length} chars`))
+httpServer.listen(PORT, '127.0.0.1', () => console.log(`klassio-sber-tutor on 127.0.0.1:${PORT} · model=${GIGA_MODEL} · voice=${VOICE} · default prompt ${DEFAULT_PROMPT.length} chars · prompt dir ${PROMPT_DIR}`))
 for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { httpServer.close(); wss.clients.forEach((c) => c.close(1001)); setTimeout(() => process.exit(0), 800).unref() })
 process.on('uncaughtException', (e) => console.error('[sber-tutor] uncaught:', e?.message || e))

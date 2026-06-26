@@ -11,6 +11,7 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { getUserId, json } from '@/lib/tutor/http'
 import { getSession } from '@/lib/tutor'
+import { resolveLesson } from '@/lib/curriculum'
 import { getSignedUrl } from '@/lib/elevenlabs/get-signed-url'
 import { wrapSignedUrl } from '@/lib/elevenlabs/proxy-url'
 
@@ -35,7 +36,15 @@ export async function POST(req: NextRequest) {
   if (!session) return json({ error: 'Этот урок не ваш' }, 403)
 
   const apiKey = process.env.ELEVENLABS_API_KEY
-  const tutorAgentId = process.env.ELEVENLABS_TUTOR_AGENT_ID
+  // Per-lesson tutor agent: a lesson may name its OWN 11labs agent via
+  // canvas.agentEnvVar (e.g. инвестиции → ELEVENLABS_INVEST_AGENT_ID), so each
+  // lesson runs its own prompt with no shared-agent conflict. Resolution order:
+  // lesson's own agent → shared tutor agent → math agent (fallback, flagged).
+  const lesson = resolveLesson(session.subjectId, session.lessonSlug)
+  const perLessonAgentId = lesson?.canvas?.agentEnvVar
+    ? process.env[lesson.canvas.agentEnvVar]
+    : undefined
+  const tutorAgentId = perLessonAgentId || process.env.ELEVENLABS_TUTOR_AGENT_ID
   const fallbackAgentId = process.env.ELEVENLABS_AGENT_ID
   const agentId = tutorAgentId || fallbackAgentId
   const usingFallbackAgent = !tutorAgentId && !!fallbackAgentId

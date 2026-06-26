@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSberConversation, type SberClientTools, type SberMode } from './use-sber-conversation'
 import type { TutorDynamicVariables } from '@/lib/tutor/types'
+import type { LessonCanvas } from '@/lib/curriculum'
 import { formatFatigueSignal, formatTutorState } from '@/lib/tutor/contextual-updates'
 import { useTranscriptLogger } from './use-transcript-logger'
 
@@ -24,6 +25,7 @@ interface TutorLessonProps {
   lessonTitle: string
   lessonSubtitle: string
   dynamicVariables: TutorDynamicVariables
+  canvas?: LessonCanvas
 }
 
 // Учителя = голоса SaluteSpeech. Nec — проверенный («Кратову зашёл»), он и
@@ -37,15 +39,15 @@ const VOICE_STORAGE = 'klassio-tutor-voice-ru'
 
 // Канонический порядок теории — next_slide идёт по нему, чтобы Аня не
 // пропускала доски (sunEarth раньше терялся — фидбек 2026-06-04).
-const BOARD_ORDER = ['cover', 'etymology', 'bodies', 'solar', 'sunEarth', 'facts'] as const
+const DEFAULT_BOARD_ORDER = ['cover', 'etymology', 'bodies', 'solar', 'sunEarth', 'facts'] as const
 
 // Пейсинг-гварды — те же значения, что в боевой версии (они и приручили
 // 11labs-агента; GigaChat-Pro на спайке слушался их ещё лучше).
 const MIN_DWELL_MS = 15000
 const HIDE_GRACE_MS = 2600
-const TOTAL_TASKS = 13
+const DEFAULT_TOTAL_TASKS = 13
 const BOARD_MIN_MS = 60000
-const THEORY_BOARDS = new Set(['etymology', 'bodies', 'solar', 'sunEarth', 'facts'])
+const DEFAULT_THEORY_BOARDS = ['etymology', 'bodies', 'solar', 'sunEarth', 'facts']
 
 interface KlassioEngine {
   setStatus: (s: 'listening' | 'speaking' | 'thinking') => void
@@ -84,7 +86,13 @@ interface KlassioWindow extends Window {
   __KLASSIO_REAL_LESSON?: LessonStep[]
 }
 
-export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables }: TutorLessonProps) {
+export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas }: TutorLessonProps) {
+  // Per-lesson canvas config — astronomy lesson uses these module defaults; other
+  // lessons (e.g. инвестиции) pass their own board order / html / task count.
+  const BOARD_ORDER = useMemo<readonly string[]>(() => canvas?.boardOrder ?? DEFAULT_BOARD_ORDER, [canvas])
+  const THEORY_BOARDS = useMemo(() => new Set<string>(canvas?.theoryBoards ?? DEFAULT_THEORY_BOARDS), [canvas])
+  const TOTAL_TASKS = canvas?.totalTasks ?? DEFAULT_TOTAL_TASKS
+  const htmlSrc = canvas?.htmlFile ?? '/tutor/anya.html'
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [moderationNotice, setModerationNotice] = useState<string | null>(null)
@@ -542,7 +550,7 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables }: Tuto
     <div className="fixed inset-0">
       <iframe
         ref={iframeRef}
-        src="/tutor/anya.html"
+        src={htmlSrc}
         title={lessonTitle}
         className="w-full h-full border-0 block"
         allow="microphone; autoplay"
