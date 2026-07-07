@@ -13,13 +13,18 @@ import { logoutAction } from './actions'
 export const dynamic = 'force-dynamic'
 
 // Родительный падеж имени («Учёба Миши») — портировано из Claude Design прототипа.
+// Женские имена на «-ь» склоняются иначе мужских («Любовь → Любови», но
+// «Игорь → Игоря») — эвристика пол не знает, держим словарик частых исключений.
+const FEM_SOFT = new Set(['любовь', 'нинель', 'адель', 'асель', 'гузель', 'айгуль'])
 function genitive(n: string): string {
   n = (n || '').trim()
-  if (!n) return 'ребёнка'
-  const last = n.slice(-1).toLowerCase()
-  const pre = n.slice(-2, -1).toLowerCase()
+  if (n.length < 2) return 'ребёнка'
+  const low = n.toLowerCase()
+  const last = low.slice(-1)
+  const pre = low.slice(-2, -1)
   if (last === 'а') return n.slice(0, -1) + ('гкхжчшщ'.includes(pre) ? 'и' : 'ы')
   if (last === 'я') return n.slice(0, -1) + 'и'
+  if (last === 'ь' && FEM_SOFT.has(low)) return n.slice(0, -1) + 'и'
   if (last === 'й' || last === 'ь') return n.slice(0, -1) + 'я'
   if ('бвгджзклмнпрстфхцчшщ'.includes(last)) return n + 'а'
   return n
@@ -35,9 +40,15 @@ function recDate(d: Date): string {
   const prefix = day === today ? 'сегодня' : day === yesterday ? 'вчера' : msk.format(d)
   return `${prefix}, ${mskTime.format(d)}`
 }
+// «1 минута / 3 минуты / 7 минут»
+function ruMinutes(n: number): string {
+  const m10 = n % 10, m100 = n % 100
+  const word = m10 === 1 && m100 !== 11 ? 'минута' : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? 'минуты' : 'минут'
+  return `${n} ${word}`
+}
 function recMeta(r: RecentRecord): string {
   const parts = [recDate(r.startedAt)]
-  if (r.durationSec) parts.push(`${Math.max(1, Math.round(r.durationSec / 60))} минут`)
+  if (r.durationSec) parts.push(ruMinutes(Math.max(1, Math.round(r.durationSec / 60))))
   if (r.totalTasks) parts.push(`${r.tasksCorrect}/${r.totalTasks} заданий`)
   parts.push('ведёт Аня')
   return parts.join(' · ')

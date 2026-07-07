@@ -120,6 +120,28 @@ async function main() {
     c.query(`INSERT INTO lesson_transcript (session_id, user_id, role, text, seq, kind, meta) VALUES ${values.join(',')}`, params),
   )
   console.log(`[seed-record] лента: ${STREAM.length} строк (${STREAM.filter((r) => !r.kind).length} реплик, ${STREAM.filter((r) => r.kind).length} событий)`)
+
+  // 5. lesson_attempt — иначе карточка в кабинете показывает «0/13 заданий»
+  // (getRecentRecords считает tasksCorrect по lesson_attempt.correct=true, а
+  // totalTasks берёт из canvas урока = 13). Лента выше — «главные моменты»,
+  // attempts закрываем на все 13 задач; task-1 — со второй попытки.
+  await withClient((c) => c.query('DELETE FROM lesson_attempt WHERE session_id = $1', [FIXED_SESSION_ID]))
+  const SKILLS = ['inflation', 'inflation', 'shares', 'shares', 'income', 'income', 'risk', 'risk', 'risk', 'compound', 'compound', 'time', 'time']
+  const aParams: unknown[] = []
+  const aValues = SKILLS.map((skill, i) => {
+    const taskId = `task-${i + 1}`
+    const attempts = i === 0 ? 2 : 1
+    aParams.push(FIXED_SESSION_ID, userId, taskId, skill, true, attempts, 0, 9000 + i * 700)
+    const b = i * 8
+    return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8})`
+  })
+  await withClient((c) =>
+    c.query(
+      `INSERT INTO lesson_attempt (session_id, user_id, task_id, skill_tag, correct, attempts, hints_used, reaction_ms) VALUES ${aValues.join(',')}`,
+      aParams,
+    ),
+  )
+  console.log(`[seed-record] attempts: ${SKILLS.length} (task-1 со 2-й попытки)`)
   console.log(`[seed-record] готово → /cabinet/lessons/${FIXED_SESSION_ID}`)
 }
 

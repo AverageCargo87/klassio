@@ -16,6 +16,9 @@ export default async function LessonRecordPage({ params }: { params: Promise<{ s
   const session = await auth()
   if (!session?.user?.id) redirect('/login')
 
+  // id — Postgres uuid: не-UUID в URL уронил бы запрос 22P02 → 500 вместо 404.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) notFound()
+
   const lesson = await getSession(sessionId, session.user.id)
   if (!lesson) notFound()
 

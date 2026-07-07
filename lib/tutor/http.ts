@@ -15,8 +15,10 @@ export async function getUserId(): Promise<string | null> {
   if (session?.user?.id) return session.user.id
   // Preview convenience (operator: «надоело логиниться по почте»): when
   // KLASSIO_DEV_USER_ID is set, skip the magic-link login and act as that user.
-  // ONLY set this on the Vercel-SSO-protected preview — NEVER on production.
+  // Guard в коде (P0 из AVITO-TEST-READINESS): на Vercel PRODUCTION байпас
+  // игнорируется, даже если переменная осталась в настройках проекта.
+  // Локальный dev (VERCEL_ENV не задан) и SSO-защищённый preview работают как раньше.
   const devUser = process.env.KLASSIO_DEV_USER_ID
-  if (devUser) return devUser
+  if (devUser && process.env.VERCEL_ENV !== 'production') return devUser
   return null
 }

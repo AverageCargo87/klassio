@@ -19,7 +19,11 @@ const Body = z.object({
         seq: z.number().int().nonnegative(),
         // Событие ленты урока (доска/ошибка/верно/награда/имя). Отсутствует у реплик.
         kind: z.enum(['tool', 'wrong', 'solve', 'reward', 'name']).optional(),
-        meta: z.record(z.string(), z.unknown()).optional(),
+        // Кап на размер: meta — служебные крохи (board/taskId), а не свалка.
+        meta: z
+          .record(z.string(), z.unknown())
+          .optional()
+          .refine((m) => m === undefined || JSON.stringify(m).length <= 2048, 'meta слишком большой'),
       }),
     )
     .min(1)

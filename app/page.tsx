@@ -19,7 +19,9 @@ export const metadata = {
 }
 
 export default async function RootPage() {
-  if (process.env.KLASSIO_DEV_USER_ID) redirect(DEV_LESSON_ENTRY)
+  // Guard: dev-байпас не работает на Vercel production, даже если переменная
+  // осталась в настройках проекта (P0 из AVITO-TEST-READINESS).
+  if (process.env.KLASSIO_DEV_USER_ID && process.env.VERCEL_ENV !== 'production') redirect(DEV_LESSON_ENTRY)
   const session = await auth()
   if (session?.user) redirect('/cabinet')
   // suppressHydrationWarning: браузер нормализует innerHTML (void-элементы, порядок

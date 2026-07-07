@@ -177,13 +177,19 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
 
   // Событие «открыта доска» с человекочитаемым названием: читаем data-screen-label
   // текущего слайда из канваса (generic — без пер-урочной карты имён досок).
+  // У канвасов без data-screen-label (invest/anya) технический англ. id доски
+  // родителю не показываем — пишем номер по порядку урока.
   const logBoardOpened = useCallback((board: string) => {
     const doc = iframeRef.current?.contentWindow?.document
     const raw = doc?.querySelector('[data-screen-label]')?.getAttribute('data-screen-label') || ''
     const label = raw.replace(/^Доска:\s*/i, '').trim()
-    const human = label ? label.charAt(0).toUpperCase() + label.slice(1) : board
-    logEvent('tool', `Открыта доска «${human}»`, { tool: 'board', board, boardLabel: human })
-  }, [logEvent])
+    const human = label ? label.charAt(0).toUpperCase() + label.slice(1) : ''
+    const oi = (BOARD_ORDER as readonly string[]).indexOf(board)
+    const text = human
+      ? `Открыта доска «${human}»`
+      : `Открыта доска ${oi >= 0 ? oi + 1 : ''} из ${BOARD_ORDER.length}`.replace('  ', ' ')
+    logEvent('tool', text, { tool: 'board', board, boardLabel: human || null })
+  }, [logEvent, BOARD_ORDER])
 
   const revealStage = useCallback((fn: () => void) => {
     if (pendingHideRef.current !== null) { window.clearTimeout(pendingHideRef.current); pendingHideRef.current = null }
@@ -477,7 +483,8 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
       const t = Number.isFinite(n) ? realLesson().filter((s) => s?.type === 'task')[n - 1] : undefined
       const correct = t ? (t.options?.find((o) => o.correct)?.t ?? t.answer ?? '') : ''
       const tries = (taskStatsRef.current[taskId]?.wrong ?? 0) + 1
-      const prefix = tries > 1 ? `Верно со ${tries}-й попытки` : 'Верно'
+      // «со» — только перед «2-й»; «с 3-й/4-й…» (лента читается родителем)
+      const prefix = tries > 1 ? `Верно ${tries === 2 ? 'со' : 'с'} ${tries}-й попытки` : 'Верно'
       logEvent('solve', correct ? `${prefix}: «${correct}»` : `${prefix}`, { taskId, skill: step?.skill ?? null })
     }
     try {

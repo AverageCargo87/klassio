@@ -11,7 +11,8 @@ export const metadata = { title: 'Вход · Klassio' }
 
 export default async function LoginPage() {
   // Дев-байпас: не показываем вход — сразу в урок (локальная разработка).
-  if (process.env.KLASSIO_DEV_USER_ID) redirect('/tutor/okr-mir-4/astronom?shell=miro')
+  // На Vercel production игнорируется (guard, P0 из AVITO-TEST-READINESS).
+  if (process.env.KLASSIO_DEV_USER_ID && process.env.VERCEL_ENV !== 'production') redirect('/tutor/okr-mir-4/astronom?shell=miro')
   const session = await auth()
   if (session?.user) redirect('/cabinet')
 
