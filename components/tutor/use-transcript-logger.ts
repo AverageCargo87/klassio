@@ -8,7 +8,14 @@
 // оба зовут logLine('tutor'|'child', text) из onMessage и flush() при завершении.
 import { useCallback, useEffect, useRef } from 'react'
 
-interface BufferedLine { role: 'agent' | 'child'; text: string; seq: number }
+type EventKind = 'tool' | 'wrong' | 'solve' | 'reward' | 'name'
+interface BufferedLine {
+  role: 'agent' | 'child'
+  text: string
+  seq: number
+  kind?: EventKind
+  meta?: Record<string, unknown>
+}
 
 const FLUSH_INTERVAL_MS = 15000
 const MAX_BATCH = 200
@@ -44,6 +51,14 @@ export function useTranscriptLogger(sessionId: string) {
     bufferRef.current.push({ role: role === 'tutor' ? 'agent' : 'child', text: t, seq: seqRef.current++ })
   }, [])
 
+  // Событие ленты урока (открыта доска/задание, ошибка, верный ответ, награда, имя).
+  // Тот же монотонный seq, что у реплик, — лента в ЛК идёт в правильном порядке.
+  const logEvent = useCallback((kind: EventKind, text: string, meta?: Record<string, unknown>) => {
+    const t = (text ?? '').trim()
+    if (!t) return
+    bufferRef.current.push({ role: 'agent', text: t, seq: seqRef.current++, kind, meta })
+  }, [])
+
   // периодический флаш + флаш при сворачивании/закрытии вкладки + на размонтировании
   useEffect(() => {
     const id = window.setInterval(() => { void flush() }, FLUSH_INTERVAL_MS)
@@ -58,5 +73,5 @@ export function useTranscriptLogger(sessionId: string) {
     }
   }, [flush])
 
-  return { logLine, flush }
+  return { logLine, logEvent, flush }
 }

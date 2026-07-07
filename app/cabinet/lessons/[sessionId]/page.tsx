@@ -5,10 +5,11 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getSession, getTranscript } from '@/lib/tutor'
 import { lessonTitle } from '@/lib/curriculum'
+import { LessonRecordTimeline } from './timeline'
 
 export const dynamic = 'force-dynamic'
 
-const dateFmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+const dateFmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })
 
 export default async function LessonRecordPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params
@@ -49,14 +50,7 @@ export default async function LessonRecordPage({ params }: { params: Promise<{ s
         {transcript.length === 0 ? (
           <div className="kc-card-2"><span className="kc-empty">Запись этого урока не сохранилась.</span></div>
         ) : (
-          <div className="kc-list">
-            {transcript.map((line, i) => (
-              <div key={i} className={`kc-tline ${line.role === 'agent' ? 'kc-agent' : 'kc-child'}`}>
-                <span className="kc-who-lbl">{line.role === 'agent' ? 'Учитель' : 'Ребёнок'}</span>
-                {line.text}
-              </div>
-            ))}
-          </div>
+          <LessonRecordTimeline lines={transcript} />
         )}
       </section>
     </main>

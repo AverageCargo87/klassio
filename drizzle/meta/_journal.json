@@ -43,6 +43,13 @@
       "when": 1781783074623,
       "tag": "0005_smart_lady_ursula",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783456438503,
+      "tag": "0006_lesson_record_events",
+      "breakpoints": true
     }
   ]
 }

@@ -99,3 +99,17 @@
 .kc-tline.kc-agent { background: var(--bg-2); }
 .kc-tline.kc-child { background: var(--accent-wash); margin-left: auto; }
 .kc-stack-badge { font-size: 12px; font-weight: 700; color: var(--ink-soft); background: var(--bg-2); padding: 4px 10px; border-radius: 999px; }
+
+/* record: filter tabs */
+.kc-tabs { display: inline-flex; flex-wrap: wrap; gap: 4px; background: var(--bg-2); border-radius: 999px; padding: 4px; margin-bottom: 16px; }
+.kc-tab { border: 0; cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 700; color: var(--ink-soft); background: transparent; padding: 7px 15px; border-radius: 999px; transition: background .15s, color .15s; }
+.kc-tab.kc-on { background: var(--bg-0); color: var(--ink); box-shadow: var(--sh-soft); }
+.kc-tab-n { font-weight: 600; opacity: .6; margin-left: 5px; }
+
+/* record: event rows in the lesson timeline (thin sandy chips, not speech bubbles) */
+.kc-ev { display: flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 600; padding: 8px 14px; border-radius: 12px; background: var(--bg-2); color: var(--ink-soft); align-self: center; max-width: 92%; }
+.kc-ev-ico { flex: none; font-size: 15px; line-height: 1; }
+.kc-ev--wrong { background: rgba(192,57,43,.09); color: var(--error); }
+.kc-ev--solve { background: rgba(43,160,90,.12); color: #237a45; }
+.kc-ev--reward { background: var(--accent-wash); color: var(--accent-deep); font-weight: 700; }
+.kc-ev--name { background: var(--bg-2); color: var(--ink-soft); }

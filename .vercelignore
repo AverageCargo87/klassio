@@ -1,0 +1,14 @@
+# НИКОГДА не поднимать env-файлы в деплой: .env.local содержит локальные секреты
+# и KLASSIO_DEV_USER_ID (dev-байпас логина) — на проде это дыра. Все боевые
+# переменные живут в Vercel Project Settings.
+.env*
+# Локальный мусор/спайки/планирование — не для облачного билда.
+.tmp
+.planning
+.claude
+.git
+lesson-canvases
+infra
+scripts/probe-*.mjs
+START-*.ps1
+START-*.bat

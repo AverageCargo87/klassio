@@ -17,6 +17,9 @@ const Body = z.object({
         role: z.enum(['agent', 'child']),
         text: z.string().min(1).max(4000),
         seq: z.number().int().nonnegative(),
+        // Событие ленты урока (доска/ошибка/верно/награда/имя). Отсутствует у реплик.
+        kind: z.enum(['tool', 'wrong', 'solve', 'reward', 'name']).optional(),
+        meta: z.record(z.string(), z.unknown()).optional(),
       }),
     )
     .min(1)

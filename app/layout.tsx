@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Klassio',
-  description: 'Репетитор математики для пятиклассников',
+  description: 'Живой урок с AI-репетитором Аней: голос, интерактивные доски, тренажёр — и запись урока для родителей.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -6,7 +6,7 @@ import OpenAI from 'openai'
 import { db } from '@/lib/db'
 import { tutorSessions } from '@/lib/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { getTranscript } from './transcript'
+import { getTranscript, speechOnly } from './transcript'
 
 const SUMMARY_MODEL = process.env.TUTOR_SUMMARY_MODEL || 'gpt-4.1-mini'
 
@@ -26,7 +26,8 @@ export async function setSessionSummary(sessionId: string, userId: string, summa
  */
 export async function generateLessonSummary(sessionId: string, userId: string): Promise<string | null> {
   if (!process.env.OPENAI_API_KEY) return null
-  const lines = await getTranscript(sessionId, userId)
+  // Только речевые реплики: события ленты (доски/ошибки/награда) в резюме не идут.
+  const lines = speechOnly(await getTranscript(sessionId, userId))
   if (lines.length < 2) return null // пустой/обрывочный урок — резюмировать нечего
 
   const convo = lines

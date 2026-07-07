@@ -281,6 +281,12 @@ export const lessonTranscripts = pgTable(
     role: text('role').notNull(), // 'agent' (Аня) | 'child'
     text: text('text').notNull(),
     seq: integer('seq').notNull(), // монотонный порядок реплики в сессии
+    // Тип строки ленты урока. NULL = речевая реплика (рендерится по role — обратная
+    // совместимость со старыми записями). Иначе — событие платформы:
+    // 'tool' (открыта доска/задание), 'wrong', 'solve', 'reward', 'name'.
+    kind: text('kind'),
+    // Детали события: { board? | boardLabel? | taskId? | q? | answer? | skill? | name? }.
+    meta: jsonb('meta'),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   },
   (t) => [

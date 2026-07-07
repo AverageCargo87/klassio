@@ -32,7 +32,9 @@ export {
 export {
   appendTranscript,
   getTranscript,
+  speechOnly,
   type TranscriptLine,
+  type TranscriptKind,
 } from './transcript'
 export {
   createHomework,
@@ -45,6 +47,8 @@ export { generateLessonSummary, setSessionSummary } from './summary'
 export {
   getCabinetHome,
   getSubjectReport,
+  getRecentRecords,
+  type RecentRecord,
   type SubjectCard,
   type SubjectReport,
   type SubjectLessonRow,

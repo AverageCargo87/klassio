@@ -7,10 +7,57 @@ import {
   lessonTranscripts, homeworkAssignments,
 } from '@/lib/db/schema'
 import { and, eq, desc, asc, count, isNull, inArray, sql } from 'drizzle-orm'
-import { SUBJECT_LIST, lessonTitle, type CurriculumLesson } from '@/lib/curriculum'
+import { SUBJECT_LIST, lessonTitle, resolveLesson, type CurriculumLesson } from '@/lib/curriculum'
 
 const num = (v: unknown): number => Number(v ?? 0)
 const MOD_TYPES = ['moderation_warning', 'moderation_escalation'] as const
+
+// ── Последние записи уроков (блок «Записи занятий» на главной кабинета) ─────
+export interface RecentRecord {
+  sessionId: string
+  subjectId: string
+  lessonSlug: string
+  lessonTitle: string
+  startedAt: Date
+  durationSec: number | null
+  tasksCorrect: number
+  totalTasks: number | null // из canvas-конфига урока; null у уроков без него
+}
+
+export async function getRecentRecords(userId: string, limit = 6): Promise<RecentRecord[]> {
+  const rows = await db
+    .select({
+      id: tutorSessions.id,
+      subjectId: tutorSessions.subjectId,
+      lessonSlug: tutorSessions.lessonSlug,
+      startedAt: tutorSessions.startedAt,
+      durationSec: tutorSessions.durationSec,
+    })
+    .from(tutorSessions)
+    .where(and(eq(tutorSessions.userId, userId), eq(tutorSessions.status, 'completed')))
+    .orderBy(desc(tutorSessions.startedAt))
+    .limit(limit)
+  if (!rows.length) return []
+
+  const ids = rows.map((r) => r.id)
+  const solved = await db
+    .select({ sessionId: lessonAttempts.sessionId, c: count() })
+    .from(lessonAttempts)
+    .where(and(inArray(lessonAttempts.sessionId, ids), eq(lessonAttempts.correct, true)))
+    .groupBy(lessonAttempts.sessionId)
+  const solvedBy = new Map(solved.map((s) => [s.sessionId, num(s.c)]))
+
+  return rows.map((r) => ({
+    sessionId: r.id,
+    subjectId: r.subjectId,
+    lessonSlug: r.lessonSlug,
+    lessonTitle: lessonTitle(r.subjectId, r.lessonSlug),
+    startedAt: r.startedAt,
+    durationSec: r.durationSec,
+    tasksCorrect: solvedBy.get(r.id) ?? 0,
+    totalTasks: resolveLesson(r.subjectId, r.lessonSlug)?.canvas?.totalTasks ?? null,
+  }))
+}
 
 // ── Главная кабинета: предметы + уведомления ────────────────────────────────
 export interface SubjectCard {

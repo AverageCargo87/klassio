@@ -46,7 +46,11 @@ const DEFAULT_BOARD_ORDER = ['cover', 'etymology', 'bodies', 'solar', 'sunEarth'
 const MIN_DWELL_MS = 15000
 const HIDE_GRACE_MS = 2600
 const DEFAULT_TOTAL_TASKS = 13
-const BOARD_MIN_MS = 60000
+// Пол выдержки на теор-доске. Был 60с — из-за него Аня вызывала next_slide
+// раньше времени, гейт отклонял, доска не переключалась, а речь про новую тему
+// уже шла (рассинхрон «говорит про следующее, доску не показала»). 25с + пол
+// MIN_DWELL 15с достаточно, чтобы не проскакивать, но без рассинхрона.
+const BOARD_MIN_MS = 25000
 const DEFAULT_THEORY_BOARDS = ['etymology', 'bodies', 'solar', 'sunEarth', 'facts']
 
 interface KlassioEngine {
@@ -135,7 +139,8 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
   const moderationNoticeTimer = useRef<number | null>(null)
   const startTimeRef = useRef<number>(0)
   const turnTimingRef = useRef<{ at: number; text: string } | null>(null)
-  const convoCmdRef = useRef<{ sendContextualUpdate: (t: string) => void; sendUserMessage: (t: string) => void }>({
+  const childNameSetRef = useRef<string>('')
+  const convoCmdRef = useRef<{ sendContextualUpdate: (t: string) => void; sendUserMessage: (t: string) => void; interrupt?: () => void }>({
     sendContextualUpdate: () => {},
     sendUserMessage: () => {},
   })
@@ -166,8 +171,19 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
       .catch((e) => console.error('[tutor-ru] POST failed', url, e))
   }, [])
 
-  // Запись урока для ЛК — копит реплики, шлёт батчами (как в 11labs-версии).
-  const { logLine, flush: flushTranscript } = useTranscriptLogger(sessionId)
+  // Запись урока для ЛК — копит реплики И события (доски/ошибки/верно/награда),
+  // шлёт батчами. Лента в ЛК = единый упорядоченный поток (общий seq).
+  const { logLine, logEvent, flush: flushTranscript } = useTranscriptLogger(sessionId)
+
+  // Событие «открыта доска» с человекочитаемым названием: читаем data-screen-label
+  // текущего слайда из канваса (generic — без пер-урочной карты имён досок).
+  const logBoardOpened = useCallback((board: string) => {
+    const doc = iframeRef.current?.contentWindow?.document
+    const raw = doc?.querySelector('[data-screen-label]')?.getAttribute('data-screen-label') || ''
+    const label = raw.replace(/^Доска:\s*/i, '').trim()
+    const human = label ? label.charAt(0).toUpperCase() + label.slice(1) : board
+    logEvent('tool', `Открыта доска «${human}»`, { tool: 'board', board, boardLabel: human })
+  }, [logEvent])
 
   const revealStage = useCallback((fn: () => void) => {
     if (pendingHideRef.current !== null) { window.clearTimeout(pendingHideRef.current); pendingHideRef.current = null }
@@ -201,7 +217,7 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
         if (taskActiveRef.current) {
           return 'Рано показывать доску: на экране задание, на которое ребёнок ещё не ответил. Помоги на нём и дождись ответа.'
         }
-        revealStage(() => engine()?.showBoard(board))
+        revealStage(() => { engine()?.showBoard(board); logBoardOpened(board) })
         currentBoardRef.current = board
         boardShownAtRef.current = Date.now()
         taskActiveRef.current = false
@@ -209,7 +225,8 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
         const oi = (BOARD_ORDER as readonly string[]).indexOf(board)
         if (oi >= 0) boardIndexRef.current = Math.max(boardIndexRef.current, oi + 1)
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'board', variant: board } })
-        return `OK, доска "${board}" показана — рассказывай чуть медленнее.`
+        // НЕ возвращаем id доски в тексте — модель проговаривала его вслух («доска bodies»).
+        return 'OK, доска показана — рассказывай чуть медленнее.'
       },
       next_slide: () => {
         const i = Math.min(boardIndexRef.current, BOARD_ORDER.length - 1)
@@ -221,13 +238,14 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
           return 'Рано листать дальше: на экране задание без ответа — дождись, пока ребёнок ответит.'
         }
         boardIndexRef.current = i + 1
-        revealStage(() => engine()?.showBoard(board))
+        revealStage(() => { engine()?.showBoard(board); logBoardOpened(board) })
         currentBoardRef.current = board
         boardShownAtRef.current = Date.now()
         taskActiveRef.current = false
         shownBoardsRef.current.add(board)
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'board', variant: board, via: 'next' } })
-        return `OK, показана доска "${board}" (${i + 1}/${BOARD_ORDER.length}).`
+        // НЕ возвращаем id доски в тексте (модель проговаривала его вслух).
+        return `OK, показана следующая доска (${i + 1}/${BOARD_ORDER.length}).`
       },
       show_trainer: (p: Record<string, unknown>) => {
         const taskId = typeof p.taskId === 'string' ? p.taskId.trim() : ''
@@ -248,6 +266,7 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
         shownTasksRef.current.add(taskId)
         if (!taskStatsRef.current[taskId]) taskStatsRef.current[taskId] = { shownAt: Date.now(), wrong: 0 }
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'trainer', taskId } })
+        logEvent('tool', `Задание: «${step.q ?? ''}»`, { tool: 'trainer', taskId, q: step.q ?? '' })
         const choiceOpts = Array.isArray(step.options) && step.options.length > 0 ? step.options : null
         const correct = choiceOpts ? (choiceOpts.find((o) => o.correct)?.t ?? '') : (step.answer ?? '')
         return choiceOpts
@@ -290,6 +309,7 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
           perTask,
         })
         post('/api/tutor/event', { sessionId, eventType: 'reward_given', payload: { label: label ?? null } })
+        logEvent('reward', label ? `Награда: ${label}` : 'Награда: урок пройден', { label: label ?? null })
         // Сначала дослать запись урока, потом complete — резюме строится по транскрипту.
         void flushTranscript().then(() => post('/api/tutor/complete', { sessionId }))
         return 'Награда показана — урок завершён.'
@@ -306,16 +326,25 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
       set_child_name: (p: Record<string, unknown>) => {
         const name = typeof p.name === 'string' ? p.name.trim() : ''
         if (!name) return 'Error: пустое имя'
+        // GigaChat спамит set_child_name по 8 раз за ход (каждый повтор = лишний
+        // LLM-круг ≈1с латентности). Error-строка ×2 подряд обрывает tool-loop.
+        if (childNameSetRef.current === name) return 'Error: имя уже запомнила — больше НЕ вызывай set_child_name.'
+        childNameSetRef.current = name
         engine()?.setChildName(name)
+        logEvent('name', `Имя ученика: ${name}`, { name })
         return `Имя запомнено: ${name}`
       },
     }),
-    [engine, realLesson, getState, post, revealStage, leavingBoardTooSoon, sessionId],
+    [engine, realLesson, getState, post, revealStage, leavingBoardTooSoon, sessionId, logEvent, logBoardOpened, TOTAL_TASKS, BOARD_ORDER],
   )
 
   // ── hook callbacks ──────────────────────────────────────────────────────────
   const handleModeChange = useCallback(({ mode }: { mode: SberMode }) => {
     engine()?.setStatus(mode)
+    // Подпись под миком следует за статусом — раньше «Соединяюсь…» висело навечно.
+    engine()?.setCaption(
+      mode === 'speaking' ? 'Аня говорит…' : mode === 'thinking' ? 'Аня думает…' : 'Говори — Аня слушает',
+    )
     if (mode === 'speaking' && turnTimingRef.current) {
       const dt = Math.round(performance.now() - turnTimingRef.current.at)
       console.log(`[latency:turn] Аня ответила через ${dt} мс — «${turnTimingRef.current.text.slice(0, 48)}»`)
@@ -442,7 +471,18 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
     taskActiveRef.current = false
     { const st = taskStatsRef.current[taskId]; if (st && !st.solvedAt) st.solvedAt = Date.now() }
     post('/api/tutor/attempt', { sessionId, taskId, correct: true, skillTag: step?.skill })
+    // Событие ленты: верный ответ (+ «со N-й попытки», если были ошибки).
+    {
+      const n = parseInt(taskId.replace(/\D/g, ''), 10)
+      const t = Number.isFinite(n) ? realLesson().filter((s) => s?.type === 'task')[n - 1] : undefined
+      const correct = t ? (t.options?.find((o) => o.correct)?.t ?? t.answer ?? '') : ''
+      const tries = (taskStatsRef.current[taskId]?.wrong ?? 0) + 1
+      const prefix = tries > 1 ? `Верно со ${tries}-й попытки` : 'Верно'
+      logEvent('solve', correct ? `${prefix}: «${correct}»` : `${prefix}`, { taskId, skill: step?.skill ?? null })
+    }
     try {
+      // Ответ ребёнка важнее её недосказанной фразы — обрываем хвост и реагируем на свежее.
+      convoCmdRef.current.interrupt?.()
       convoCmdRef.current.sendUserMessage(
         '[ПЛАТФОРМА] Ребёнок ответил ПРАВИЛЬНО. Тепло похвали и веди дальше сама — когда расскажешь связку, покажи следующее (show_trainer / next_slide). НЕ спрашивай «готов?» и не жди, пока ребёнок попросит, но и не части — спокойно и по-доброму.',
       )
@@ -461,7 +501,13 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
     consecutiveErrorsRef.current += 1
     { const st = taskStatsRef.current[currentTaskIdRef.current]; if (st) st.wrong += 1 }
     if (currentTaskIdRef.current) post('/api/tutor/attempt', { sessionId, taskId: currentTaskIdRef.current, correct: false })
+    // Событие ленты: неверный ответ (какой именно вариант — канвас не сообщает).
+    {
+      const n = parseInt((currentTaskIdRef.current || '').replace(/\D/g, ''), 10)
+      logEvent('wrong', Number.isFinite(n) ? `Неверный ответ (задание ${n})` : 'Неверный ответ', { taskId: currentTaskIdRef.current })
+    }
     try {
+      convoCmdRef.current.interrupt?.()
       convoCmdRef.current.sendUserMessage(
         '[ПЛАТФОРМА] Ребёнок выбрал НЕВЕРНЫЙ ответ на экране. Мягко поддержи и подскажи ПРЯМО СЕЙЧАС, не давай сразу правильный ответ. НЕ переходи дальше — дождись верного выбора.',
       )
