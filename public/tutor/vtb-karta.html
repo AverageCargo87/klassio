@@ -1059,7 +1059,7 @@ const openedTerms=new Set();
 
 function renderBoard(name, animate){
   const f=BOARDS[name]; if(!f) return;
-  curBoard=name; currentTask=null;
+  curBoard=name; currentTask=null; lastAsk='';
   stage.innerHTML=f();
   if(animate===false){ const b=stage.querySelector('.board'); if(b) b.style.animation='none'; }
   wireStart(); wireScene();
@@ -1111,7 +1111,7 @@ $('glos').onclick=()=>{ const l=$('glosList'); renderGlos();
 const LETTERS=['А','Б','В','Г','Д'];
 function normalize(s){ return String(s||'').toLowerCase().trim().replace(/ё/g,'е').replace(/\s+/g,' ').replace(/[.!?\s]+$/,''); }
 function renderTask(step, animate){
-  currentTask=step; curBoard='';
+  currentTask=step; curBoard=''; lastAsk='';
   const n=TASKS.indexOf(step)+1, total=TASKS.length;
   const pct=Math.round(n/total*100);
   let inner='<div class="tprog">Задание '+(n>0?n:'?')+' из '+total+'</div>'
@@ -1241,9 +1241,15 @@ function highlightFromText(text){
 }
 
 /* ────────────────────────── чат / подпись / статус ────────────────────────── */
+let lastAsk='';  // последний ВОПРОС Ани — подписываем у мика, когда очередь ребёнка
 function pushBubble(who,text){
   if(!text) return;
-  if(who==='tutor') highlightFromText(text);
+  if(who==='tutor'){
+    highlightFromText(text);
+    // вытащить последний вопрос (…?) из её реплики — чтобы ребёнок видел, на что отвечать
+    const qs=text.match(/[^.!?]*\?/g);
+    if(qs&&qs.length){ lastAsk=qs[qs.length-1].replace(/^[\s"'«»—–-]+/,'').trim(); }
+  }
   const lbl=document.createElement('div'); lbl.className='b-who';
   lbl.textContent=(who==='tutor'? teacher.toUpperCase() : (childName||'ТЫ').toUpperCase());
   const b=document.createElement('div'); b.className='bubble'+(who==='child'?' child':''); b.textContent=text;
@@ -1273,7 +1279,7 @@ function updateHint(){
   }
   else if(voiceStatus==='speaking'){ txt='Аня говорит — дослушай и отвечай'; icn='volume'; }
   else if(voiceStatus==='thinking'){ txt='Аня думает…'; icn='dots'; }
-  else if(voiceStatus==='listening'){ txt='Твоя очередь — говори'; icn='mic'; act=true; }
+  else if(voiceStatus==='listening'){ txt=lastAsk||'Твоя очередь — говори'; icn='mic'; act=true; }
   h.innerHTML=txt? ic(icn,16)+'<span>'+txt+'</span>' : '';
   h.classList.toggle('act',act);
   h.style.display=txt?'flex':'none';
