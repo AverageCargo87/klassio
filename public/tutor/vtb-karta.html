@@ -1249,19 +1249,27 @@ function highlightFromText(text){
 }
 
 /* ────────────────────────── чат / подпись / статус ────────────────────────── */
-let lastAsk='';  // последний ВОПРОС Ани — подписываем у мика, когда очередь ребёнка
+let lastAsk='', lastAskKind='';  // текущий ПРИЗЫВ Ани к ребёнку ('q'=вопрос / 'act'=действие)
 function pushBubble(who,text){
   if(!text) return;
   if(who==='tutor'){
     highlightFromText(text);
-    // вытащить последний ВОПРОС К РЕБЁНКУ (…?) из её реплики — чтобы ребёнок видел,
-    // на что отвечать. Риторику-самоописание («Это страница „…?“») и слишком
-    // длинные куски отбрасываем — идём с конца до первого пригодного.
+    // Что показать в пилюле в очередь ребёнка — ПЕРЕСЧИТЫВАЕМ по КАЖДОЙ реплике
+    // (не тянем старое!): (1) последний реальный вопрос к нему; (2) иначе — просьба
+    // сделать действие (нажми/переверни/выбери/впиши/посмотри на экран); (3) иначе — пусто.
+    lastAsk=''; lastAskKind='';
     const qs=text.match(/[^.!?]*\?/g);
-    if(qs&&qs.length){
+    if(qs){
       for(let i=qs.length-1;i>=0;i--){
-        const q=qs[i].replace(/^[\s"'«»—–-]+/,'').trim();
-        if(q.length>=8 && q.length<=90 && !/страниц|глав[аеу]|называется/i.test(q)){ lastAsk=q; break; }
+        const q=qs[i].replace(/^[\s”'«»—–-]+/,'').trim();
+        if(q.length>=8 && q.length<=90 && !/страниц|глав[аеу]|называется/i.test(q)){ lastAsk=q; lastAskKind='q'; break; }
+      }
+    }
+    if(!lastAsk){
+      const sents=text.split(/(?<=[.!?…])\s+/);
+      for(let i=sents.length-1;i>=0;i--){
+        const s=sents[i].replace(/^[\s”'«»—–-]+/,'').trim();
+        if(s.length<=100 && /(нажм|переверн|выбер|впиш|введ|напиш|посмотри на экран)/i.test(s)){ lastAsk=s; lastAskKind='act'; break; }
       }
     }
   }
@@ -1296,7 +1304,12 @@ function updateHint(){
   else if(voiceStatus==='thinking'){ txt='Аня думает…'; icn='dots'; }
   // очередь ребёнка: всегда ПРИЗЫВ К ДЕЙСТВИЮ («что мне делать?» — фидбек 08-07),
   // а не констатация. Есть вопрос — показываем его с глаголом; нет — конкретный ход.
-  else if(voiceStatus==='listening'){ txt=lastAsk? 'Ответь голосом: '+lastAsk : 'Скажи Ане что-нибудь — или скажи «дальше»'; icn='mic'; act=true; }
+  else if(voiceStatus==='listening'){
+    if(lastAskKind==='act'){ txt=lastAsk; icn='pointer'; }
+    else if(lastAskKind==='q'){ txt='Ответь голосом: '+lastAsk; icn='mic'; }
+    else { txt='Скажи Ане что-нибудь — или скажи «дальше»'; icn='mic'; }
+    act=true;
+  }
   h.innerHTML=txt? ic(icn,16)+'<span>'+txt+'</span>' : '';
   h.classList.toggle('act',act);
   h.style.display=txt?'flex':'none';
