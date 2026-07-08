@@ -199,7 +199,7 @@ function gigaChatSSEOnce(model, messages, noTools, onSentence) {
         return
       }
       const t0 = Date.now()
-      let sseBuf = '', content = '', pend = '', firstTokenMs = null
+      let sseBuf = '', content = '', firstTokenMs = null
       let fcName = '', fcArgsStr = '', fcArgsObj = null
       // junk: « function:\n» при finish=function_call; «[» в начале = эхо служебной
       // инструкции ([ПЛАТФОРМА]/[СИСТЕМА]…) — такой ход целиком не озвучиваем.
@@ -222,25 +222,31 @@ function gigaChatSSEOnce(model, messages, noTools, onSentence) {
           }
           if (typeof d.content === 'string' && d.content) {
             if (firstTokenMs === null) firstTokenMs = Date.now() - t0
-            content += d.content; pend += d.content
-            if (!fcName && !JUNK_RE.test(content)) {
-              const { sentences, rest } = extractStreamSentences(pend)
-              pend = rest
-              for (const s of sentences) onSentence(s)
-            }
+            content += d.content
+            // НЕ озвучиваем во время стрима. Если шаг окажется с инструментом, это
+            // «пред-инструментная болтовня» («Молодец! Смотри…»), и озвучив её сразу,
+            // мы плодим несколько разрозненных фраз-обрывков за один ход (жалоба
+            // 08-07: «несколько не связанных фраз одна за одной»). Решаем на КОНЦЕ
+            // шага (res.on('end')): чистая речь → произносим целиком одним куском;
+            // шаг с инструментом → молчим, инструмент отработает без болтовни.
           }
         }
       })
       res.on('end', () => {
         const isFc = !!fcName
-        if (!isFc && pend.trim() && !JUNK_RE.test(content)) onSentence(pend.trim())
+        // Озвучиваем ТОЛЬКО чистый речевой шаг (без инструмента) и ЦЕЛИКОМ — одним
+        // связным сообщением, а не обрывками по ходу. Итог: одно действие ребёнка →
+        // одна связная реплика Ани; инструменты внутри хода отрабатывают молча.
+        // (LEAK-фильтр служебных фраз — в pushSentence.)
+        if (!isFc && !JUNK_RE.test(content) && content.trim()) {
+          for (const s of splitSentences(content.trim())) onSentence(s)
+        }
         let args = fcArgsObj
         if (!args) { try { args = JSON.parse(fcArgsStr || '{}') } catch { args = {} } }
-        // spokenContent — то, что Аня РЕАЛЬНО произнесла на этом шаге (даже если шаг
-        // кончился function_call). Нужен, чтобы записать сказанное в историю: иначе
-        // модель не видит своих слов и повторяет их (голос звучит 2-3 раза, а в чат
-        // уходит один склеенный пузырь). JUNK ('function…') не озвучивается → пусто.
-        resolve({ content: isFc ? '' : content.trim(), spokenContent: JUNK_RE.test(content) ? '' : cleanSpoken(content), functionCall: isFc ? { name: fcName, arguments: args } : null, firstTokenMs })
+        // spokenContent больше не нужен: пред-инструментная болтовня не звучит вовсе,
+        // а значит и повторять её (round-1) нечего — модель скажет мысль финальным
+        // речевым шагом. content для fc-шага в историю кладём пустым.
+        resolve({ content: isFc ? '' : content.trim(), spokenContent: '', functionCall: isFc ? { name: fcName, arguments: args } : null, firstTokenMs })
       })
       res.on('error', reject)
     })
