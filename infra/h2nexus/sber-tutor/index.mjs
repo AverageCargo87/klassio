@@ -131,11 +131,19 @@ function splitSentences(text) {
   if (rest.trim()) out.push(rest.trim())
   return out
 }
+// Утечки служебного текста (мик-тест 08-07: GigaChat эхом повторил «[ПЛАТФОРМА]
+// Ребёнок ответил ПРАВИЛЬНО…» вслух и в чат). Предложения со служебными метками
+// или именами инструментов не озвучиваем, не пишем в чат и не пускаем в историю.
+const LEAK_RE = /\[(ПЛАТФОРМА|СИСТЕМА|СОСТОЯНИЕ|МОДЕРАЦИЯ)\]|\(не расслышала\)|\b(show_board|next_slide|show_trainer|hide_tool|set_phase|give_reward|take_break|lesson_state|set_child_name)\b/i
+const cleanSpoken = (text) => splitSentences(String(text || '').trim()).filter((s) => !LEAK_RE.test(s)).join(' ')
+// Целиком эхо-ответ (начинается со служебной скобки) — выбрасываем весь; иначе
+// вычищаем только заражённые предложения.
+const sanitizeFinal = (t) => { const s = String(t || '').trim(); return /^\[/.test(s) ? '' : cleanSpoken(s) }
 
 // ── GigaChat: the SAME 9 tutor tools (mirror of scripts/restore-tutor-agent-body.mjs) ──
 const GIGA_FUNCTIONS = [
   { name: 'show_board', description: 'Показать доску урока по её id. Список допустимых id и их порядок — в системном промпте текущего урока. Говори ПАРАЛЛЕЛЬНО, чуть медленнее. Потом убери через hide_tool.', parameters: { type: 'object', properties: { board: { type: 'string', description: 'id доски из системного промпта урока (первая всегда cover).' } }, required: ['board'] } },
-  { name: 'next_slide', description: 'Показать СЛЕДУЮЩУЮ доску урока строго по порядку из системного промпта. Первый вызов покажет обложку (cover). Веди теорию через него, чтобы не пропустить доски.', parameters: { type: 'object', properties: {} } },
+  { name: 'next_slide', description: 'Показать СЛЕДУЮЩУЮ доску урока строго по порядку из системного промпта (какая доска первая — сказано в промпте урока). Веди теорию через него, чтобы не пропустить доски.', parameters: { type: 'object', properties: {} } },
   { name: 'show_trainer', description: 'Показать интерактивное задание для практики. Потом убери через hide_tool.', parameters: { type: 'object', properties: { taskId: { type: 'string', description: 'ID задачи, напр. "task-1".' } }, required: ['taskId'] } },
   { name: 'hide_tool', description: 'Убрать доску/тренажёр, вернуть пустой холст. Зови ТОЛЬКО при переходе к разговору без инструментов (разогрев, пауза, прощание), НЕ между двумя инструментами.', parameters: { type: 'object', properties: {} } },
   { name: 'set_phase', description: 'Отметить переход фазы урока. phase: connecting | warmup | diagnostic | bridge | cycle | pause | summary | farewell.', parameters: { type: 'object', properties: { phase: { type: 'string', description: 'connecting | warmup | diagnostic | bridge | cycle | pause | summary | farewell' } }, required: ['phase'] } },
@@ -193,7 +201,9 @@ function gigaChatSSEOnce(model, messages, noTools, onSentence) {
       const t0 = Date.now()
       let sseBuf = '', content = '', pend = '', firstTokenMs = null
       let fcName = '', fcArgsStr = '', fcArgsObj = null
-      const JUNK_RE = /^\s*function\b/i
+      // junk: « function:\n» при finish=function_call; «[» в начале = эхо служебной
+      // инструкции ([ПЛАТФОРМА]/[СИСТЕМА]…) — такой ход целиком не озвучиваем.
+      const JUNK_RE = /^\s*(function\b|\[)/i
       res.setEncoding('utf8')
       res.on('data', (chunk) => {
         sseBuf += chunk
@@ -226,7 +236,11 @@ function gigaChatSSEOnce(model, messages, noTools, onSentence) {
         if (!isFc && pend.trim() && !JUNK_RE.test(content)) onSentence(pend.trim())
         let args = fcArgsObj
         if (!args) { try { args = JSON.parse(fcArgsStr || '{}') } catch { args = {} } }
-        resolve({ content: isFc ? '' : content.trim(), functionCall: isFc ? { name: fcName, arguments: args } : null, firstTokenMs })
+        // spokenContent — то, что Аня РЕАЛЬНО произнесла на этом шаге (даже если шаг
+        // кончился function_call). Нужен, чтобы записать сказанное в историю: иначе
+        // модель не видит своих слов и повторяет их (голос звучит 2-3 раза, а в чат
+        // уходит один склеенный пузырь). JUNK ('function…') не озвучивается → пусто.
+        resolve({ content: isFc ? '' : content.trim(), spokenContent: JUNK_RE.test(content) ? '' : cleanSpoken(content), functionCall: isFc ? { name: fcName, arguments: args } : null, firstTokenMs })
       })
       res.on('error', reject)
     })
@@ -283,7 +297,7 @@ function callBrowserTool(session, name, args) {
     const id = (session.toolSeq = (session.toolSeq || 0) + 1)
     // Таймаут ≠ успех: фиктивный «OK» отравлял историю — модель считала, что
     // доска показана, хотя браузер молчал. Error-строка ведёт себя как отказ
-    // гварда (refusalStreak) → после двух подряд Аня просто говорит голосом.
+    // гварда (считается в refusals) → после 2 отказов за ход Аня просто говорит голосом.
     const timer = setTimeout(() => {
       session.pending.delete(id)
       resolve('Error: браузер не ответил на инструмент за 8 секунд — считай, что показать НЕ удалось, продолжай голосом.')
@@ -325,6 +339,8 @@ async function runTurn(session) {
     if (session.interrupted) return // ребёнок перебил — больше не синтезируем
     const t = String(s || '').trim()
     if (!t) return
+    // предложение со служебной меткой/именем инструмента — не озвучиваем и в чат не пускаем
+    if (LEAK_RE.test(t)) { console.log(`[leak] sid=${session.sessionId.slice(0, 8)} дропнуто из речи: «${t.slice(0, 60)}»`); return }
     spokenParts.push(t)
     if (firstSentenceAt === null) firstSentenceAt = Date.now() - tTurn
     sentenceQ.push(t)
@@ -350,7 +366,7 @@ async function runTurn(session) {
     // 8 tool-calls per turn is plenty for a legit chain (set_phase + next_slide +
     // show_trainer + state); the base model can burn ANY budget chaining calls,
     // so the cap is also a token-economy guard (each call re-sends the ~7k prompt).
-    let refusalStreak = 0 // consecutive «Рано…» guard refusals — stubborn-model cutoff
+    let refusals = 0 // ВСЕ «Рано…»/Error отказы гвардов за ход (не подряд) — см. cutoff ниже
     for (let step = 0; step < 8; step++) {
       if (ws.readyState !== 1 || session.interrupted) break // клиент отвалился/перебил — не жжём токены
       const tLlm = Date.now()
@@ -358,18 +374,24 @@ async function runTurn(session) {
       llmMs += Date.now() - tLlm; llmSteps++
       if (r.functionCall) {
         // arguments кладём ОБЪЕКТОМ — так их и возвращает API, и в истории
-        // объектный round-trip уже проверен спайком.
-        session.messages.push({ role: 'assistant', content: '', function_call: r.functionCall })
+        // объектный round-trip уже проверен спайком. content = то, что Аня ПРОИЗНЕСЛА
+        // на этом шаге (раньше слался пустым — её слова терялись, модель их не помнила
+        // и повторяла похвалу/мысль: голос 2-3 раза, а в чат один склеенный пузырь).
+        // content вместе с function_call уже отправлялся (пустым) → форма API рабочая.
+        session.messages.push({ role: 'assistant', content: r.spokenContent || '', function_call: r.functionCall })
         const result = await callBrowserTool(session, r.functionCall.name, r.functionCall.arguments || {})
         // GigaChat REQUIRES the function result content to be a JSON string.
         session.messages.push({ role: 'function', name: r.functionCall.name, content: JSON.stringify({ result }) })
-        // The base model sometimes keeps ramming the pacing guards (each refused
-        // call = another full LLM round-trip ≈ 1s of felt latency). Two refusals
-        // in a row → stop the loop and force a spoken reply instead.
-        if (/^(Рано|Error)/.test(result)) { if (++refusalStreak >= 2) break } else refusalStreak = 0
+        const refused = /^(Рано|Error)/.test(result)
+        console.log(`[tool] sid=${session.sessionId.slice(0, 8)} ${r.functionCall.name} → ${refused ? 'РЕФУЗ ' + result.slice(0, 48) : 'ok'}`)
+        // Считаем ВСЕ отказы гвардов за ход (НЕ подряд). На неверном ответе задание ещё
+        // активно → модель молотит next_slide/show_trainer по гвардам, а set_phase/
+        // lesson_state между ними сбрасывали consecutive-streak → 9 кругов/14с/повторы.
+        // 2 отказа ВСЕГО → обрываем в форс-речь (она станет finalText и попадёт в чат).
+        if (refused && ++refusals >= 2) break
         continue
       }
-      finalText = r.content // предложения уже улетели в TTS по мере стрима
+      finalText = sanitizeFinal(r.content) // предложения уже улетели в TTS по мере стрима; эхо/утечки — в чат и историю не пускаем
       break
     }
     if (!finalText && ws.readyState === 1) {
@@ -379,7 +401,7 @@ async function runTurn(session) {
       const tLlm = Date.now()
       const r = await gigaChatStream(session.messages, { noTools: true }, pushSentence)
       llmMs += Date.now() - tLlm; llmSteps++
-      finalText = r.content
+      finalText = sanitizeFinal(r.content)
     }
     // GigaChat-Pro иногда отвечает ОДНИМИ инструментами (записала имя через
     // set_child_name + set_phase) и молчит — даже форс-режим выше вернул пусто.
@@ -391,10 +413,15 @@ async function runTurn(session) {
         content: '[СИСТЕМА] Ты ответила только инструментами и не произнесла ни слова. Скажи ребёнку вслух прямо сейчас одну-две короткие фразы по ситуации (если только что узнала имя — тепло поздоровайся по имени; иначе просто продолжи разговор) и задай один вопрос. Инструменты сейчас НЕ вызывай.',
       })
       const tLlm2 = Date.now()
-      const r2 = await gigaChatStream(session.messages, { noTools: true }, pushSentence)
+      let r2
+      try {
+        r2 = await gigaChatStream(session.messages, { noTools: true }, pushSentence)
+      } finally {
+        session.messages.pop() // наказ в историю не сохраняем ДАЖЕ при сбое сети — иначе «инструменты НЕ вызывай» душит инструменты до конца урока
+      }
       llmMs += Date.now() - tLlm2; llmSteps++
-      session.messages.pop() // служебный наказ в историю не сохраняем
-      if (r2.content) finalText = r2.content
+      const clean2 = sanitizeFinal(r2.content)
+      if (clean2) finalText = clean2
     }
     if (finalText) session.messages.push({ role: 'assistant', content: finalText })
   } catch (e) {
@@ -424,18 +451,45 @@ async function runTurn(session) {
   if (session.pendingTurn && ws.readyState === 1) { session.pendingTurn = false; runTurn(session) }
 }
 
+// Пустой STT = ребёнок молчит (мик поймал шум). Раньше Аня реагировала СРАЗУ и на
+// КАЖДУЮ пустышку → цепочки «Не спеши…» / «Я жду…» / «Подумай…» (фидбек 08-07).
+// Теперь: первый раз — мягкий оклик через NAG_DELAY_MS (ребёнку дают подумать);
+// повторные пустышки до его реальной реплики — молчим совсем. Таймер снимается,
+// если пришла настоящая речь или действие на экране (user_text).
+const NAG_DELAY_MS = 10000
 async function handleAudio(session, pcmBuf) {
   try {
     await ensureTokens()
     const tStt = Date.now()
     const transcript = await stt(pcmBuf)
     console.log(`[stt] sid=${session.sessionId.slice(0, 8)} ${Date.now() - tStt}ms · ${Math.round(pcmBuf.length / 32)}ms звука · «${transcript.slice(0, 60)}»`)
+    if (!transcript) {
+      if (session.busy) return // Аня уже отвечает — шумовую пустышку выбрасываем
+      // вернуть клиента в «слушаю» на время паузы (иначе он ждёт ход и висит в «думает»)
+      send(session.ws, { type: 'agent_done' })
+      send(session.ws, { type: 'mode', mode: 'listening' })
+      session.emptyStreak = (session.emptyStreak || 0) + 1
+      if (session.emptyStreak >= 2) return // уже окликала — теперь просто ждём ребёнка
+      if (session.nagTimer) clearTimeout(session.nagTimer)
+      session.nagTimer = setTimeout(() => {
+        session.nagTimer = null
+        if (session.ws.readyState !== 1 || session.busy) return
+        session.messages.push({ role: 'user', content: '(не расслышала)' })
+        runTurn(session)
+      }, NAG_DELAY_MS)
+      return
+    }
+    session.emptyStreak = 0
+    if (session.nagTimer) { clearTimeout(session.nagTimer); session.nagTimer = null }
     send(session.ws, { type: 'transcript', role: 'user', text: transcript })
-    session.messages.push({ role: 'user', content: transcript || '(не расслышала)' })
+    session.messages.push({ role: 'user', content: transcript })
     await runTurn(session)
   } catch (e) {
     console.error('[sber-tutor] audio error:', e?.message || e)
     send(session.ws, { type: 'error', message: String(e?.message || e) })
+    // agent_done обязателен: клиент игнорирует серверный mode:listening и без него
+    // висит в «думает» до 22с-сторожа, который убивает всю сессию (ревью 08-07)
+    send(session.ws, { type: 'agent_done' })
     send(session.ws, { type: 'mode', mode: 'listening' })
   }
 }
@@ -490,7 +544,7 @@ httpServer.on('upgrade', (req, socket, head) => {
 
 function onConnection(ws, sid) {
   console.log(`[${new Date().toISOString()}] sber-tutor open sid=${sid.slice(0, 8)}…`)
-  const session = { ws, sessionId: sid, messages: [], pending: new Map(), busy: false, pendingTurn: false, interrupted: false, toolSeq: 0, voice: VOICE }
+  const session = { ws, sessionId: sid, messages: [], pending: new Map(), busy: false, pendingTurn: false, interrupted: false, toolSeq: 0, voice: VOICE, emptyStreak: 0, nagTimer: null }
   ws.on('message', (data, isBinary) => {
     if (isBinary) { handleAudio(session, data) ; return }
     let m; try { m = JSON.parse(data.toString()) } catch { return }
@@ -499,6 +553,9 @@ function onConnection(ws, sid) {
       case 'tool_result': { const r = session.pending.get(m.id); if (r) { session.pending.delete(m.id); r(m.result) } break }
       case 'user_text': {
         const text = (m.text || '').toString().trim(); if (!text) break
+        // действие на экране = ребёнок здесь и занят делом → оклик за молчание отменяем
+        session.emptyStreak = 0
+        if (session.nagTimer) { clearTimeout(session.nagTimer); session.nagTimer = null }
         session.messages.push({ role: 'user', content: text })
         if (m.trigger) runTurn(session) // sendUserMessage → react now; sendContextualUpdate (trigger=false) → just context
         break
@@ -511,7 +568,7 @@ function onConnection(ws, sid) {
       case 'end': try { ws.close(1000) } catch {} ; break
     }
   })
-  ws.on('close', () => { for (const r of session.pending.values()) r('Error: соединение с учеником закрыто'); session.pending.clear(); console.log(`  sber-tutor close sid=${sid.slice(0, 8)}…`) })
+  ws.on('close', () => { if (session.nagTimer) { clearTimeout(session.nagTimer); session.nagTimer = null }; for (const r of session.pending.values()) r('Error: соединение с учеником закрыто'); session.pending.clear(); console.log(`  sber-tutor close sid=${sid.slice(0, 8)}…`) })
   ws.on('error', (e) => console.error('  sber-tutor ws err:', e.message))
 }
 
