@@ -51,6 +51,13 @@ const DEFAULT_TOTAL_TASKS = 13
 // уже шла (рассинхрон «говорит про следующее, доску не показала»). 25с + пол
 // MIN_DWELL 15с достаточно, чтобы не проскакивать, но без рассинхрона.
 const BOARD_MIN_MS = 25000
+// Отдельный, КОРОТКИЙ пол для показа ЗАДАНИЯ текущей доски (не смены доски).
+// Задание — часть работы С ЭТОЙ доской, а не «пролистывание вперёд», поэтому
+// держать его под 25-сек замком нельзя: Аня говорила «выбери на экране», а
+// show_trainer отклонялся гвардом → тест появлялся слайдом позже (фидбек 08-07).
+// 9с ≈ пары фраз разбора хватает, чтобы задание не выскакивало мгновенно, но и
+// не отставало от её «выбери».
+const TASK_MIN_MS = 9000
 const DEFAULT_THEORY_BOARDS = ['etymology', 'bodies', 'solar', 'sunEarth', 'facts']
 
 interface KlassioEngine {
@@ -208,6 +215,11 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
     () => THEORY_BOARDS.has(currentBoardRef.current) && Date.now() - boardShownAtRef.current < BOARD_MIN_MS,
     [],
   )
+  // Для показа ЗАДАНИЯ текущей доски — короткий пол (не 25-сек «смена доски»).
+  const taskTooSoon = useCallback(
+    () => THEORY_BOARDS.has(currentBoardRef.current) && Date.now() - boardShownAtRef.current < TASK_MIN_MS,
+    [],
+  )
 
   // ── agent client tools → drive the design (1-в-1 с tutor-lesson.tsx) ───────
   const clientTools: SberClientTools = useMemo(
@@ -267,8 +279,10 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
           // не давать пере-показывать решённое (модель после ПРАВИЛЬНО крутила то же задание)
           return `Задание ${taskId} УЖЕ решено — повторно не показывай. Иди дальше: следующее задание этой доски или next_slide.`
         }
-        if (leavingBoardTooSoon()) {
-          return `Рано показывать задание — теоретический слайд держится не меньше ${BOARD_MIN_MS / 1000} секунд. Разбери доску и дай ребёнку рассмотреть, потом задание.`
+        if (taskTooSoon()) {
+          // короткий пол: пары фраз разбора хватило; дальше задание показываем сразу,
+          // чтобы «выбери на экране» не звучало раньше самого задания
+          return `Рано показывать задание — сначала разбери доску пару фраз (ещё ${Math.ceil((TASK_MIN_MS - (Date.now() - boardShownAtRef.current)) / 1000)} сек). Пока задание не на экране — НЕ проси «выбери/впиши», задай устный вопрос.`
         }
         if (taskActiveRef.current && taskId !== currentTaskIdRef.current) {
           return 'Рано: предыдущее задание ещё не решено. Дождись ответа на него, потом давай следующее.'
@@ -353,7 +367,7 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
         return `Имя запомнено: ${name}`
       },
     }),
-    [engine, realLesson, getState, post, revealStage, leavingBoardTooSoon, sessionId, logEvent, logBoardOpened, TOTAL_TASKS, BOARD_ORDER],
+    [engine, realLesson, getState, post, revealStage, leavingBoardTooSoon, taskTooSoon, sessionId, logEvent, logBoardOpened, TOTAL_TASKS, BOARD_ORDER],
   )
 
   // ── hook callbacks ──────────────────────────────────────────────────────────

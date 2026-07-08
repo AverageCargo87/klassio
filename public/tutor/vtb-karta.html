@@ -1272,6 +1272,10 @@ function pushBubble(who,text){
         if(s.length<=100 && /(нажм|переверн|выбер|впиш|введ|напиш|посмотри на экран)/i.test(s)){ lastAsk=s; lastAskKind='act'; break; }
       }
     }
+    // Просьба «выбери/впиши/отметь» = ответ НА ЭКРАНЕ. Если задания ещё нет —
+    // пилюля не должна звать «ответь голосом: выбери…» (сбивает: выбирать нечего).
+    // Помечаем 'screen' → updateHint покажет «задание сейчас появится» (фидбек 08-07).
+    if(lastAsk && /(выбер|впиш|введ|отмет)/i.test(lastAsk)) lastAskKind='screen';
   }
   const lbl=document.createElement('div'); lbl.className='b-who';
   lbl.textContent=(who==='tutor'? teacher.toUpperCase() : (childName||'ТЫ').toUpperCase());
@@ -1305,7 +1309,8 @@ function updateHint(){
   // очередь ребёнка: всегда ПРИЗЫВ К ДЕЙСТВИЮ («что мне делать?» — фидбек 08-07),
   // а не констатация. Есть вопрос — показываем его с глаголом; нет — конкретный ход.
   else if(voiceStatus==='listening'){
-    if(lastAskKind==='act'){ txt=lastAsk; icn='pointer'; }
+    if(lastAskKind==='screen'){ txt='Задание сейчас появится на экране…'; icn='dots'; }
+    else if(lastAskKind==='act'){ txt=lastAsk; icn='pointer'; }
     else if(lastAskKind==='q'){ txt='Ответь голосом: '+lastAsk; icn='mic'; }
     else { txt='Скажи Ане что-нибудь — или скажи «дальше»'; icn='mic'; }
     act=true;
