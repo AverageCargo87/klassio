@@ -71,7 +71,7 @@ export default async function CabinetHome() {
   return (
     <>
       <link rel="stylesheet" href="/demo/site.css" />
-      <section className="screen active" data-screen="cabinet">
+      <section className="screen dk active" data-screen="cabinet">
         <div className="wrap">
           <header className="topbar rise" style={d('0s')}>
             <a className="brand" href="/" style={plainLink}><span className="mark"></span>классио</a>

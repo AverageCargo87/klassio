@@ -40,6 +40,18 @@ export interface CurriculumLesson {
   canvas?: LessonCanvas
 }
 
+/** Альтернативная оболочка урока «Мир глазами астронома» — Miro-режим:
+ *  весь урок на одном tldraw-холсте (карта фреймов, камера на рельсах).
+ *  Тот же контент/промпт/трекинг, те же имена досок и 13 задач — меняется
+ *  только канвас-HTML. Включается ?shell=miro на /tutor/okr-mir-4/astronom.
+ *  Источник канваса: lesson-canvases/miro-astronom/entry.jsx → public/tutor/miro/. */
+export const ASTRONOM_MIRO_CANVAS: LessonCanvas = {
+  htmlFile: '/tutor/miro/index.html',
+  boardOrder: ['cover', 'etymology', 'bodies', 'solar', 'sunEarth', 'facts'],
+  theoryBoards: ['etymology', 'bodies', 'solar', 'sunEarth', 'facts'],
+  totalTasks: 13,
+}
+
 export const OKR_MIR_4_LESSONS: CurriculumLesson[] = [
   {
     slug: 'astronom',

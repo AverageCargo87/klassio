@@ -4,7 +4,7 @@
 import { OKR_MIR_4_LESSONS, type CurriculumLesson } from './okr-mir-4'
 
 export type { CurriculumLesson, LessonStatus, LessonCanvas } from './okr-mir-4'
-export { OKR_MIR_4_LESSONS } from './okr-mir-4'
+export { OKR_MIR_4_LESSONS, ASTRONOM_MIRO_CANVAS } from './okr-mir-4'
 
 export interface SubjectMeta {
   id: string
@@ -37,6 +37,22 @@ const FIN_LIT_LESSONS: CurriculumLesson[] = [
       // Свой 11labs-агент для инвестиций (промпт scripts/tutor-agent-prompt-invest.md).
       // Поставь ELEVENLABS_INVEST_AGENT_ID в env — иначе откатится на общий тьютор-агент.
       agentEnvVar: 'ELEVENLABS_INVEST_AGENT_ID',
+    },
+  },
+  {
+    slug: 'detskaya-karta',
+    number: 2,
+    title: 'Твоя первая банковская карта',
+    subtitle: 'Что умеет детская карта: оплата, приложение, безопасность и кешбэк.',
+    status: 'available',
+    href: '/tutor/fin-gramotnost/detskaya-karta',
+    canvas: {
+      htmlFile: '/tutor/vtb-karta.html',
+      boardOrder: ['cover', 'what', 'money', 'pay', 'app', 'safe', 'cashback', 'reward'],
+      theoryBoards: ['what', 'money', 'pay', 'app', 'safe', 'cashback'],
+      totalTasks: 13,
+      // Демо ведёт Sber-стек (промпт по slug у оркестратора). 11labs-агента под
+      // этот урок НЕТ — открывать только с ?stack=sber (он же дефолт).
     },
   },
 ]

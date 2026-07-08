@@ -24,6 +24,42 @@ export interface RecentRecord {
   totalTasks: number | null // из canvas-конфига урока; null у уроков без него
 }
 
+// Навыки урока для экрана записи: по одному чипу на skillTag, отметка «повторить»
+// если по нему были ошибки. Метки — человекочитаемые (пер-урочный словарик).
+const SKILL_LABELS: Record<string, string> = {
+  'card-basics': 'Основы карты', 'money-source': 'Пополнение', payments: 'Оплата',
+  app: 'Приложение', safety: 'Безопасность', cashback: 'Кешбэк',
+  inflation: 'Инфляция', shares: 'Акции', income: 'Доход', risk: 'Риск',
+  compound: 'Сложный процент', time: 'Сила времени',
+}
+export interface RecordSkill { label: string; redo: boolean }
+
+/** Число верно решённых задач в сессии (для «N из M заданий» в записи). */
+export async function getSessionCorrectCount(sessionId: string, userId: string): Promise<number> {
+  const [row] = await db
+    .select({ c: count() })
+    .from(lessonAttempts)
+    .where(and(eq(lessonAttempts.sessionId, sessionId), eq(lessonAttempts.userId, userId), eq(lessonAttempts.correct, true)))
+  return num(row?.c)
+}
+
+export async function getSessionSkills(sessionId: string, userId: string): Promise<RecordSkill[]> {
+  const rows = await db
+    .select({ skillTag: lessonAttempts.skillTag, correct: lessonAttempts.correct, attempts: lessonAttempts.attempts })
+    .from(lessonAttempts)
+    .where(and(eq(lessonAttempts.sessionId, sessionId), eq(lessonAttempts.userId, userId)))
+  // группируем по skillTag в порядке первого появления
+  const order: string[] = []
+  const byTag = new Map<string, { redo: boolean }>()
+  for (const r of rows) {
+    const tag = r.skillTag
+    if (!tag || !SKILL_LABELS[tag]) continue
+    if (!byTag.has(tag)) { byTag.set(tag, { redo: false }); order.push(tag) }
+    if (!r.correct || (r.attempts ?? 1) > 1) byTag.get(tag)!.redo = true
+  }
+  return order.map((tag) => ({ label: SKILL_LABELS[tag], redo: byTag.get(tag)!.redo }))
+}
+
 export async function getRecentRecords(userId: string, limit = 6): Promise<RecentRecord[]> {
   const rows = await db
     .select({

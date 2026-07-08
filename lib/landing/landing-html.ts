@@ -1,10 +1,9 @@
-// АВТОГЕНЕРАТ: не редактировать руками — источник = Claude Design прототип
-// (Downloads/Klassio Demo (standalone).html), скрипт extract-demo.mjs (scratchpad).
-// Лендинг отдаётся как готовый HTML (пиксель-в-пиксель с одобренным дизайном);
-// скрипты исполняются, т.к. страница приходит полноценным SSR-HTML (не innerHTML).
-// Ссылки уже переписаны: #signup→/register, #cabinet→/login.
+// АВТОГЕНЕРАТ: не редактировать руками — источник = Claude Design v3 прототип
+// (Downloads/Klassio Demo v3 (standalone).html), скрипт extract-demo-v3.mjs.
+// Тёмная тема (.screen dk). Ссылки переписаны: #signup→/register, #cabinet→/login.
 export const LANDING_HTML = `<link rel="stylesheet" href="/demo/site.css">
-<section class="screen active" data-screen="landing" data-screen-label="01 · Лендинг">
+<section class="screen dk active" data-screen="landing" data-screen-label="01 · Лендинг">
+  <div class="ld-stars" aria-hidden="true"></div>
   <header class="ld-header" id="ld-header">
     <div class="ld-header-in">
       <a class="brand" href="/"><span class="mark"></span>классио</a>
@@ -23,80 +22,118 @@ export const LANDING_HTML = `<link rel="stylesheet" href="/demo/site.css">
 
     <!-- Hero -->
     <div class="ld-hero">
-      <div>
-        <span class="ld-eyebrow rise" style="--d:.05s">AI-репетитор Аня · 1–7 класс</span>
-        <h1 class="rise" style="--d:.1s">Живой урок с AI-репетитором. <em>Голосом.</em></h1>
-        <p class="ld-sub rise" style="--d:.16s">Аня объяснит тему на интерактивной доске, спросит, поможет с ошибкой и похвалит — как настоящий учитель, один на один. Ребёнок просто разговаривает с ней вслух.</p>
-        <div class="ld-cta rise" style="--d:.22s">
-          <a class="btn btn-accent" href="/register">Начать учиться
-            <svg class="ar" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
-          </a>
-          <button class="btn btn-quiet" type="button" data-scroll="ld-how">Как проходит урок</button>
-        </div>
-        <p class="ld-cta-note rise" style="--d:.26s">Уроки по 15–20 минут · первый — бесплатно</p>
+      <span class="ld-eyebrow rise" style="--d:.05s">AI-репетитор Аня · 1–7 класс</span>
+      <h1 class="rise" style="--d:.1s">Живой урок с AI-репетитором. <em>Голосом.</em></h1>
+      <p class="ld-sub rise" style="--d:.16s">Аня объяснит тему на интерактивной доске, спросит, поможет с ошибкой и похвалит — как настоящий учитель, один на один. Ребёнок просто разговаривает с ней вслух.</p>
+      <div class="ld-cta rise" style="--d:.22s">
+        <a class="btn btn-accent" href="/register">Начать учиться
+          <svg class="ar" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+        </a>
+        <button class="btn btn-quiet" type="button" data-scroll="ld-how">Как проходит урок</button>
       </div>
+      <p class="ld-cta-note rise" style="--d:.26s">Уроки по 15–20 минут · первый — бесплатно</p>
 
-      <!-- мини-мокап урока: доска + голосовой диалог -->
-      <div class="ld-mockwrap rise" style="--d:.2s">
-        <span class="ld-spark" style="left:-26px;top:44px;--d:.4s"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c1 7 5 11 12 12-7 1-11 5-12 12-1-7-5-11-12-12C7 11 11 7 12 0z"></path></svg></span>
-        <span class="ld-spark" style="right:-18px;top:-16px;--d:1.2s"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c1 7 5 11 12 12-7 1-11 5-12 12-1-7-5-11-12-12C7 11 11 7 12 0z"></path></svg></span>
-        <span class="ld-spark" style="right:52px;bottom:-24px;--d:2s;color:var(--av-2)"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c1 7 5 11 12 12-7 1-11 5-12 12-1-7-5-11-12-12C7 11 11 7 12 0z"></path></svg></span>
+      <!-- «видео» урока: автопроигрываемая демонстрация урока -->
+      <div class="ld-video rise" style="--d:.32s">
+        <span class="ld-spark" style="left:-34px;top:-22px;--d:.4s"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c1 7 5 11 12 12-7 1-11 5-12 12-1-7-5-11-12-12C7 11 11 7 12 0z"></path></svg></span>
+        <span class="ld-spark" style="right:-26px;top:136px;--d:1.3s;color:var(--av-2)"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c1 7 5 11 12 12-7 1-11 5-12 12-1-7-5-11-12-12C7 11 11 7 12 0z"></path></svg></span>
 
-        <div class="ld-mock">
-          <div class="ld-mock-top">
-            <span class="chip chip-mute">Урок 1 · Мир глазами астронома</span>
-            <span class="who"><span class="orb" style="width:26px;height:26px"></span>Аня&nbsp;<span>· репетитор</span></span>
+        <div class="lv-win" id="lv-win">
+          <div class="lv-chrome">
+            <span class="lv-dots"><i></i><i></i><i></i></span>
+            <span class="lv-title">Klassio · Окружающий мир · «Мир глазами астронома»</span>
+            <span class="lv-rec"><i></i>запись · <b id="lv-timer">00:00</b></span>
           </div>
 
-          <div class="ld-board">
-            <span class="lbl">Доска · Солнечная система</span>
-            <svg viewBox="0 0 470 240" role="img" aria-label="Схема Солнечной системы на доске">
-              <defs>
-                <radialGradient id="ldsun" cx="38%" cy="34%" r="80%">
-                  <stop offset="0%" stop-color="#F6C690"></stop><stop offset="100%" stop-color="#CC7A50"></stop>
-                </radialGradient>
-                <radialGradient id="ldp1" cx="35%" cy="30%" r="80%">
-                  <stop offset="0%" stop-color="#CBDFF3"></stop><stop offset="100%" stop-color="#A6C6E9"></stop>
-                </radialGradient>
-                <radialGradient id="ldp2" cx="35%" cy="30%" r="80%">
-                  <stop offset="0%" stop-color="#E2DDF6"></stop><stop offset="100%" stop-color="#C7C0EE"></stop>
-                </radialGradient>
-                <radialGradient id="ldp3" cx="35%" cy="30%" r="80%">
-                  <stop offset="0%" stop-color="#EBC3A4"></stop><stop offset="100%" stop-color="#DBA07A"></stop>
-                </radialGradient>
-              </defs>
-              <circle cx="42" cy="122" r="86" fill="rgba(204,122,80,.16)"></circle>
-              <circle cx="42" cy="122" r="60" fill="url(#ldsun)"></circle>
-              <circle cx="42" cy="122" r="118" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1.5"></circle>
-              <circle cx="42" cy="122" r="178" fill="none" stroke="rgba(255,255,255,.13)" stroke-width="1.5"></circle>
-              <circle cx="42" cy="122" r="242" fill="none" stroke="rgba(255,255,255,.10)" stroke-width="1.5"></circle>
-              <circle cx="138" cy="52" r="10" fill="url(#ldp3)"></circle>
-              <circle cx="205" cy="182" r="14" fill="url(#ldp1)"></circle>
-              <ellipse cx="205" cy="182" rx="26" ry="7.5" fill="none" stroke="#DBA07A" stroke-width="2" transform="rotate(-18 205 182)"></ellipse>
-              <circle cx="286" cy="48" r="7.5" fill="url(#ldp2)"></circle>
-              <path d="M352 172c.7 4.8 3.4 7.5 8.2 8.2-4.8.7-7.5 3.4-8.2 8.2-.7-4.8-3.4-7.5-8.2-8.2 4.8-.7 7.5-3.4 8.2-8.2z" fill="#DBA07A" opacity=".85"></path>
-              <path d="M408 42c.6 4 2.9 6.3 6.9 6.9-4 .6-6.3 2.9-6.9 6.9-.6-4-2.9-6.3-6.9-6.9 4-.6 6.3-2.9 6.9-6.9z" fill="#C7C0EE" opacity=".9"></path>
-            </svg>
-          </div>
-
-          <div class="ld-mock-chat">
-            <div class="ld-mb tutor">
-              <span class="who">Аня</span>
-              <span class="body">Почему днём мы видим Солнце, но не видим другие звёзды?</span>
+          <div class="lv-canvas">
+            <div class="lv-top">
+              <span class="chip chip-mute">Урок 1 · 4 класс</span>
+              <span class="who"><span class="orb" style="width:26px;height:26px"></span>Аня <span class="st"><i></i><span id="lv-cap">говорит…</span></span></span>
             </div>
-            <div class="ld-mb child">
-              <span class="who">Ученик · голосом</span>
-              <span class="body">Потому что Солнце светит ярче всех!</span>
+
+            <div class="lv-stage">
+              <!-- Сцена 1 · Голос -->
+              <div class="lv-voice">
+                <span class="orb lv-orb"></span>
+                <span class="lv-wave"><i></i><i></i><i></i><i></i><i></i></span>
+                <div class="ld-mb tutor lv-g1"><span class="who">Аня</span><span class="body">Привет! Я Аня. Сегодня посмотрим на мир глазами астронома.</span></div>
+                <div class="ld-mb child lv-g2"><span class="who">Ученик · голосом</span><span class="body">Привет! А кто такой астроном?</span></div>
+              </div>
+
+              <!-- Сцена 2 · Доска -->
+              <div class="lv-chat">
+                <div class="ld-mb tutor lv-b2"><span class="who">Аня</span><span class="body">Астроном изучает звёзды и планеты. Смотри на доску!</span></div>
+                <div class="ld-mb tutor lv-b3"><span class="who">Аня</span><span class="body">В центре — Солнце. Это звезда, и она светит сама.</span></div>
+              </div>
+              <div class="lv-board">
+                <div class="ld-board">
+                  <span class="lbl">Доска · Солнечная система</span>
+                  <svg viewBox="0 0 470 250" role="img" aria-label="Доска: Солнечная система">
+                    <defs>
+                      <radialGradient id="lvsun" cx="38%" cy="34%" r="80%"><stop offset="0%" stop-color="#F6C690"></stop><stop offset="100%" stop-color="#CC7A50"></stop></radialGradient>
+                      <radialGradient id="lvp1" cx="35%" cy="30%" r="80%"><stop offset="0%" stop-color="#CBDFF3"></stop><stop offset="100%" stop-color="#A6C6E9"></stop></radialGradient>
+                      <radialGradient id="lvp2" cx="35%" cy="30%" r="80%"><stop offset="0%" stop-color="#E2DDF6"></stop><stop offset="100%" stop-color="#C7C0EE"></stop></radialGradient>
+                      <radialGradient id="lvp3" cx="35%" cy="30%" r="80%"><stop offset="0%" stop-color="#EBC3A4"></stop><stop offset="100%" stop-color="#DBA07A"></stop></radialGradient>
+                    </defs>
+                    <circle class="lv-sun" cx="46" cy="128" r="88" fill="rgba(204,122,80,.16)"></circle>
+                    <circle class="lv-sun" cx="46" cy="128" r="62" fill="url(#lvsun)"></circle>
+                    <circle class="lv-orbit" cx="46" cy="128" r="120" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1.5"></circle>
+                    <circle class="lv-orbit" cx="46" cy="128" r="182" fill="none" stroke="rgba(255,255,255,.13)" stroke-width="1.5"></circle>
+                    <circle class="lv-orbit" cx="46" cy="128" r="248" fill="none" stroke="rgba(255,255,255,.10)" stroke-width="1.5"></circle>
+                    <circle class="lv-planet" cx="144" cy="56" r="10" fill="url(#lvp3)"></circle>
+                    <g class="lv-planet"><circle cx="212" cy="190" r="14" fill="url(#lvp1)"></circle><ellipse cx="212" cy="190" rx="27" ry="8" fill="none" stroke="#DBA07A" stroke-width="2" transform="rotate(-18 212 190)"></ellipse></g>
+                    <circle class="lv-planet" cx="296" cy="50" r="7.5" fill="url(#lvp2)"></circle>
+                    <path class="lv-planet" d="M366 178c.7 4.8 3.4 7.5 8.2 8.2-4.8.7-7.5 3.4-8.2 8.2-.7-4.8-3.4-7.5-8.2-8.2 4.8-.7 7.5-3.4 8.2-8.2z" fill="#DBA07A" opacity=".85"></path>
+                    <path class="lv-planet" d="M422 46c.6 4 2.9 6.3 6.9 6.9-4 .6-6.3 2.9-6.9 6.9-.6-4-2.9-6.3-6.9-6.9 4-.6 6.3-2.9 6.9-6.9z" fill="#C7C0EE" opacity=".9"></path>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Сцена 3 · Тренажёр -->
+              <div class="ls-task lv-task">
+                <span class="tag">Тренажёр · задание 3</span>
+                <p class="q">Солнце — это…</p>
+                <div class="ls-opt"><span class="mark"></span>Планета
+                  <span class="ls-ov wrong lv-ov-wrong"><span class="mark">✕</span>Планета</span>
+                </div>
+                <div class="ls-opt"><span class="mark"></span>Звезда
+                  <span class="ls-ov correct lv-ov-correct"><span class="mark">✓</span>Звезда</span>
+                </div>
+                <div class="ls-opt"><span class="mark"></span>Комета</div>
+                <div class="ls-hint lv-hint">Аня: не спеши. Оно светит само, а планеты только отражают свет.</div>
+              </div>
+
+              <!-- Сцена 4 · Награда -->
+              <div class="ls-reward lv-reward">
+                <svg class="rstar lv-rstar" width="58" height="58" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l2.5 5.4 5.9.7-4.4 4 1.2 5.8L12 16l-5.2 2.9 1.2-5.8-4.4-4 5.9-.7L12 3z"></path></svg>
+                <h4 class="lv-rh">Урок пройден!</h4>
+                <p class="lv-rp">Запись и итоги уже в кабинете родителей.</p>
+                <div class="chips"><span class="chip lv-rc">13/13 заданий</span><span class="chip lv-rc">18 минут</span></div>
+              </div>
             </div>
+
+            <div class="lv-dock">
+              <span class="ld-mic"><span class="halo"></span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3"></rect><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"></path><line x1="12" y1="18" x2="12" y2="21.5"></line></svg>
+              </span>
+              <span class="cap"><i></i>Ребёнок отвечает голосом — без кнопок</span>
+            </div>
+
+            <button class="lv-pp" id="lv-pp" type="button" aria-label="Пауза">
+              <svg id="lv-pp-pause" width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4.2" height="15" rx="1.4"></rect><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.4"></rect></svg>
+              <svg id="lv-pp-play" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" hidden=""><path d="M8 5.2v13.6c0 .9 1 1.5 1.8 1L20 13c.8-.5.8-1.6 0-2.1L9.8 4.3c-.8-.5-1.8 0-1.8.9z"></path></svg>
+            </button>
           </div>
 
-          <div class="ld-mock-mic">
-            <span class="ld-mic"><span class="halo"></span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3"></rect><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"></path><line x1="12" y1="18" x2="12" y2="21.5"></line></svg>
-            </span>
-            <span class="cap"><i></i>Аня слушает…</span>
+          <div class="lv-progress" id="lv-progress">
+            <span class="lv-seg"><span class="bar"><i></i></span><span class="lb">Голос</span></span>
+            <span class="lv-seg"><span class="bar"><i></i></span><span class="lb">Доска</span></span>
+            <span class="lv-seg"><span class="bar"><i></i></span><span class="lb">Тренажёр</span></span>
+            <span class="lv-seg"><span class="bar"><i></i></span><span class="lb">Запись</span></span>
           </div>
         </div>
+
+        <p class="ld-video-cap">Фрагмент урока «Мир глазами астронома» · 4 класс</p>
       </div>
     </div>
 

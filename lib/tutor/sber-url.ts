@@ -34,5 +34,7 @@ export function buildSberTutorWsUrl(
   const t = String(now)
   const s = createHmac('sha256', secret).update(`${sessionId}:${t}`).digest('hex')
   const params = new URLSearchParams({ sid: sessionId, t, s })
-  return `wss://${host}?${params.toString()}`
+  // Локальный оркестратор (dev) слушает по ws://, боевой VPS — по wss:// (nginx TLS).
+  const scheme = /^(localhost|127\.0\.0\.1)(:|\/|$)/.test(host) ? 'ws' : 'wss'
+  return `${scheme}://${host}?${params.toString()}`
 }

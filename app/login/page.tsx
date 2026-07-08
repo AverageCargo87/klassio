@@ -19,7 +19,7 @@ export default async function LoginPage() {
   return (
     <>
       <link rel="stylesheet" href="/demo/site.css" />
-      <section className="screen active" data-screen="signup">
+      <section className="screen dk active" data-screen="signup">
         <div className="wrap">
           <header className="topbar">
             <a className="brand" href="/"><span className="mark"></span>классио</a>

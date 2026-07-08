@@ -10,7 +10,7 @@ import { redirect, notFound } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
-import { resolveLesson } from '@/lib/curriculum'
+import { resolveLesson, ASTRONOM_MIRO_CANVAS } from '@/lib/curriculum'
 import { getOrStartSession, buildTutorDynamicVariables } from '@/lib/tutor'
 import { getUserId } from '@/lib/tutor/http'
 import { TutorLesson } from '@/components/tutor/tutor-lesson'
@@ -26,15 +26,30 @@ function resolveStack(v: string | string[] | undefined): 'sber' | 'elevenlabs' {
   return s === 'elevenlabs' || s === '11labs' ? 'elevenlabs' : 'sber'
 }
 
+// ?shell=miro — альтернативная оболочка того же урока (Miro-режим: карта на
+// tldraw-холсте). Оболочка чисто клиентская: контент, промпт Ани на VPS,
+// трекинг и все пейсинг-гейты не меняются. Сейчас есть только у астронома.
+function resolveShellCanvas(
+  v: string | string[] | undefined,
+  subject: string,
+  slug: string,
+): typeof ASTRONOM_MIRO_CANVAS | undefined {
+  const s = Array.isArray(v) ? v[0] : v
+  if (s === 'miro' && subject === 'okr-mir-4' && slug === 'astronom') return ASTRONOM_MIRO_CANVAS
+  return undefined
+}
+
 export default async function TutorLessonRoute({
   params,
   searchParams,
 }: {
   params: Promise<{ subject: string; slug: string }>
-  searchParams: Promise<{ stack?: string | string[] }>
+  searchParams: Promise<{ stack?: string | string[]; shell?: string | string[] }>
 }) {
   const { subject, slug } = await params
-  const stack = resolveStack((await searchParams).stack)
+  const sp = await searchParams
+  const stack = resolveStack(sp.stack)
+  const shellCanvas = resolveShellCanvas(sp.shell, subject, slug)
 
   const userId = await getUserId()
   if (!userId) redirect('/login')
@@ -65,6 +80,8 @@ export default async function TutorLessonRoute({
     attemptNumber: start.attemptNumber,
   })
 
+  const canvas = shellCanvas ?? lesson.canvas
+
   if (stack === 'elevenlabs') {
     return (
       <TutorLesson
@@ -72,7 +89,7 @@ export default async function TutorLessonRoute({
         lessonTitle={lesson.title}
         lessonSubtitle={lesson.subtitle}
         dynamicVariables={dynamicVariables}
-        canvas={lesson.canvas}
+        canvas={canvas}
       />
     )
   }
@@ -82,7 +99,7 @@ export default async function TutorLessonRoute({
       lessonTitle={lesson.title}
       lessonSubtitle={lesson.subtitle}
       dynamicVariables={dynamicVariables}
-      canvas={lesson.canvas}
+      canvas={canvas}
     />
   )
 }
