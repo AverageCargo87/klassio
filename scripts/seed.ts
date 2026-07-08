@@ -49,7 +49,7 @@ export default async function main() {
          SET child_name = EXCLUDED.child_name,
              child_age  = EXCLUDED.child_age
        RETURNING id`,
-      [ADMIN_EMAIL, 'Тест-ребёнок', 10]
+      [ADMIN_EMAIL, 'Миша', 10]
     )
     return r.rows[0] as { id: string }
   })
