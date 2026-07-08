@@ -623,12 +623,13 @@ h2.bd{font-size:31px;font-weight:900;line-height:1.15;margin:8px 0 4px;color:var
 
 /* ─────────── мик + подсказка + подпись ─────────── */
 #micWrap{position:fixed;left:50%;bottom:52px;transform:translateX(-50%);z-index:40;text-align:center}
-#hint{display:none;width:fit-content;margin:0 auto 12px;max-width:580px;padding:11px 22px;border-radius:22px;
+/* подсказка-пилюля сидит ПОД доской (ближе к контексту), а не у мика; top ставит positionHint() */
+#hint{position:fixed;left:50%;top:60%;transform:translateX(-50%);z-index:26;display:none;width:fit-content;margin:0;max-width:min(580px,70vw);padding:11px 22px;border-radius:22px;
   align-items:center;gap:9px;font-size:16px;font-weight:800;color:var(--brand-deep);background:#fff;
   box-shadow:0 10px 28px rgba(14,34,71,.14),inset 0 0 0 1.5px rgba(27,75,210,.14)}
 #hint.act{color:#fff;background:linear-gradient(180deg,#3D6BFF,var(--brand));
   box-shadow:0 12px 30px rgba(27,75,210,.4);animation:hintPulse 1.8s ease-in-out infinite}
-@keyframes hintPulse{50%{transform:scale(1.035)}}
+@keyframes hintPulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.035)}}
 /* ── микрофон ребёнка: большая синяя кнопка снизу по центру ── */
 #micB{width:76px;height:76px;border-radius:50%;border:0;color:#fff;display:inline-flex;align-items:center;justify-content:center;
   background:radial-gradient(circle at 32% 28%,#4C79FF,var(--brand) 70%);
@@ -694,9 +695,9 @@ h2.bd{font-size:31px;font-weight:900;line-height:1.15;margin:8px 0 4px;color:var
 <div id="chat"></div>
 
 <div id="stage"></div>
+<div id="hint"></div>
 
 <div id="micWrap">
-  <div id="hint"></div>
   <div><button id="micB" title="Микрофон" aria-label="Микрофон"></button></div>
 </div>
 <div id="caption"></div>
@@ -1295,13 +1296,21 @@ function updateHint(){
 /* масштабирование доски под высоту окна: доска живёт между топбаром и микрофоном */
 function fitStage(){
   const b=stage.firstElementChild;
-  if(!b){ stage.style.removeProperty('--fit'); return; }
+  if(!b){ stage.style.removeProperty('--fit'); positionHint(); return; }
   const micTop=$('micB').getBoundingClientRect().top;
-  const lo=74, hi=micTop-66; /* резерв под пилюлю-подсказку — её появление/исчезновение не двигает доску */
+  const lo=74, hi=micTop-92; /* резерв ПОД доской: там теперь сидит пилюля-подсказка */
   const avail=Math.max(240, hi-lo);
   const s=Math.min(1, avail/b.offsetHeight);
   stage.style.setProperty('--fit', s.toFixed(4));
   stage.style.top=Math.round((lo+hi)/2)+'px';
+  positionHint();
+}
+/* пилюля-подсказка следует за нижней кромкой доски — «прилипает» к тому, что на экране */
+function positionHint(){
+  const h=$('hint'); if(!h) return;
+  const b=stage.firstElementChild;
+  const top=b ? stage.getBoundingClientRect().bottom+14 : Math.round(window.innerHeight*0.60);
+  h.style.top=Math.round(top)+'px';
 }
 window.addEventListener('resize', fitStage);
 if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>fitStage());
