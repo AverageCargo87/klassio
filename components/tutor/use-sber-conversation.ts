@@ -18,7 +18,13 @@
 // (Web Audio, по порядку; первый играет, пока следующие ещё синтезируются).
 //
 // WS-протокол описан в шапке infra/h2nexus/sber-tutor/index.mjs.
-// Барж-ина в v1 нет: пока Аня думает/говорит, микрофон не пишется.
+//
+// BARGE-IN (перебивание): пока Аня ГОВОРИТ (playback), VAD продолжает слушать по
+// повышенному порогу. Если ребёнок заговорил ≥ BARGE_MIN_MS — глушим её аудио
+// мгновенно, выбрасываем хвост её хода и начинаем писать реплику ребёнка. Плюс
+// шлём оркестратору {type:'interrupt'} (старые оркестраторы без поддержки просто
+// игнорируют неизвестный тип — тогда её голос всё равно замолкает локально, но
+// ответ на перебивание придёт после того, как старый ход догенерится на сервере).
 import { useCallback, useRef, useState } from 'react'
 
 export type SberClientTools = Record<
@@ -49,11 +55,16 @@ export type SberStatus = 'disconnected' | 'connecting' | 'connected'
 
 // VAD — значения с живого стенда (ru-voice-live-stream.mjs):
 // 700 мс тишины = баланс между «не перебить ребёнка» и felt-латентностью.
-const VAD_THRESHOLD = 0.015
 const VAD_SILENCE_MS = 700
-const VAD_MIN_SPEECH_MS = 250
+// 320мс минимум речи: короткие шумы (стук, скрип) не считаются репликой —
+// иначе пустой STT превращался в «(не расслышала)» → «повтори» при молчании.
+const VAD_MIN_SPEECH_MS = 320
 const VAD_MAX_UTTERANCE_MS = 15000
 const READY_TIMEOUT_MS = 20000
+// Сторож «завис в думает»: канал ученик(РФ)↔оркестратор(Франкфурт) бывает полу-мёртвым —
+// ребёнок сказал, аудио ушло в никуда, ответа нет, а «Аня думает» висит вечно.
+// Реальные ходы доходят до первого звука <7с; 22с = заведомо мёртвый сокет.
+const THINK_TIMEOUT_MS = 22000
 
 type Phase = 'idle' | 'listening' | 'recording' | 'waiting'
 
@@ -77,13 +88,37 @@ export function useSberConversation(options: UseSberConversationOptions) {
   const mutedRef = useRef(false)
   const intentionalCloseRef = useRef(false)
   const readyTimerRef = useRef<number | null>(null)
+  const thinkTimerRef = useRef<number | null>(null)   // сторож «завис в думает»
+  const cleanupRef = useRef<() => void>(() => {})     // чтобы сторож дёрнул cleanup без цикла зависимостей
 
   // очередь воспроизведения: чанки по порядку; agent_done + пустая очередь → снова слушаем
   const audioQueueRef = useRef<string[]>([])
   const playingRef = useRef(false)
   const agentDoneRef = useRef(false)
+  // нахлёст-запись + обрыв хода действием
+  const currentSrcRef = useRef<AudioBufferSourceNode | null>(null) // играющий чанк — чтобы оборвать
+  const droppingAudioRef = useRef(false)   // после interrupt дропаем хвост старого хода
+  const awaitingNewTurnRef = useRef(false) // ждём mode:thinking нового хода (не резюмим слушание)
+  const bargeMsRef = useRef(0)             // накопленная речь ребёнка поверх голоса Ани
+  const overlapSilRef = useRef(0)          // тишина после нахлёст-реплики
+  // Адаптивный порог мика: жёсткий 0.015 «не слышал» тихие микрофоны (спайк 07-03).
+  const noiseFloorRef = useRef(0.004)
+  const vadThr = () => Math.min(0.03, Math.max(0.008, noiseFloorRef.current * 3 + 0.003))
 
   const emitMode = useCallback((mode: SberMode) => {
+    // Сторож «думает»: ставим при входе в thinking, снимаем при speaking/listening
+    // (= сервер жив и отвечает). Если сокет полу-мёртв — режимов больше не будет,
+    // сторож сработает и разморозит UI (см. THINK_TIMEOUT_MS).
+    if (thinkTimerRef.current !== null) { window.clearTimeout(thinkTimerRef.current); thinkTimerRef.current = null }
+    if (mode === 'thinking') {
+      thinkTimerRef.current = window.setTimeout(() => {
+        thinkTimerRef.current = null
+        console.error('[sber] think watchdog — сервер молчит >', THINK_TIMEOUT_MS, 'мс, размораживаю UI')
+        intentionalCloseRef.current = true
+        cleanupRef.current()
+        try { optsRef.current.onError?.('Связь с Аней прервалась. Нажми «Начать урок», чтобы продолжить.') } catch { /* noop */ }
+      }, THINK_TIMEOUT_MS)
+    }
     try { optsRef.current.onModeChange?.({ mode }) } catch (e) { console.error('[sber] onModeChange', e) }
   }, [])
 
@@ -96,11 +131,18 @@ export function useSberConversation(options: UseSberConversationOptions) {
 
   const cleanup = useCallback(() => {
     if (readyTimerRef.current !== null) { window.clearTimeout(readyTimerRef.current); readyTimerRef.current = null }
+    if (thinkTimerRef.current !== null) { window.clearTimeout(thinkTimerRef.current); thinkTimerRef.current = null }
     phaseRef.current = 'idle'
     recBufRef.current = []
     audioQueueRef.current = []
     playingRef.current = false
     agentDoneRef.current = false
+    droppingAudioRef.current = false
+    awaitingNewTurnRef.current = false
+    bargeMsRef.current = 0
+    overlapSilRef.current = 0
+    try { currentSrcRef.current?.stop() } catch { /* noop */ }
+    currentSrcRef.current = null
     try { procRef.current?.disconnect() } catch { /* noop */ }
     procRef.current = null
     streamRef.current?.getTracks().forEach((t) => { try { t.stop() } catch { /* noop */ } })
@@ -113,16 +155,23 @@ export function useSberConversation(options: UseSberConversationOptions) {
     if (ws && ws.readyState <= WebSocket.OPEN) { try { ws.close(1000) } catch { /* noop */ } }
     setStatus('disconnected')
   }, [])
+  cleanupRef.current = cleanup // сторож «думает» дёргает cleanup через ref (без цикла зависимостей)
 
   // ── воспроизведение: упорядоченная очередь чанков ──────────────────────────
   const maybeResumeListening = useCallback(() => {
+    // Ждём ответ нового хода после перебивания — не резюмим по agent_done старого.
+    if (awaitingNewTurnRef.current) return
     if (!agentDoneRef.current || playingRef.current || audioQueueRef.current.length > 0) return
     agentDoneRef.current = false
-    if (phaseRef.current === 'idle') return // сессия уже закрыта
+    // Резюмим слушание ТОЛЬКО из фазы ожидания ответа Ани. Если ребёнок сейчас
+    // говорит (recording) или уже слушаем — не трогаем (иначе стёрли бы запись).
+    if (phaseRef.current !== 'waiting') return
     phaseRef.current = 'listening'
     recBufRef.current = []
     speechMsRef.current = 0
     silenceMsRef.current = 0
+    bargeMsRef.current = 0
+    overlapSilRef.current = 0
     emitMode('listening')
   }, [emitMode])
 
@@ -147,7 +196,11 @@ export function useSberConversation(options: UseSberConversationOptions) {
           const src = ctx2.createBufferSource()
           src.buffer = audioBuf
           src.connect(ctx2.destination)
-          src.onended = () => pump()
+          currentSrcRef.current = src
+          src.onended = () => {
+            if (currentSrcRef.current === src) currentSrcRef.current = null
+            pump()
+          }
           src.start()
           emitMode('speaking')
         },
@@ -161,9 +214,24 @@ export function useSberConversation(options: UseSberConversationOptions) {
 
   const enqueueAudio = useCallback((b64: string) => {
     if (!b64) return
+    if (droppingAudioRef.current) return // хвост перебитого хода — не проигрываем
     audioQueueRef.current.push(b64)
     if (!playingRef.current) pump()
   }, [pump])
+
+  // Обрыв хода ДЕЙСТВИЕМ (клик по ответу в тренажёре): глушим хвост её реплики
+  // локально и просим оркестратор прервать ход — дальше придёт свежая реакция,
+  // без «отработки очереди» устаревших фраз. Голосом Аню не перебиваем (колонки).
+  const interruptTurn = useCallback(() => {
+    droppingAudioRef.current = true
+    awaitingNewTurnRef.current = true
+    audioQueueRef.current = []
+    try { currentSrcRef.current?.stop() } catch { /* noop */ }
+    currentSrcRef.current = null
+    playingRef.current = false
+    agentDoneRef.current = false
+    wsSend({ type: 'interrupt' }) // без поддержки на сервере — тихо игнорируется
+  }, [wsSend])
 
   // ── микрофон: energy-VAD, цельная реплика → PCM16@16k → WS binary ──────────
   const finishUtterance = useCallback(() => {
@@ -200,27 +268,40 @@ export function useSberConversation(options: UseSberConversationOptions) {
     const data = e.inputBuffer.getChannelData(0)
     const bufMs = (data.length / ctx.sampleRate) * 1000
     const phase = phaseRef.current
-    if (phase !== 'listening' && phase !== 'recording') return // нет барж-ина
     if (mutedRef.current) {
-      // mute: молча сбрасываем недописанную реплику и ждём
+      // mute: микрофон выключен — ни записи, ни нахлёста
       if (phase === 'recording') { phaseRef.current = 'listening'; recBufRef.current = [] }
+      bargeMsRef.current = 0
+      overlapSilRef.current = 0
       return
     }
     let sum = 0
     for (let i = 0; i < data.length; i++) sum += data[i] * data[i]
     const energy = Math.sqrt(sum / data.length)
+
+    // СТРОГИЙ ПОЛУДУПЛЕКС: пока Аня думает/говорит — микрофон игнорируется ПОЛНОСТЬЮ.
+    // Ловля нахлёста (запись поверх её речи) на колонках ловила эхо её голоса →
+    // фантомные пустые реплики → «(не расслышала)» → «повтори, пожалуйста» при
+    // молчащем ребёнке (мик-тест 2026-07-07). Дешевле честно просить дождаться
+    // паузы (подсказка над микрофоном), чем гадать, эхо это или ребёнок.
+    if (phase === 'waiting') { bargeMsRef.current = 0; overlapSilRef.current = 0; recBufRef.current = []; return }
+
+    if (phase !== 'listening' && phase !== 'recording') return
+    const thr = vadThr()
     if (phase === 'listening') {
-      if (energy > VAD_THRESHOLD) {
+      if (energy > thr) {
         phaseRef.current = 'recording'
         recBufRef.current = [new Float32Array(data)]
         speechMsRef.current = bufMs
         silenceMsRef.current = 0
+      } else {
+        noiseFloorRef.current = noiseFloorRef.current * 0.95 + energy * 0.05 // учим шумовой пол
       }
       return
     }
     // recording
     recBufRef.current.push(new Float32Array(data))
-    if (energy > VAD_THRESHOLD) { speechMsRef.current += bufMs; silenceMsRef.current = 0 }
+    if (energy > thr) { speechMsRef.current += bufMs; silenceMsRef.current = 0 }
     else silenceMsRef.current += bufMs
     const totalMs = recBufRef.current.length * bufMs
     if (
@@ -244,9 +325,15 @@ export function useSberConversation(options: UseSberConversationOptions) {
         // (аудио ещё играет, когда сервер уже всё отправил). 'thinking' = сервер
         // начал ход (в т.ч. по user_text-триггеру) → гасим запись и ждём.
         if (m.mode === 'thinking') {
+          // Новый ход начался (в т.ч. ответ на перебивание) → снять флаги
+          // перебивания и разрешить аудио нового хода; погасить stale agent_done.
+          droppingAudioRef.current = false
+          awaitingNewTurnRef.current = false
+          agentDoneRef.current = false
           if (phaseRef.current === 'listening' || phaseRef.current === 'recording') {
             phaseRef.current = 'waiting'
             recBufRef.current = []
+            bargeMsRef.current = 0
           }
           emitMode('thinking')
         }
@@ -370,5 +457,5 @@ export function useSberConversation(options: UseSberConversationOptions) {
     wsSend({ type: 'user_text', text, trigger: false })
   }, [wsSend])
 
-  return { status, startSession, endSession, setMuted, sendUserMessage, sendContextualUpdate }
+  return { status, startSession, endSession, setMuted, sendUserMessage, sendContextualUpdate, interrupt: interruptTurn }
 }

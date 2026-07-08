@@ -22,6 +22,7 @@
 //   <binary>                         finalized child utterance (PCM16 mono 16k)
 //   {type:'tool_result', id, result} result string from a browser clientTool
 //   {type:'user_text', text, trigger}  platform signal; trigger=true → Аня reacts now
+//   {type:'interrupt'}               barge-in: ребёнок заговорил поверх Ани → обрываем текущий ход
 //   {type:'end'}
 // orchestrator → browser:
 //   {type:'ready'}
@@ -303,10 +304,11 @@ function trimHistory(session) {
 
 async function runTurn(session) {
   const ws = session.ws
-  // No barge-in in v1, but DON'T drop overlapping triggers (solve-click while
-  // Аня is mid-turn): queue ONE follow-up turn and run it right after.
+  // Overlapping triggers (solve-click while Аня is mid-turn): queue ONE follow-up
+  // turn and run it right after.
   if (session.busy) { session.pendingTurn = true; return }
   session.busy = true
+  session.interrupted = false // свежий ход не считается прерванным
   send(ws, { type: 'mode', mode: 'thinking' })
   // per-turn latency breakdown → journald (сравнение с 11labs: у того answer-time ~1.3s серверных)
   const tTurn = Date.now()
@@ -317,10 +319,13 @@ async function runTurn(session) {
   // стримит остальное — «говорит, пока думает». seq растёт монотонно, браузер
   // играет чанки в порядке прихода.
   const sentenceQ = []
+  const spokenParts = [] // ВЕСЬ произнесённый за ход текст (для транскрипта)
   let qEnded = false, wake = null, seq = 0
   const pushSentence = (s) => {
+    if (session.interrupted) return // ребёнок перебил — больше не синтезируем
     const t = String(s || '').trim()
     if (!t) return
+    spokenParts.push(t)
     if (firstSentenceAt === null) firstSentenceAt = Date.now() - tTurn
     sentenceQ.push(t)
     if (wake) { const w = wake; wake = null; w() }
@@ -330,8 +335,10 @@ async function runTurn(session) {
       while (sentenceQ.length === 0 && !qEnded) await new Promise((r) => { wake = r })
       if (sentenceQ.length === 0 && qEnded) return
       const text = sentenceQ.shift()
+      if (session.interrupted) continue // не шлём хвост перебитого хода в браузер
       try {
         const b64 = await ttsB64(text, session.voice)
+        if (session.interrupted) continue
         if (ttsFirstAt === null) { ttsFirstAt = Date.now() - tTurn; send(ws, { type: 'mode', mode: 'speaking' }) }
         send(ws, { type: 'audio', seq: seq++, b64 })
       } catch (e) { console.error('[sber-tutor] tts:', e?.message || e) }
@@ -345,7 +352,7 @@ async function runTurn(session) {
     // so the cap is also a token-economy guard (each call re-sends the ~7k prompt).
     let refusalStreak = 0 // consecutive «Рано…» guard refusals — stubborn-model cutoff
     for (let step = 0; step < 8; step++) {
-      if (ws.readyState !== 1) break // клиент отвалился посреди хода — не жжём токены впустую
+      if (ws.readyState !== 1 || session.interrupted) break // клиент отвалился/перебил — не жжём токены
       const tLlm = Date.now()
       const r = await gigaChatStream(session.messages, {}, pushSentence)
       llmMs += Date.now() - tLlm; llmSteps++
@@ -374,15 +381,34 @@ async function runTurn(session) {
       llmMs += Date.now() - tLlm; llmSteps++
       finalText = r.content
     }
+    // GigaChat-Pro иногда отвечает ОДНИМИ инструментами (записала имя через
+    // set_child_name + set_phase) и молчит — даже форс-режим выше вернул пусто.
+    // Для ребёнка это = «сказал фразу, а Аня не реагирует». Прямой наказ произнести
+    // хоть что-то, если за весь ход не прозвучало НИ ОДНОГО предложения.
+    if (firstSentenceAt === null && !session.interrupted && ws.readyState === 1) {
+      session.messages.push({
+        role: 'user',
+        content: '[СИСТЕМА] Ты ответила только инструментами и не произнесла ни слова. Скажи ребёнку вслух прямо сейчас одну-две короткие фразы по ситуации (если только что узнала имя — тепло поздоровайся по имени; иначе просто продолжи разговор) и задай один вопрос. Инструменты сейчас НЕ вызывай.',
+      })
+      const tLlm2 = Date.now()
+      const r2 = await gigaChatStream(session.messages, { noTools: true }, pushSentence)
+      llmMs += Date.now() - tLlm2; llmSteps++
+      session.messages.pop() // служебный наказ в историю не сохраняем
+      if (r2.content) finalText = r2.content
+    }
     if (finalText) session.messages.push({ role: 'assistant', content: finalText })
   } catch (e) {
     console.error('[sber-tutor] turn error:', e?.message || e)
     send(ws, { type: 'error', message: String(e?.message || e) })
   }
 
-  // Пузырь в чат — полным текстом по концу стрима (первый звук к этому моменту
-  // обычно уже играет; инкрементальные transcript'ы плодили бы пузыри на фронте).
-  if (finalText) send(ws, { type: 'transcript', role: 'agent', text: finalText })
+  // Пузырь в чат — ВЕСЬ произнесённый за ход текст (не только finalText). Раньше
+  // слали только finalText = последний говорящий шаг; если модель говорила фразу
+  // ПЕРЕД вызовом функции (напр. «Верно, молодец!» → show_trainer), та фраза
+  // звучала, но в чат НЕ попадала. spokenParts копит все реплики хода по порядку.
+  // Прерванный ход не пишем — ребёнок оборвал реплику, показывать нечего.
+  const spokenText = spokenParts.join(' ').trim()
+  if (spokenText && !session.interrupted) send(ws, { type: 'transcript', role: 'agent', text: spokenText })
   qEnded = true
   if (wake) { const w = wake; wake = null; w() }
   // воркер не должен уметь падать (per-sentence try/catch), но если упадёт —
@@ -464,7 +490,7 @@ httpServer.on('upgrade', (req, socket, head) => {
 
 function onConnection(ws, sid) {
   console.log(`[${new Date().toISOString()}] sber-tutor open sid=${sid.slice(0, 8)}…`)
-  const session = { ws, sessionId: sid, messages: [], pending: new Map(), busy: false, pendingTurn: false, toolSeq: 0, voice: VOICE }
+  const session = { ws, sessionId: sid, messages: [], pending: new Map(), busy: false, pendingTurn: false, interrupted: false, toolSeq: 0, voice: VOICE }
   ws.on('message', (data, isBinary) => {
     if (isBinary) { handleAudio(session, data) ; return }
     let m; try { m = JSON.parse(data.toString()) } catch { return }
@@ -477,6 +503,11 @@ function onConnection(ws, sid) {
         if (m.trigger) runTurn(session) // sendUserMessage → react now; sendContextualUpdate (trigger=false) → just context
         break
       }
+      // BARGE-IN: браузер сообщил, что ребёнок заговорил поверх Ани. Помечаем
+      // текущий ход прерванным — TTS-воркер и tool-loop останавливаются, хвост
+      // не уходит в браузер, токены не жгутся. Следующая реплика (PCM) ребёнка
+      // придёт как новый ход и подхватится сразу после раскрутки прерванного.
+      case 'interrupt': { if (session.busy) session.interrupted = true; break }
       case 'end': try { ws.close(1000) } catch {} ; break
     }
   })
