@@ -51,6 +51,9 @@ const FIN_LIT_LESSONS: CurriculumLesson[] = [
       boardOrder: ['cover', 'what', 'money', 'pay', 'app', 'safe', 'cashback', 'reward'],
       theoryBoards: ['what', 'money', 'pay', 'app', 'safe', 'cashback'],
       totalTasks: 13,
+      // Обложка уже на экране со старта → первый next_slide открывает `what`,
+      // а не повторно обложку (фидбек 08-07: урок проскакивал доску `what`).
+      coverPreShown: true,
       // Демо ведёт Sber-стек (промпт по slug у оркестратора). 11labs-агента под
       // этот урок НЕТ — открывать только с ?stack=sber (он же дефолт).
     },

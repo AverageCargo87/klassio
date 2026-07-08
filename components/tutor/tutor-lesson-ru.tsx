@@ -123,11 +123,14 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
   voiceRef.current = voice
 
   // tracking refs
+  // coverPreShown: обложка (boardOrder[0]) уже на экране со старта, поэтому первый
+  // next_slide должен открыть boardOrder[1] (обложку заранее считаем показанной).
+  const coverPreShown = canvas?.coverPreShown === true
   const phaseRef = useRef<string>('connecting')
   const solvedRef = useRef<Set<string>>(new Set())
   const shownTasksRef = useRef<Set<string>>(new Set())
-  const shownBoardsRef = useRef<Set<string>>(new Set())
-  const boardIndexRef = useRef<number>(0)
+  const shownBoardsRef = useRef<Set<string>>(new Set(coverPreShown && BOARD_ORDER[0] ? [BOARD_ORDER[0]] : []))
+  const boardIndexRef = useRef<number>(coverPreShown ? 1 : 0)
   const consecutiveErrorsRef = useRef<number>(0)
   const currentTaskIdRef = useRef<string>('')
   const taskStatsRef = useRef<Record<string, { shownAt: number; solvedAt?: number; wrong: number }>>({})

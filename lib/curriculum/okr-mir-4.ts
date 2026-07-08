@@ -26,6 +26,11 @@ export interface LessonCanvas {
    *  (e.g. 'ELEVENLABS_INVEST_AGENT_ID'). Absent → shared tutor agent. Lets each
    *  lesson run its own agent/prompt without a shared-prompt conflict. */
   agentEnvVar?: string
+  /** Обложка (boardOrder[0]) уже показана на старте (стартовый экран). Тогда
+   *  ПЕРВЫЙ `next_slide` должен открыть boardOrder[1], а не повторно обложку —
+   *  иначе Аня «переходит» на обложку, рассказывает про первую доску, а экран не
+   *  меняется, и урок проскакивает доску (см. фидбек 2026-07-08, detskaya-karta). */
+  coverPreShown?: boolean
 }
 
 export interface CurriculumLesson {
