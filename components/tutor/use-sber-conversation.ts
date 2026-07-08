@@ -192,7 +192,10 @@ export function useSberConversation(options: UseSberConversationOptions) {
       ctx.decodeAudioData(bytes.buffer).then(
         (audioBuf) => {
           const ctx2 = ctxRef.current
-          if (!ctx2 || phaseRef.current === 'idle') { playingRef.current = false; return }
+          // droppingAudioRef: ребёнок кликнул ответ (interrupt) ПОКА этот чанк
+          // декодировался — стартовать его нельзя, иначе устаревшая фраза Ани
+          // играет поверх свежей реакции (talk-over на клике-ответе).
+          if (!ctx2 || phaseRef.current === 'idle' || droppingAudioRef.current) { playingRef.current = false; return }
           const src = ctx2.createBufferSource()
           src.buffer = audioBuf
           src.connect(ctx2.destination)

@@ -1262,20 +1262,22 @@ function pushBubble(who,text){
     if(qs){
       for(let i=qs.length-1;i>=0;i--){
         const q=qs[i].replace(/^[\s”'«»—–-]+/,'').trim();
-        if(q.length>=8 && q.length<=90 && !/страниц|глав[аеу]|называется/i.test(q)){ lastAsk=q; lastAskKind='q'; break; }
+        if(q.length>=8 && q.length<=130 && !/страниц|глав[аеу]|называется/i.test(q)){ lastAsk=q; lastAskKind='q'; break; }
       }
     }
     if(!lastAsk){
       const sents=text.split(/(?<=[.!?…])\s+/);
       for(let i=sents.length-1;i>=0;i--){
         const s=sents[i].replace(/^[\s”'«»—–-]+/,'').trim();
-        if(s.length<=100 && /(нажм|переверн|выбер|впиш|введ|напиш|посмотри на экран)/i.test(s)){ lastAsk=s; lastAskKind='act'; break; }
+        if(s.length<=130 && /(нажм|переверн|выбер|впиш|введ|напиш|посмотри на экран)/i.test(s)){ lastAsk=s; lastAskKind='act'; break; }
       }
     }
     // Просьба «выбери/впиши/отметь» = ответ НА ЭКРАНЕ. Если задания ещё нет —
     // пилюля не должна звать «ответь голосом: выбери…» (сбивает: выбирать нечего).
-    // Помечаем 'screen' → updateHint покажет «задание сейчас появится» (фидбек 08-07).
-    if(lastAsk && /(выбер|впиш|введ|отмет)/i.test(lastAsk)) lastAskKind='screen';
+    // ⚠️ Только ИМПЕРАТИВ (выбери/впиши/введи/отметь), НЕ будущее время
+    // (выберешь/впишешь) — иначе устный вопрос «что ты выберешь?» уходил в 'screen'.
+    if(lastAsk && /(выбери|впиши|введи|отметь)/i.test(lastAsk)) lastAskKind='screen';
+    updateHint(); // пересчёт был невидим до следующего setStatus → стейл-пилюля в barge-in
   }
   const lbl=document.createElement('div'); lbl.className='b-who';
   lbl.textContent=(who==='tutor'? teacher.toUpperCase() : (childName||'ТЫ').toUpperCase());
@@ -1381,7 +1383,7 @@ const E = {
   highlightZone:(hl)=>markZone(hl),
   showBoard:(name,animate)=>{ renderBoard(name,animate); },
   showTask:(step,animate)=>{ const t=(typeof step==='object'&&step)?step:TASKS.find(x=>x.id===step); if(t) renderTask(t,animate); },
-  hideTool:(animate)=>{ curBoard=''; currentTask=null; stage.innerHTML=''; updateHint(); },
+  hideTool:(animate)=>{ curBoard=''; currentTask=null; lastAsk=''; lastAskKind=''; stage.innerHTML=''; updateHint(); },
   pushBubble:pushBubble,
 };
 window.__klassioEngine = E;

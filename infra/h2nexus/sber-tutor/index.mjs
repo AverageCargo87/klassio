@@ -400,7 +400,12 @@ async function runTurn(session) {
       finalText = sanitizeFinal(r.content) // предложения уже улетели в TTS по мере стрима; эхо/утечки — в чат и историю не пускаем
       break
     }
-    if (!finalText && ws.readyState === 1) {
+    if (!finalText && !session.interrupted && ws.readyState === 1) {
+      // !session.interrupted: ребёнок перебил ход кликом-ответом → finalText='' тут
+      // всегда (R6 гасит речь fc-шагов), и без гварда мы жгли лишний форс-вызов
+      // (~1-2с) ПЕРЕД реакцией на его ответ + клали фантом-реплику в историю. Ход
+      // прерван — сразу к agent_done → pendingTurn (свежая реакция). Строка 416 ниже
+      // уже так гардилась; здесь — тот же гвард (шов R5-barge-in × R6-one-burst).
       // The tool-loop ate the whole budget without speaking (base GigaChat loves
       // chaining calls). Force a SPOKEN wrap-up with functions disabled — Аня
       // must never end a turn mute.
