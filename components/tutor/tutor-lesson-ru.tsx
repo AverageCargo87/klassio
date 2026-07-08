@@ -220,7 +220,12 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
             ? 'Для экрана «урок пройден» используй give_reward (в самом конце).'
             : `Рано: экран «урок пройден» — только после всех ${TOTAL_TASKS} заданий (решено ${solvedRef.current.size}). Не показывай его сейчас.`
         }
-        if (board !== currentBoardRef.current && leavingBoardTooSoon()) {
+        if (board === currentBoardRef.current) {
+          // модель повторно «показывала» уже открытую доску (фидбек 08-07: «я ответил,
+          // а она опять этот слайд показывает») — экран не трогаем, ведём её дальше
+          return 'Эта доска УЖЕ на экране — повторно не показывай. Продолжай по ней или переходи к её заданию (show_trainer).'
+        }
+        if (leavingBoardTooSoon()) {
           return `Рано уходить со слайда — теоретический слайд держится не меньше ${BOARD_MIN_MS / 1000} секунд. Разбери его, дай ребёнку рассмотреть, потом переходи.`
         }
         if (taskActiveRef.current) {
@@ -258,6 +263,10 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
       },
       show_trainer: (p: Record<string, unknown>) => {
         const taskId = typeof p.taskId === 'string' ? p.taskId.trim() : ''
+        if (taskId && solvedRef.current.has(taskId)) {
+          // не давать пере-показывать решённое (модель после ПРАВИЛЬНО крутила то же задание)
+          return `Задание ${taskId} УЖЕ решено — повторно не показывай. Иди дальше: следующее задание этой доски или next_slide.`
+        }
         if (leavingBoardTooSoon()) {
           return `Рано показывать задание — теоретический слайд держится не меньше ${BOARD_MIN_MS / 1000} секунд. Разбери доску и дай ребёнку рассмотреть, потом задание.`
         }

@@ -1254,9 +1254,16 @@ function pushBubble(who,text){
   if(!text) return;
   if(who==='tutor'){
     highlightFromText(text);
-    // вытащить последний вопрос (…?) из её реплики — чтобы ребёнок видел, на что отвечать
+    // вытащить последний ВОПРОС К РЕБЁНКУ (…?) из её реплики — чтобы ребёнок видел,
+    // на что отвечать. Риторику-самоописание («Это страница „…?“») и слишком
+    // длинные куски отбрасываем — идём с конца до первого пригодного.
     const qs=text.match(/[^.!?]*\?/g);
-    if(qs&&qs.length){ lastAsk=qs[qs.length-1].replace(/^[\s"'«»—–-]+/,'').trim(); }
+    if(qs&&qs.length){
+      for(let i=qs.length-1;i>=0;i--){
+        const q=qs[i].replace(/^[\s"'«»—–-]+/,'').trim();
+        if(q.length>=8 && q.length<=90 && !/страниц|глав[аеу]|называется/i.test(q)){ lastAsk=q; break; }
+      }
+    }
   }
   const lbl=document.createElement('div'); lbl.className='b-who';
   lbl.textContent=(who==='tutor'? teacher.toUpperCase() : (childName||'ТЫ').toUpperCase());
@@ -1287,7 +1294,9 @@ function updateHint(){
   }
   else if(voiceStatus==='speaking'){ txt='Аня говорит — дослушай и отвечай'; icn='volume'; }
   else if(voiceStatus==='thinking'){ txt='Аня думает…'; icn='dots'; }
-  else if(voiceStatus==='listening'){ txt=lastAsk||'Твоя очередь — говори'; icn='mic'; act=true; }
+  // очередь ребёнка: всегда ПРИЗЫВ К ДЕЙСТВИЮ («что мне делать?» — фидбек 08-07),
+  // а не констатация. Есть вопрос — показываем его с глаголом; нет — конкретный ход.
+  else if(voiceStatus==='listening'){ txt=lastAsk? 'Ответь голосом: '+lastAsk : 'Скажи Ане что-нибудь — или скажи «дальше»'; icn='mic'; act=true; }
   h.innerHTML=txt? ic(icn,16)+'<span>'+txt+'</span>' : '';
   h.classList.toggle('act',act);
   h.style.display=txt?'flex':'none';
