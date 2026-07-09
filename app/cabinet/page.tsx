@@ -163,7 +163,7 @@ export default async function CabinetHome() {
                       <span className="bank">ВТБ</span>
                       <span className="cat"><span className="face"><span className="ear l"></span><span className="ear r"></span><span className="eye l"></span><span className="eye r"></span><span className="nose"></span><span className="mouth"></span><span className="wh wl1"></span><span className="wh wl2"></span><span className="wh wr1"></span><span className="wh wr2"></span></span></span>
                       <span className="num">0000 1111 2222 3333</span>
-                      <span className="nm">{childName ? childName.toUpperCase() : 'MISHA'}</span>
+                      <span className="nm">{childName ? childName.toUpperCase() : 'УЧЕНИК'}</span>
                       <span className="mir">МИР</span>
                     </div>
                   </div>

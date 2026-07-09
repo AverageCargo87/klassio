@@ -1218,9 +1218,16 @@ function markerCircle(el){
   const board=stage.querySelector('.board'); if(!board || !el.isConnected) return;
   const bR=board.getBoundingClientRect(), eR=el.getBoundingClientRect();
   if(eR.width<2 || eR.height<2) return;
-  const s=(bR.width/board.offsetWidth)||1, pad=10;
-  const x=(eR.left-bR.left)/s-pad, y=(eR.top-bR.top)/s-pad;
-  const w=eR.width/s+pad*2, h=eR.height/s+pad*2;
+  const s=(bR.width/board.offsetWidth)||1;
+  // Клиренс от глифов: базовый отступ + доля от размера элемента, чтобы
+  // у широких/невысоких целей (ячейки, кнопки, поля) дуга эллипса шла
+  // СНАРУЖИ строки текста, а не по буквам.
+  const ew=eR.width/s, eh=eR.height/s;
+  const padX=Math.max(16, ew*0.10), padY=Math.max(16, eh*0.28);
+  const x=(eR.left-bR.left)/s-padX, y=(eR.top-bR.top)/s-padY;
+  const w=ew+padX*2, h=eh+padY*2;
+  // Эллипс ОПИСАН вокруг бокса (rx=w/2), а не вписан — дуга проходит по
+  // внешним углам, минус лишь полутолщина штриха, чтобы не срезался краем svg.
   const rx=Math.max(6,w/2-3), ry=Math.max(6,h/2-3);
   const wrap=document.createElement('div');
   wrap.className='marker-wrap';
