@@ -50,7 +50,7 @@ function recMeta(r: RecentRecord): string {
   const parts = [recDate(r.startedAt)]
   if (r.durationSec) parts.push(ruMinutes(Math.max(1, Math.round(r.durationSec / 60))))
   if (r.totalTasks) parts.push(`${r.tasksCorrect}/${r.totalTasks} заданий`)
-  parts.push('ведёт Аня')
+  parts.push(r.finished ? 'ведёт Аня' : 'не завершён')
   return parts.join(' · ')
 }
 

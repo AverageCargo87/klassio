@@ -22,6 +22,7 @@ export interface RecentRecord {
   durationSec: number | null
   tasksCorrect: number
   totalTasks: number | null // из canvas-конфига урока; null у уроков без него
+  finished: boolean // урок завершён (give_reward) — иначе показываем «не завершён»
 }
 
 // Навыки урока для экрана записи: по одному чипу на skillTag, отметка «повторить»
@@ -66,33 +67,51 @@ export async function getRecentRecords(userId: string, limit = 6): Promise<Recen
       id: tutorSessions.id,
       subjectId: tutorSessions.subjectId,
       lessonSlug: tutorSessions.lessonSlug,
+      status: tutorSessions.status,
       startedAt: tutorSessions.startedAt,
       durationSec: tutorSessions.durationSec,
     })
     .from(tutorSessions)
-    .where(and(eq(tutorSessions.userId, userId), eq(tutorSessions.status, 'completed')))
+    // Показываем и завершённые, и НЕзавершённые уроки с содержимым: родитель хочет
+    // видеть запись урока, даже если ребёнок не дошёл до финала (13 заданий — это
+    // долго; give_reward и статус 'completed' срабатывают только в самом конце).
+    // Пустые in_progress (открыл и бросил) отсеиваем по наличию транскрипта.
+    .where(and(eq(tutorSessions.userId, userId), inArray(tutorSessions.status, ['completed', 'in_progress'])))
     .orderBy(desc(tutorSessions.startedAt))
-    .limit(limit)
+    .limit(limit * 3)
   if (!rows.length) return []
 
   const ids = rows.map((r) => r.id)
-  const solved = await db
-    .select({ sessionId: lessonAttempts.sessionId, c: count() })
-    .from(lessonAttempts)
-    .where(and(inArray(lessonAttempts.sessionId, ids), eq(lessonAttempts.correct, true)))
-    .groupBy(lessonAttempts.sessionId)
+  const [solved, transcribed] = await Promise.all([
+    db
+      .select({ sessionId: lessonAttempts.sessionId, c: count() })
+      .from(lessonAttempts)
+      .where(and(inArray(lessonAttempts.sessionId, ids), eq(lessonAttempts.correct, true)))
+      .groupBy(lessonAttempts.sessionId),
+    db
+      .select({ sessionId: lessonTranscripts.sessionId, c: count() })
+      .from(lessonTranscripts)
+      .where(inArray(lessonTranscripts.sessionId, ids))
+      .groupBy(lessonTranscripts.sessionId),
+  ])
   const solvedBy = new Map(solved.map((s) => [s.sessionId, num(s.c)]))
+  const hasTranscript = new Set(transcribed.filter((t) => num(t.c) > 0).map((t) => t.sessionId))
 
-  return rows.map((r) => ({
-    sessionId: r.id,
-    subjectId: r.subjectId,
-    lessonSlug: r.lessonSlug,
-    lessonTitle: lessonTitle(r.subjectId, r.lessonSlug),
-    startedAt: r.startedAt,
-    durationSec: r.durationSec,
-    tasksCorrect: solvedBy.get(r.id) ?? 0,
-    totalTasks: resolveLesson(r.subjectId, r.lessonSlug)?.canvas?.totalTasks ?? null,
-  }))
+  return rows
+    // завершённые — всегда; незавершённые — только если есть что показать (транскрипт)
+    .filter((r) => r.status === 'completed' || hasTranscript.has(r.id))
+    .slice(0, limit)
+    .map((r) => ({
+      sessionId: r.id,
+      subjectId: r.subjectId,
+      lessonSlug: r.lessonSlug,
+      lessonTitle: lessonTitle(r.subjectId, r.lessonSlug),
+      startedAt: r.startedAt,
+      durationSec: r.durationSec,
+      tasksCorrect: solvedBy.get(r.id) ?? 0,
+      totalTasks: resolveLesson(r.subjectId, r.lessonSlug)?.canvas?.totalTasks ?? null,
+      finished: r.status === 'completed',
+    }))
 }
 
 // ── Главная кабинета: предметы + уведомления ────────────────────────────────

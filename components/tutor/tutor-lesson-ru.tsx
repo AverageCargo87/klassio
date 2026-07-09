@@ -58,6 +58,10 @@ const BOARD_MIN_MS = 25000
 // 9с ≈ пары фраз разбора хватает, чтобы задание не выскакивало мгновенно, но и
 // не отставало от её «выбери».
 const TASK_MIN_MS = 9000
+// Пол «разбора доски»: задание теор-доски не показываем, пока Аня не РАССКАЗАЛА
+// о доске хотя бы столько символов речи. Промпт-only не удержал (модель
+// проскакивала теорию → сразу тест — фидбек 07-09). ~130 симв ≈ 2 фразы по сути.
+const TEACH_MIN_CHARS = 130
 const DEFAULT_THEORY_BOARDS = ['etymology', 'bodies', 'solar', 'sunEarth', 'facts']
 
 interface KlassioEngine {
@@ -138,6 +142,7 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
   const shownTasksRef = useRef<Set<string>>(new Set())
   const shownBoardsRef = useRef<Set<string>>(new Set(coverPreShown && BOARD_ORDER[0] ? [BOARD_ORDER[0]] : []))
   const boardIndexRef = useRef<number>(coverPreShown ? 1 : 0)
+  const boardSpeechCharsRef = useRef<number>(0) // сколько символов речи Аня сказала про текущую доску (сброс при смене доски)
   const consecutiveErrorsRef = useRef<number>(0)
   const currentTaskIdRef = useRef<string>('')
   const taskStatsRef = useRef<Record<string, { shownAt: number; solvedAt?: number; wrong: number }>>({})
@@ -246,13 +251,14 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
         revealStage(() => { engine()?.showBoard(board); logBoardOpened(board) })
         currentBoardRef.current = board
         boardShownAtRef.current = Date.now()
+        boardSpeechCharsRef.current = 0 // новый разбор доски — счётчик речи с нуля
         taskActiveRef.current = false
         shownBoardsRef.current.add(board)
         const oi = (BOARD_ORDER as readonly string[]).indexOf(board)
         if (oi >= 0) boardIndexRef.current = Math.max(boardIndexRef.current, oi + 1)
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'board', variant: board } })
         // НЕ возвращаем id доски в тексте — модель проговаривала его вслух («доска bodies»).
-        return 'OK, доска показана — рассказывай чуть медленнее.'
+        return 'OK, доска на экране. Теперь РАССКАЖИ ребёнку 2-3 фразами, что на ней и главную мысль, задай ОДИН устный вопрос. Задание дашь ПОЗЖЕ, после разбора.'
       },
       next_slide: () => {
         const i = Math.min(boardIndexRef.current, BOARD_ORDER.length - 1)
@@ -267,11 +273,12 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
         revealStage(() => { engine()?.showBoard(board); logBoardOpened(board) })
         currentBoardRef.current = board
         boardShownAtRef.current = Date.now()
+        boardSpeechCharsRef.current = 0 // новый разбор доски — счётчик речи с нуля
         taskActiveRef.current = false
         shownBoardsRef.current.add(board)
         post('/api/tutor/event', { sessionId, eventType: 'tool_used', payload: { tool: 'board', variant: board, via: 'next' } })
         // НЕ возвращаем id доски в тексте (модель проговаривала его вслух).
-        return `OK, показана следующая доска (${i + 1}/${BOARD_ORDER.length}).`
+        return `OK, доска ${i + 1}/${BOARD_ORDER.length} на экране. Теперь РАССКАЖИ ребёнку 2-3 фразами, что на ней и главную мысль, и задай ОДИН устный вопрос по доске. Задание этой доски дашь ПОЗЖЕ, после разбора.`
       },
       show_trainer: (p: Record<string, unknown>) => {
         const taskId = typeof p.taskId === 'string' ? p.taskId.trim() : ''
@@ -279,10 +286,14 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
           // не давать пере-показывать решённое (модель после ПРАВИЛЬНО крутила то же задание)
           return `Задание ${taskId} УЖЕ решено — повторно не показывай. Иди дальше: следующее задание этой доски или next_slide.`
         }
+        // ⚠️ ПОЛ РАЗБОРА ДОСКИ: пока Аня не рассказала о теор-доске достаточно (речью),
+        // задание не показываем — иначе она проскакивала теорию и сразу давала тест.
+        if (THEORY_BOARDS.has(currentBoardRef.current) && boardSpeechCharsRef.current < TEACH_MIN_CHARS) {
+          return 'Рано показывать задание: ты ещё НЕ разобрала эту доску. Сначала расскажи ребёнку 2-3 фразами, что на ней нарисовано и главную мысль, задай ОДИН устный вопрос по доске — и только ПОСЛЕ этого давай задание. Пока задания нет на экране — НЕ проси «выбери/впиши».'
+        }
         if (taskTooSoon()) {
-          // короткий пол: пары фраз разбора хватило; дальше задание показываем сразу,
-          // чтобы «выбери на экране» не звучало раньше самого задания
-          return `Рано показывать задание — сначала разбери доску пару фраз (ещё ${Math.ceil((TASK_MIN_MS - (Date.now() - boardShownAtRef.current)) / 1000)} сек). Пока задание не на экране — НЕ проси «выбери/впиши», задай устный вопрос.`
+          // короткий временной пол вдобавок к разбору
+          return `Рано показывать задание — только что открыла доску, дай пару секунд (ещё ${Math.ceil((TASK_MIN_MS - (Date.now() - boardShownAtRef.current)) / 1000)} сек). Пока задание не на экране — НЕ проси «выбери/впиши», задай устный вопрос.`
         }
         if (taskActiveRef.current && taskId !== currentTaskIdRef.current) {
           return 'Рано: предыдущее задание ещё не решено. Дождись ответа на него, потом давай следующее.'
@@ -415,6 +426,7 @@ export function TutorLessonRu({ sessionId, lessonTitle, dynamicVariables, canvas
         // от голоса и без 11labs-овского tentative-черновика.
         engine()?.pushBubble('tutor', text)
         logLine('tutor', text) // запись урока
+        boardSpeechCharsRef.current += text.length // копим «разбор доски» → пол show_trainer
         return
       }
       engine()?.pushBubble('child', text)
