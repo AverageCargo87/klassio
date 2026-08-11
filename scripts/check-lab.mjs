@@ -36,14 +36,25 @@ const cards = await page.evaluate(() => [...document.querySelectorAll('.card')].
   ссылка: (c.querySelector('a.go') || {}).getAttribute('href'),
   кнопкаЛога: !!c.querySelector('[data-log]'),
 })))
-say(cards.length === 4, 'на витрине все варианты: ' + cards.map((c) => c.метка).join(' · '))
+say(cards.length === 2, 'на витрине две ветки подачи: ' + cards.map((c) => c.метка).join(' · '))
 say(cards.every((c) => c.описание > 120), 'у каждой есть короткое описание своими словами')
 say(cards.every((c) => c.ссылка), 'у каждой есть кнопка «пройти урок»: ' + cards.map((c) => c.ссылка).join(' '))
-say(cards.every((c) => c.кнопкаЛога), 'у каждой есть «что изменилось»')
+// «Что изменилось» есть у той ветки, которая развивается. У макета его нет намеренно:
+// он собран один раз и с тех пор не менялся — врать про историю правок незачем.
+say(cards.filter((c) => c.кнопкаЛога).length >= 1, 'у развивающейся ветки есть «что изменилось»')
 say(cards.some((c) => /сейчас развиваем/.test(c.версия)), 'видно, какой вариант текущий')
 // 🔑 Смысл витрины — параллельные варианты подачи, а не только история одной линии:
 // макет «Закрепление» это другой визуальный язык на том же материале.
-say(cards.some((c) => /ДЕЛЬТА/.test(c.метка)), 'среди вариантов есть другая подача (макет закрепления)')
+say(cards.some((c) => /БЕТА/.test(c.метка)), 'вторая ветка — другая подача (макет закрепления)')
+// 🔑 Прошлые состояния ветки не выброшены, а собраны под её карточкой: это одна линия,
+// а не отдельные варианты, но «было и стало» по ним по-прежнему смотрят.
+const архив = await page.evaluate(() => [...document.querySelectorAll('.arch a')].map((a) => a.getAttribute('href')))
+say(архив.length === 2 && архив.includes('/kniga/v1') && архив.includes('/kniga/v23'),
+  'прошлые состояния ветки рядом с ней: ' + архив.join(' '))
+for (const u of архив) {
+  const r = await page.request.get(BASE + u)
+  say(r.ok(), 'архив ' + u + ' открывается (' + r.status() + ')')
+}
 
 // каждая ссылка обязана открываться — иначе руководитель упрётся в 404
 for (const c of cards) {
@@ -92,7 +103,7 @@ await page.screenshot({ path: OUT + '/40-lab.png', fullPage: true })
 
 // замечание доходит до сервера
 const было = (await (await page.request.get(BASE + '/api/feedback?all=1')).json()).length
-await page.selectOption('#fbVer', { index: 2 })
+await page.selectOption('#fbVer', { index: 0 })   // веток теперь две: АЛЬФА и БЕТА
 await page.fill('#fbText', 'Приёмка витрины: проверка, что замечание доходит.')
 await page.click('#fbSend')
 await page.waitForTimeout(900)
@@ -101,7 +112,7 @@ say(стало.length === было + 1, 'замечание записано н�
 const живые = await (await page.request.get(BASE + '/api/feedback')).json()
 say(!живые.some((f) => /Приёмк/i.test(f.текст || '')),
   'записи приёмки в список руководителя не попадают (живых там ' + живые.length + ')')
-say(стало[0] && /ГАММА/.test(стало[0].версия || ''), 'вместе с номером сборки: ' + (стало[0] || {}).версия)
+say(стало[0] && /АЛЬФА/.test(стало[0].версия || ''), 'вместе с номером сборки: ' + (стало[0] || {}).версия)
 const наЭкране = await page.evaluate(() => document.querySelectorAll('#fbList .item').length)
 say(наЭкране >= 1, 'и сразу видно в списке под формой (' + наЭкране + ')')
 say(await page.evaluate(() => /Записал/.test(document.querySelector('#fbSent').textContent)),
@@ -212,7 +223,9 @@ await page.screenshot({ path: OUT + '/42-obzor.png' })
 //  Данных много, и первые секунды урок выглядел полупустым — «вроде сломалось».
 // ⚠️ Ту же вкладку, а не новую: страница заведена через browser.newPage(), и просить
 // у её контекста ещё одну playwright не даёт.
-await page.goto(BASE + '/kniga', { waitUntil: 'commit', timeout: 60000 })
+// ⚠️ Не 'commit': на нём HTML ещё не разобран, и заставки в DOM закономерно нет —
+// проверка падала на исправном уроке. Ждём разбор документа.
+await page.goto(BASE + '/kniga', { waitUntil: 'domcontentloaded', timeout: 60000 })
 const заставка = await page.evaluate(() => !!document.querySelector('#boot')).catch(() => false)
 say(заставка, 'при открытии урока показан экран загрузки')
 await page.waitForFunction(() => !document.querySelector('#boot'), null, { timeout: 60000 })
