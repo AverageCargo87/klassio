@@ -4190,6 +4190,13 @@ const убратьЗагрузку=()=>{ const el=$('#boot'); if(!el) return
   el.classList.add('off'); setTimeout(()=>el.remove(),420) }
 ;(async()=>{
   шагЗагрузки('открываем учебник',.08)
+  // ⚠️ Модель учителя — 13 МБ, и раньше она начинала качаться ПОСЛЕДНЕЙ, уже после всех
+  //  данных: на боевом это давало 17 секунд заставки. Пускаем её в сеть первой строкой,
+  //  параллельно с json'ами; сам loadTeacher потом возьмёт файл из кеша браузера.
+  try{
+    const кто=(localStorage.kn_teacher||$('#tchWho').value||'av-avaturn')
+    if(/^av-/.test(кто)) fetch('/'+кто+'.glb',{cache:'force-cache'}).catch(()=>{})
+  }catch(e){}
   try{ MARKS=await fetch('/book/marks.json').then(r=>r.json()) }
   catch(e){ $('#runSt').textContent='не пришли метки: '+e.message }
   // иллюстрации и их апскейлы: без файла урок просто останется без кнопок «рассмотреть»
@@ -4242,7 +4249,9 @@ const убратьЗагрузку=()=>{ const el=$('#boot'); if(!el) return
   // ⚠️ Ждём учителя ДО того, как убрать заставку: иначе она уходит, а слева ещё
   // несколько секунд пустой квадрат — «загрузка прошла, а аватар появляется не сразу».
   шагЗагрузки('учитель',.9)
-  await Promise.race([teacherReady, new Promise(r=>setTimeout(r,12000))])
+  //  Ждём учителя, но не бесконечно: на медленной сети лучше открыть урок с пустой
+  //  панелью, чем держать человека на заставке. Модель доедет и появится сама.
+  await Promise.race([teacherReady, new Promise(r=>setTimeout(r,8000))])
   шагЗагрузки('страница учебника',.95)
   await new Promise((готово)=>{
     const im=document.querySelector('#leftImg')
