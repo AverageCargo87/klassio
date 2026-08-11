@@ -74,12 +74,13 @@ export const sources = () => {
 
 // Кому принадлежит файл. Нужно на выкладке: правка ОБЩЕГО файла меняет и те сборки,
 // которые руководитель считает замороженными, — про это обязана быть громкая строка.
+// Сборки названы буквами греческого алфавита (урок про Грецию): АЛЬФА · БЕТА · ГАММА.
 export const owner = (rel) => {
   if (rel === 'lab.html') return 'витрина'
   if (rel === 'kniga-v1.html' || rel.startsWith('book/v1/')) return 'АЛЬФА v1.0'
-  if (rel === 'kniga-v23.html' || rel.startsWith('book/v23/')) return 'БРАВО v2.3'
-  if (rel === 'kniga.html') return 'ЧАРЛИ'
-  if (/^book\/(panel|test|drill|zakrep)\.json$/.test(rel)) return 'ЧАРЛИ'
+  if (rel === 'kniga-v23.html' || rel.startsWith('book/v23/')) return 'БЕТА v2.3'
+  if (rel === 'kniga.html') return 'ГАММА'
+  if (/^book\/(panel|test|drill|zakrep)\.json$/.test(rel)) return 'ГАММА'
   // blocks · figures · marks · pages · map-greece — их читают ВСЕ три сборки
   if (rel.startsWith('book/')) return 'ОБЩЕЕ'
   return 'прочее'
@@ -138,7 +139,7 @@ health() {
     fi
   done
   # на витрине обязаны быть все три карточки: иначе руководитель упрётся в пустой экран
-  if ! curl -s http://127.0.0.1:${PORT}/lab | grep -q 'ЧАРЛИ'; then
+  if ! curl -s http://127.0.0.1:${PORT}/lab | grep -q 'ГАММА'; then
     echo "  ПРОМАХ /lab -> нет карточек сборок"; bad=1
   fi
   return $bad

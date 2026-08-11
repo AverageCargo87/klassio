@@ -3,6 +3,26 @@
 Пишется скриптом `lab-deploy.mjs`, руками не правится. Каждая запись — папка-релиз
 на сервере и метка `lab-000N` в git: по ним и откатываются. Новые записи сверху.
 
+## 0003-20260811-1136
+
+- **когда:** 11.08.2026 11:36
+- **зачем:** v2.6: пять новых иллюстраций вместо повторов, четыре задания-подсказки переписаны, «что изменилось» отдельным окном, сборки — греческие буквы
+- **сборки:** ГАММА v2.6 · БЕТА v2.3 · АЛЬФА v1.0
+- **было на боевом:** 0002-20260811-1053
+- **правится:** 6 · **добавляется:** 5 · **пропадает:** 0
+  - журнал версий — `.planning/KNIGA-VERSIONS.md`
+  - ГАММА — `.tmp/sketches/tutor/book/drill.json`
+  - ГАММА — `.tmp/sketches/tutor/book/panel.json`
+  - ГАММА — `.tmp/sketches/tutor/book/zakrep.json`
+  - ГАММА — `.tmp/sketches/tutor/kniga.html`
+  - витрина — `.tmp/sketches/tutor/lab.html`
+  - картинки — `.tmp/sketches/tutor/art-bays.jpg`
+  - картинки — `.tmp/sketches/tutor/art-drought.jpg`
+  - картинки — `.tmp/sketches/tutor/art-goats.jpg`
+  - картинки — `.tmp/sketches/tutor/art-mycpalace.jpg`
+  - картинки — `.tmp/sketches/tutor/art-shipyard.jpg`
+- **откатиться сюда:** `node scripts/lab-rollback.mjs --to 0003`
+
 ## 0002-20260811-1053
 
 - **когда:** 11.08.2026 10:53

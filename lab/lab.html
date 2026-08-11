@@ -36,16 +36,31 @@ h1{margin:0;font:800 25px/1.15 Georgia,serif;letter-spacing:.2px}
 .btn:hover{background:#2B3040}
 .btn.go{background:#2C5E38;border-color:#397A47}
 .btn.go:hover{background:#336B41}
-.log{display:none;margin-top:4px;background:#14161E;border:1px solid var(--line);border-radius:10px;
-  padding:12px 14px;max-height:340px;overflow:auto;font-size:13.5px;color:#C6CCDC}
-.log.on{display:block}
-.log h3{margin:14px 0 6px;font:800 12px/1.3 Segoe UI;letter-spacing:.6px;color:var(--accent)}
-.log h3:first-child{margin-top:0}
-.log ul{margin:6px 0;padding-left:18px}
-.log li{margin-bottom:4px}
-.log code{background:#1E212C;padding:1px 5px;border-radius:5px;font-size:12.5px}
-.log b{color:var(--ink)}
-.log p{margin:6px 0}
+/* ── «что изменилось»: отдельное окно поверх всего ──
+   Раньше чейнджлог разворачивался ВНУТРИ карточки: колонка 300 px и окошко на треть
+   экрана с прокруткой — читать невозможно, а карточки при этом разъезжались по высоте.
+   Теперь он открывается на всю ширину и живёт сам по себе. */
+.modal{display:none;position:fixed;inset:0;z-index:50;background:rgba(8,9,13,.72);
+  align-items:center;justify-content:center;padding:28px 20px}
+.modal.on{display:flex}
+.sheet{background:var(--card);border:1px solid var(--line);border-radius:16px;
+  width:min(920px,100%);max-height:86vh;display:flex;flex-direction:column;
+  box-shadow:0 24px 70px rgba(0,0,0,.55)}
+.mhead{display:flex;align-items:center;gap:14px;padding:16px 20px 13px;border-bottom:1px solid var(--line)}
+.mhead b{font:800 17px/1.2 Georgia,serif}
+.mhead .mv{font:800 10.5px/1 Segoe UI;letter-spacing:1.5px;color:var(--accent);
+  background:rgba(242,163,60,.14);padding:5px 9px;border-radius:20px}
+.mhead .x{margin-left:auto}
+.mbody{padding:16px 22px 22px;overflow:auto;font-size:15px;line-height:1.65;color:#C9D0E0}
+.mbody h3{margin:20px 0 8px;font:800 13px/1.3 Segoe UI;letter-spacing:.7px;color:var(--accent);
+  text-transform:uppercase}
+.mbody h3:first-child{margin-top:2px}
+.mbody ul{margin:8px 0;padding-left:20px}
+.mbody li{margin-bottom:7px}
+.mbody code{background:#1E212C;padding:1px 5px;border-radius:5px;font-size:13px}
+.mbody b{color:var(--ink)}
+.mbody p{margin:9px 0}
+@media (max-width:560px){ .mbody{padding:14px 16px 18px;font-size:14.5px} }
 /* ── замечания ── */
 .fb{margin-top:26px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 17px}
 .fb h2{margin:0 0 4px;font:800 18px/1.2 Georgia,serif}
@@ -97,20 +112,32 @@ footer{margin-top:26px;color:var(--dim);font-size:12.5px;line-height:1.7}
 </footer>
 </div>
 
+<div class=modal id=modal>
+  <div class=sheet>
+    <div class=mhead>
+      <span class=mv id=mver></span><b>что изменилось</b>
+      <button class="btn x" id=mclose>закрыть</button>
+    </div>
+    <div class=mbody id=mbody></div>
+  </div>
+</div>
+
 <script>
 const $=s=>document.querySelector(s)
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
 
 // Сборки. Порядок — хронологический: видно эволюцию, а не набор вариантов.
+// Имена сборок — буквы греческого алфавита: урок про Грецию, и порядок букв сам
+// говорит, что за чем шло. Было НАТО-шное АЛЬФА · БРАВО · ЧАРЛИ.
 const BUILDS=[
   { code:'АЛЬФА', ver:'v1.0', url:'/kniga/v1', when:'3–4 августа',
     log:'v1.0',
     desc:'Первая целая сборка. Аня читает учебник вслух и подчёркивает ровно те слова, о которых говорит; справа — картинка к сказанному и карточки «запомни». В конце страницы проверка: прочитай сам → перескажи своими словами → тест по памяти. Это та версия, которую вы смотрели первой.' },
-  { code:'БРАВО', ver:'v2.3', url:'/kniga/v23', when:'6 августа',
+  { code:'БЕТА', ver:'v2.3', url:'/kniga/v23', when:'6 августа',
     log:'v2.3',
     desc:'После первых трёх ваших правок. Картинка меняется вслед за ФРАЗОЙ, а не за целым абзацем. Появилась карта Греции (в учебнике её нет — своя, но только с теми названиями, что звучат в параграфе). Вместо кнопки «я прочитал» — настоящее чтение вслух: система слушает и пишет расшифровку. Перед тестом Аня разбирает вопросы при открытой странице. Вопросы самого учебника задаются первыми.' },
-  { code:'ЧАРЛИ', ver:'v2.5', url:'/kniga', when:'10 августа', now:true,
-    log:'v2.5',
+  { code:'ГАММА', ver:'v2.6', url:'/kniga', when:'11 августа', now:true,
+    log:'v2.6',
     desc:'Ваша цепочка и методичка целиком. Прочитали → короткое самари из предложений учебника → ребёнок читает самари вслух, а справа открывается мозаика спрятанных картинок → отдельный экран: книга уезжает, разбираем каждый топик картинкой и строкой учебника → тренажёр раздела: 6 заданий, три попытки с растущей подсказкой, счётчик и таймер → итоги урока с письмом родителю.' },
 ]
 
@@ -122,9 +149,8 @@ $('#cards').innerHTML=BUILDS.map((b,i)=>
   +'<div class=desc>'+esc(b.desc)+'</div>'
   +'<div class=row>'
   +'<a class="btn go" href="'+b.url+'" target=_blank>▶ пройти урок</a>'
-  +'<button class=btn data-log="'+b.log+'">что изменилось</button>'
+  +'<button class=btn data-log="'+b.log+'" data-code="'+b.code+' · '+b.ver+'">что изменилось</button>'
   +'</div>'
-  +'<div class=log id="log-'+b.log.replace(/\./g,'_')+'"></div>'
   +'</div>').join('')
 
 $('#fbVer').innerHTML=BUILDS.map(b=>'<option value="'+b.code+' '+b.ver+'">'+b.code+' · '+b.ver+'</option>').join('')
@@ -166,18 +192,23 @@ function md(t){
   return out
 }
 let LOGS=null
+const закрыть=()=>{ $('#modal').classList.remove('on'); document.body.style.overflow='' }
+$('#mclose').onclick=закрыть
+$('#modal').onclick=(e)=>{ if(e.target.id==='modal') закрыть() }   // клик мимо листа
+document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') закрыть() })
 document.addEventListener('click',async(e)=>{
   const b=e.target.closest('[data-log]'); if(!b) return
-  const box=document.getElementById('log-'+b.dataset.log.replace(/\./g,'_'))
-  if(box.classList.contains('on')){ box.classList.remove('on'); b.textContent='что изменилось'; return }
+  $('#mver').textContent=b.dataset.code
+  $('#mbody').innerHTML='<p>загружаю…</p>'
+  $('#modal').classList.add('on'); document.body.style.overflow='hidden'
+  $('#mbody').scrollTop=0
   if(!LOGS){
-    box.innerHTML='<p>загружаю…</p>'; box.classList.add('on')
     try{ LOGS=await fetch('/api/changelog').then(r=>r.json()) }
     catch(err){ LOGS={} }
   }
   const raw=(LOGS&&LOGS[b.dataset.log])||''
-  box.innerHTML=raw?md(raw):'<p class=empty>Для этой сборки записей пока нет.</p>'
-  box.classList.add('on'); b.textContent='свернуть'
+  $('#mbody').innerHTML=raw?md(raw):'<p class=empty>Для этой сборки записей пока нет.</p>'
+  $('#mbody').scrollTop=0
 })
 
 // ── замечания ──
