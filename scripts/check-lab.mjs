@@ -82,6 +82,51 @@ const наЭкране = await page.evaluate(() => document.querySelectorAll('#f
 say(наЭкране >= 1, 'и сразу видно в списке под формой (' + наЭкране + ')')
 say(await page.evaluate(() => /Записал/.test(document.querySelector('#fbSent').textContent)),
   'человеку сказано, что замечание принято')
+// ⚠️ Время в замечании — МОСКОВСКОЕ. Сервер витрины живёт по UTC, и без явного пояса
+// руководитель видел время на три часа раньше своего.
+const мскСейчас = +(new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', hour12: false })
+  .format(new Date()).match(/\d+/) || [99])[0]
+const часЗаписи = +(((стало[0] || {}).когда || '').match(/(\d+):\d+/) || [0, 99])[1]
+say(Math.abs(часЗаписи - мскСейчас) <= 1,
+  'время замечания московское: «' + (стало[0] || {}).когда + '» (в Москве сейчас ' + мскСейчас + ' ч)')
+
+// ── ФОТО К ЗАМЕЧАНИЮ ───────────────────────────────────────────────────────
+//  «Вот тут криво» + скриншот объясняет за секунду то, на что уходит абзац.
+say(await page.isVisible('#fbPick'), 'у формы есть «приложить фото»')
+await page.setInputFiles('#fbFile', '.tmp/sketches/tutor/book/fig-p120-1.jpg')
+await page.waitForFunction(() => document.querySelector('#fbThumb').classList.contains('on'), null, { timeout: 15000 })
+const превью = await page.evaluate(() => ({
+  видно: document.querySelector('#fbThumb').classList.contains('on'),
+  вес: (document.querySelector('#fbThumbName') || {}).textContent || '',
+  данные: (document.querySelector('#fbThumbImg') || {}).src.slice(0, 22) }))
+say(превью.видно && /^data:image\/jpeg/.test(превью.данные), 'выбранное фото сразу показано в форме (' + превью.вес + ')')
+await page.fill('#fbText', 'Приёмка витрины: замечание с фото.')
+await page.click('#fbSend')
+await page.waitForTimeout(1200)
+const сФото = (await (await page.request.get(BASE + '/api/feedback')).json())[0] || {}
+say(!!сФото.фото, 'фото ушло вместе с замечанием (' + (сФото.фото || 'НЕТ') + ')')
+if (сФото.фото) {
+  const r = await page.request.get(BASE + '/api/feedback-photo/' + сФото.фото)
+  const байт = (await r.body()).length
+  say(r.ok() && /image\//.test(r.headers()['content-type'] || '') && байт > 5000,
+    'и отдаётся с сервера: ' + r.status() + ', ' + Math.round(байт / 1024) + ' КБ')
+}
+const вСписке = await page.evaluate(() => {
+  const im = document.querySelector('#fbList .item img.ph')
+  return im ? { есть: true, лениво: im.getAttribute('loading') === 'lazy' } : { есть: false } })
+say(вСписке.есть, 'фото видно в списке замечаний')
+// ⚠️ Ленивая загрузка — требование постановки: пока список не на экране, за картинками
+// не ходят. Без неё витрина тянула бы мегабайты при каждом открытии.
+say(вСписке.лениво, 'и грузится ЛЕНИВО — только когда до него доходит взгляд')
+await page.click('#fbList .item img.ph')
+await page.waitForTimeout(400)
+say(await page.evaluate(() => document.querySelector('#lightbox').classList.contains('on')),
+  'по нажатию фото открывается во весь экран')
+await page.screenshot({ path: OUT + '/41-lab-photo.png' })
+await page.keyboard.press('Escape')
+await page.waitForTimeout(250)
+say(await page.evaluate(() => !document.querySelector('#lightbox').classList.contains('on')),
+  'и закрывается по Escape')
 
 // ничего не должно вылезать вбок на ноутбуке
 const wide = await page.evaluate(() => document.body.scrollWidth - document.body.clientWidth)
@@ -96,6 +141,7 @@ const было2 = (await (await page.request.get(BASE + '/api/feedback')).json()
 say(await page.isVisible('#fbBtn'), 'в уроке есть кнопка «замечание»')
 await page.click('#fbBtn')
 await page.waitForTimeout(400)
+say(await page.isVisible('#fbPic'), 'и прямо из урока тоже можно приложить фото')
 const где = await page.textContent('#fbWhere')
 say(/v\d/.test(где) && /стр\.|до начала/.test(где), 'окошко знает, где мы сейчас: «' + где + '»')
 await page.fill('#fbTx', 'Приёмка: замечание из урока.')
