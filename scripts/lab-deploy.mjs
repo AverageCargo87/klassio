@@ -152,7 +152,8 @@ if (общие.length) {
 if (DRY) { console.log('\n(--dry: боевого не касался)'); process.exit(0) }
 
 // ── 5. коммит-снимок ───────────────────────────────────────────────────────
-const версии = { 'ГАММА': buildVersion('kniga.html'), 'БЕТА': buildVersion('kniga-v23.html'), 'АЛЬФА': buildVersion('kniga-v1.html') }
+const версии = { 'АЛЬФА · учебник-листалка': buildVersion('kniga.html'), 'БЕТА · закрепление': 'макет',
+  'архивы ветки': buildVersion('kniga-v23.html') + ' · ' + buildVersion('kniga-v1.html') }
 let sha = 'без коммита'
 if (!NOCOMMIT) {
   console.log('\n── снимок в git ──')
