@@ -488,6 +488,12 @@ http.createServer(async (req, res) => {
       try { const html = fs.readFileSync('.tmp/sketches/tutor/kniga.html', 'utf8'); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(html) }
       catch (e) { res.writeHead(500); return res.end('kniga not found: ' + e.message) }
     }
+    // ОБЗОР МАТЕРИАЛОВ (11.08): всё, что урок показывает по одному шагу за полчаса —
+    // разом и молча. Тому, кто пришёл ПРОВЕРИТЬ материал, слушать урок целиком незачем.
+    if (req.method === 'GET' && (req.url === '/kniga/obzor' || req.url === '/obzor')) {
+      try { const html = fs.readFileSync('.tmp/sketches/tutor/obzor.html', 'utf8'); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(html) }
+      catch (e) { res.writeHead(500); return res.end('obzor not found: ' + e.message) }
+    }
     // МАКЕТ ЭКРАНА ЗАКРЕПЛЕНИЯ (05.08): после чтения страница учебника уходит, и её
     // место занимает экран разбора — по мотивам Anatomy Atelier, который прислал
     // руководитель. Отдельная страница: боевой урок /kniga не тронут.
@@ -511,10 +517,19 @@ http.createServer(async (req, res) => {
       try {
         const md = fs.readFileSync('.planning/KNIGA-VERSIONS.md', 'utf8').split('\n')
         let key = null, buf = []
-        const flush = () => { if (key) out[key] = buf.join('\n').trim(); buf = [] }
+        const flush = () => { if (key) { out[key].текст = buf.join('\n').trim() } buf = [] }
+        // Год берём из журнала, а не из системных часов: в заголовках он проставлен не
+        // везде («прогон 06.08»), а показывать «06.08.2027» после Нового года — враньё.
+        const год = (md.join('\n').match(/\.(\d{4})/) || [0, '2026'])[1]
         for (const line of md) {
           const h = line.match(/^#{2,3}\s*\*{0,2}(v\d+\.\d+)/)
-          if (h) { flush(); key = h[1]; continue }
+          if (h) {
+            flush(); key = h[1]
+            // дата версии стоит в самом заголовке: «(03–04.08.2026)», «прогон 06.08»
+            const d = [...line.matchAll(/(\d{1,2}(?:[–-]\d{1,2})?\.\d{2}(?:\.\d{4})?)/g)].pop()
+            out[key] = { текст: '', дата: d ? (/\.\d{4}$/.test(d[1]) ? d[1] : d[1] + '.' + год) : '' }
+            continue
+          }
           if (/^##\s/.test(line)) { flush(); key = null; continue }   // другой раздел журнала
           if (key) buf.push(line)
         }
@@ -522,6 +537,24 @@ http.createServer(async (req, res) => {
       } catch (e) { /* журнала нет — витрина просто скажет «записей нет» */ }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
       return res.end(JSON.stringify(out))
+    }
+    // КОГДА ЭТО ВЫШЛО. Руководителю в «что изменилось» нужен не только список правок, но и
+    // дата с временем выкладки. Врать тут нечем: каждая выкладка кладёт рядом RELEASE.json,
+    // и мы просто читаем их. Служба работает из `releases/000N-…/`, поэтому соседние
+    // релизы лежат на `..`; на рабочей машине релизов нет — вернётся пустой список.
+    if (req.method === 'GET' && req.url === '/api/releases') {
+      const список = []
+      try {
+        for (const d of fs.readdirSync('..')) {
+          try {
+            const r = JSON.parse(fs.readFileSync('../' + d + '/RELEASE.json', 'utf8'))
+            if (r && r.id) список.push({ id: r.id, когда: r.когда, версии: r.версии || {}, зачем: r.зачем || r.что || '' })
+          } catch (e) { /* не релиз — пропускаем */ }
+        }
+      } catch (e) { /* локальный стенд: релизов нет, и это нормально */ }
+      список.sort((a, b) => String(a.id).localeCompare(String(b.id)))
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
+      return res.end(JSON.stringify(список))
     }
     // Замечания руководителя. Складываем строкой в файл: правится глазами, переживает
     // перезапуск, не требует базы. Читать — `.tmp/feedback.jsonl`.
@@ -558,6 +591,10 @@ http.createServer(async (req, res) => {
         const rec = { когда: t.дата + ' ' + t.время,
           версия: String(p.версия || '').slice(0, 40), место: String(p.место || '').slice(0, 120), текст }
         if (фото) rec.фото = фото
+        // 🔴 Записи приёмки помечаются и в списке НЕ показываются. Раньше их выпалывали
+        // руками — и вместе с ними однажды стёрли живое замечание руководителя.
+        // Правило: файл замечаний не чистят. Никогда. Лишнее прячут, а не удаляют.
+        if (p.служебное) rec.служебное = true
         fs.appendFileSync(FB, JSON.stringify(rec) + '\n')
         console.log('📝 замечание [' + rec.версия + (rec.место ? ' · ' + rec.место : '') + ']'
           + (фото ? ' 📷' : '') + ': ' + текст.slice(0, 90))
@@ -576,12 +613,16 @@ http.createServer(async (req, res) => {
         return res.end(buf)
       } catch (e) { res.writeHead(404); return res.end('нет такого фото') }
     }
-    if (req.method === 'GET' && req.url === '/api/feedback') {
+    // ⚠️ Именно так, а не startsWith('/api/feedback'): иначе сюда же провалится
+    // `/api/feedback-photo/…` и вместо картинки уедет json.
+    if (req.method === 'GET' && (req.url === '/api/feedback' || req.url.startsWith('/api/feedback?'))) {
+      const всё = req.url.includes('all=1')          // ?all=1 — вместе со служебными, для приёмки
       let list = []
       try {
         list = fs.readFileSync(FB, 'utf8').split('\n').filter(Boolean)
           .map((l) => { try { return JSON.parse(l) } catch (e) { return null } }).filter(Boolean)
-          .slice(-60).reverse()
+          .filter((r) => всё || !r.служебное)
+          .slice(-200).reverse()
       } catch (e) { /* файла ещё нет — замечаний не было */ }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
       return res.end(JSON.stringify(list))

@@ -36,11 +36,14 @@ const cards = await page.evaluate(() => [...document.querySelectorAll('.card')].
   ссылка: (c.querySelector('a.go') || {}).getAttribute('href'),
   кнопкаЛога: !!c.querySelector('[data-log]'),
 })))
-say(cards.length === 3, 'на витрине три сборки: ' + cards.map((c) => c.метка).join(' · '))
+say(cards.length === 4, 'на витрине все варианты: ' + cards.map((c) => c.метка).join(' · '))
 say(cards.every((c) => c.описание > 120), 'у каждой есть короткое описание своими словами')
 say(cards.every((c) => c.ссылка), 'у каждой есть кнопка «пройти урок»: ' + cards.map((c) => c.ссылка).join(' '))
 say(cards.every((c) => c.кнопкаЛога), 'у каждой есть «что изменилось»')
-say(/сейчас развиваем/.test(cards[2].версия), 'видно, какая сборка текущая')
+say(cards.some((c) => /сейчас развиваем/.test(c.версия)), 'видно, какой вариант текущий')
+// 🔑 Смысл витрины — параллельные варианты подачи, а не только история одной линии:
+// макет «Закрепление» это другой визуальный язык на том же материале.
+say(cards.some((c) => /ДЕЛЬТА/.test(c.метка)), 'среди вариантов есть другая подача (макет закрепления)')
 
 // каждая ссылка обязана открываться — иначе руководитель упрётся в 404
 for (const c of cards) {
@@ -51,7 +54,7 @@ for (const c of cards) {
 
 // чейнджлог — отдельным окном поверх страницы (раньше разворачивался внутри карточки
 // шириной 300 px, и руководитель сказал, что читать невозможно)
-await page.click('.card:last-child [data-log]')
+await page.click('.card.now [data-log]')
 await page.waitForTimeout(700)
 const log = await page.evaluate(() => {
   const m = document.querySelector('#modal'), b = document.querySelector('#mbody')
@@ -66,6 +69,20 @@ say(log.пунктов >= 3, 'в нём список правок (' + log.пу�
 say(log.ширина >= 600 && log.высота >= 380,
   'и его правда можно читать: окно ' + log.ширина + '×' + log.высота + ' px')
 say(/v\d/.test(log.метка), 'видно, чей это список правок: «' + log.метка + '»')
+// 🔑 «Когда это вышло» — не подпись руками, а время релиза с сервера: у каждой выкладки
+// лежит RELEASE.json, и дата в окне обязана совпадать с ним, иначе она через неделю соврёт.
+const релизы = await (await page.request.get(BASE + '/api/releases')).json()
+const когда = await page.evaluate(() => (document.querySelector('#mwhen') || {}).textContent || '')
+if (релизы.length) {
+  const последний = релизы[релизы.length - 1]
+  const час = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(последний.когда))
+  say(/\d{2}\.\d{2}\.\d{4}/.test(когда) && когда.includes(час) && /МСК/.test(когда),
+    'в окне видно, когда обновление вышло: «' + когда.trim() + '»')
+  const наКарточке = await page.evaluate(() => (document.querySelector('.card.now .when') || {}).textContent || '')
+  say(наКарточке.includes(час), 'и на карточке текущей сборки та же дата: «' + наКарточке.trim() + '»')
+} else {
+  say(/собрана/.test(когда), 'в окне видно дату версии (релизов на стенде нет): «' + когда.trim() + '»')
+}
 await page.screenshot({ path: OUT + '/40-lab-changelog.png' })
 await page.keyboard.press('Escape')
 await page.waitForTimeout(300)
