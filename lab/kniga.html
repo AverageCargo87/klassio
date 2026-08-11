@@ -684,6 +684,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 .sl{display:flex;align-items:center;gap:8px;margin:6px 0}.sl span{color:var(--dim);flex:none;width:82px;font-size:12px}
 #hudBtn{position:fixed;right:14px;top:14px;z-index:41;width:34px;height:34px;border-radius:9px;
   border:1px solid var(--line);background:rgba(26,29,39,.95);color:var(--accent);cursor:pointer;font-size:15px}
+  .tpauto{display:block;margin-top:6px;font:12px/1.4 Segoe UI;color:#9A8F79}
 </style>
 <script type="importmap">{"imports":{
 "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -806,6 +807,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
           </div>
           <div id=tpFoot>
             <button class=cbtn id=tpNext data-cut>дальше →</button>
+            <span id=tpAuto class=tpauto></span>
             <span id=tpStep></span>
           </div>
         </section>
@@ -944,7 +946,12 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
   </div>
   <div class=sl><span>голос Ани</span><select id=sVoice></select></div>
   <button class="btn sm" id=btnVoiceTry style="width:100%;margin:2px 0 6px">▶ послушать голос</button>
-  <div class=sl><span>темп речи</span><input type=range id=sSpeed min=".80" max="1.15" step=".01" value=".95"></div>
+  <!-- ⚠️ Ползунок отдаёт скорость синтезу, а тот применяет её к СЛЕДУЮЩЕЙ реплике —
+       со стороны это читалось как «не работает». Поэтому: видно текущее значение,
+       текущая фраза ускоряется сразу (playbackRate), и есть быстрый прогон до 2.5×
+       для просмотра урока. -->
+  <div class=sl><span>темп речи <b id=sSpeedV>0.95×</b></span><input type=range id=sSpeed min=".80" max="2.50" step=".05" value=".95"></div>
+  <div class=sl style="margin-top:-4px"><span></span><button class="btn sm" id=sFast title="быстро просмотреть урок целиком">⏩ прогон ×2</button></div>
   <!-- Ползунок по-прежнему стоит на 1 — но сама единица теперь вдвое спокойнее (размах
        уполовинен в коэффициентах). Кому надо как было, уводит ползунок на 2. -->
   <div class=sl><span>сила губ</span><input type=range id=sLips min="0" max="2" step=".05" value="1"></div>
@@ -2220,6 +2227,21 @@ $('#fbFile').onchange=async(e)=>{
 // Повтор всего параграфа — отдельным экраном, той же подачей, что и БЕТА на витрине.
 // Материал берётся из тех же данных урока, поэтому картинки и тексты совпадают с тем,
 // что ребёнок только что видел.
+// Темп речи: показываем значение и даём услышать его СРАЗУ, не дожидаясь следующей
+// реплики. Синтез получит новую скорость со следующего запроса, а текущую фразу
+// доигрываем ускоренно — иначе кажется, что ползунок ни на что не влияет.
+let ТЕМП=+$('#sSpeed').value
+const темпВидно=()=>{ $('#sSpeedV').textContent=(+$('#sSpeed').value).toFixed(2)+'×' }
+$('#sSpeed').oninput=()=>{
+  темпВидно()
+  const нов=+$('#sSpeed').value
+  try{ if(audio&&!audio.paused) audio.playbackRate=Math.min(4,Math.max(.5,нов/ТЕМП)) }catch(e){}
+}
+$('#sSpeed').onchange=()=>{ ТЕМП=+$('#sSpeed').value }
+$('#sFast').onclick=()=>{ $('#sSpeed').value='2.00'; ТЕМП=2; темпВидно()
+  try{ if(audio&&!audio.paused) audio.playbackRate=2 }catch(e){}
+  $('#runSt').textContent='быстрый прогон: темп 2×' }
+темпВидно()
 $('#repZak').onclick=()=>{ window.open('/zakrep','_blank','noopener') }
 $('#fbBtn').onclick=()=>{
   const box=$('#fbBox')
@@ -2515,7 +2537,9 @@ async function controlPage(page,alive){
       onProg:(ptr,total)=>readProgress(SUM,ptr,total) })
     if(!alive()){ mosaicOff(); return false }
     if(r&&r.words){
-      if(r.prog>=.85) mosaicAll()               // дочитал — открываем и хвост мозаики
+      mosaicAll()   // 🔴 «вроде прочитал, а не все картинки открылись»: после честного
+                    //  захода открываем ВЕСЬ ряд — он и есть обещанная награда, а на
+                    //  следующем шаге эти же картинки разбираются по одной
       // 🔴 Методичка 08.08: «система прослушала и проверила, что 50 % текста прочитано,
       //  и после этого пропустила к следующему разделу; если текст не прочитан,
       //  переходить к тестированию нельзя. Ошибки при чтении не учитывать».
@@ -2526,10 +2550,15 @@ async function controlPage(page,alive){
       const мало=r.prog<HALF
       READ_TRY[page]=(READ_TRY[page]||0)+1
       const ещёРаз=мало&&READ_TRY[page]<2
+      // 🔴 «Непонятно, что читать — что слева сверху или что справа сверху»: на этом
+      //  экране оставался ТОЛЬКО услышанный текст, а сам кусок для чтения исчезал.
+      //  Теперь читаемое остаётся на месте и подписано, а услышанное — отдельным блоком.
       ctrlBody('<div class=cq>Прочитано '+Math.round(r.prog*100)+'% куска</div>'
         +'<div class=chint>'+(ещёРаз
-          ? 'Нужно прочитать хотя бы половину — на ошибки я не смотрю, важно дочитать.'
-          : 'Вот что я услышала:')+'</div>'
+          ? 'Нужно прочитать хотя бы половину — на ошибки я не смотрю, важно дочитать. Читай вот это:'
+          : 'Читал ты вот это:')+'</div>'
+        +sumBody
+        +'<div class=chint style="margin-top:10px">Вот что я услышала:</div>'
         +'<div id=rdText class=rdtext>'+esc(r.text)+'</div>'
         +'<div class=crow><button class=cbtn data-act='+(ещёРаз?'again':'go')+'>'
         +(ещёРаз?'читать ещё раз':'дальше')+'</button></div>')
@@ -2547,9 +2576,11 @@ async function controlPage(page,alive){
           head:'<div class=cq>Читай вслух — я слушаю</div>', body:sumBody,
           onProg:(ptr,total)=>readProgress(SUM,ptr,total) })
         if(!alive()){ mosaicOff(); return false }
-        if(r2&&r2.prog>=.85) mosaicAll()
+        mosaicAll()
         ctrlBody('<div class=cq>Прочитано '+Math.round(((r2&&r2.prog)||0)*100)+'% куска</div>'
-          +'<div class=chint>Вот что я услышала:</div>'
+          +'<div class=chint>Читал ты вот это:</div>'
+          +sumBody
+          +'<div class=chint style="margin-top:10px">Вот что я услышала:</div>'
           +'<div id=rdText class=rdtext>'+esc((r2&&r2.text)||'')+'</div>'
           +'<div class=crow><button class=cbtn data-act=go>дальше</button></div>')
         w=ctrlWait()
@@ -2582,6 +2613,7 @@ async function controlPage(page,alive){
       topicPick(i)
       ctrlStep('topics','РАЗБИРАЕМ ТОПИКИ','топик '+(i+1)+' из '+tpList.length)
       $('#tpNext').textContent=i<tpList.length-1?'дальше →':'понятно, идём дальше'
+      $('#tpAuto').textContent=i<tpList.length-1?'перейду сама через пару секунд':'это последний'
       w=ctrlWait()
       // ⚠️ Короткая мысль топика не всегда кончается точкой («…Южная — Пелопоннес»), и
       // при склейке выходило «Пелопоннес В учебнике сказано так» — без паузы и с
@@ -2590,7 +2622,14 @@ async function controlPage(page,alive){
       await ann([t.term+'.',dot(t.txt),t.src?'В учебнике сказано так. '+dot(t.src):'']
         .filter(Boolean).join(' '))
       if(!alive()){ topicsHide(); return false }
-      if(await w===null){ topicsHide(); return false }
+      // 🔴 «Пусть сама переключает: даёт время посмотреть, потом включает следующий».
+      //  Досказала — держим картинку пару секунд и идём дальше сами.
+      //  ⚠️ Не гонкой промисов: ожидание ОДНО на шаг, и брошенный ждущий перехватывал
+      //  бы следующее нажатие — урок после этого вставал. Будим тот же ждущий.
+      const таймер=setTimeout(()=>ctrlDone({act:'auto'}),2200)
+      const шаг=await w
+      clearTimeout(таймер)
+      if(шаг===null){ topicsHide(); return false }
     }
     topicsHide()
     await hold(560)
@@ -3019,9 +3058,13 @@ function fit(){ const s=cv.clientWidth||320
 function aim(){ tCam.position.set(0, top-.14, 1.12); tCam.lookAt(0, top-.19, 0) }
 const MORPH=(n,v,sp)=>{ for(const m of meshes){ const i=m.morphTargetDictionary[n]
   if(i!==undefined) m.morphTargetInfluences[i]=THREE.MathUtils.lerp(m.morphTargetInfluences[i],v,sp) } }
+// Обещание готовности учителя. Нужно экрану загрузки: модель весит 13 МБ и приезжает
+// ПОЗЖЕ страницы учебника — заставка уходила, а слева ещё секунды висел пустой квадрат.
+let teacherReady=Promise.resolve()
 function loadTeacher(slug){
   if(av){ tScene.remove(av); av=null; meshes=[]; head=null }
-  if(slug==='off') return
+  if(slug==='off'){ teacherReady=Promise.resolve(); return }
+  let готов; teacherReady=new Promise(r=>{ готов=r })
   gltfL.load('/'+slug+'.glb',g=>{
     const o=g.scene; av=o; meshes=[]
     o.traverse(x=>{ if(x.isMesh||x.isSkinnedMesh){ x.frustumCulled=false
@@ -3033,7 +3076,8 @@ function loadTeacher(slug){
     const b2=new THREE.Box3().setFromObject(o), c2=b2.getCenter(new THREE.Vector3())
     o.position.set(-c2.x,-b2.min.y,-c2.z); tScene.add(o)
     top=new THREE.Box3().setFromObject(o).max.y; aim()
-  })
+    готов()
+  }, undefined, ()=>готов())        // не приехала — урок всё равно должен открыться
 }
 // ═══════════════════════════════════════════════════════════════════════════
 //  ГОЛОС АНИ
@@ -3385,6 +3429,7 @@ async function speak(text,myGen){
     const url=URL.createObjectURL(await r.blob())
     ensureAnalyser(); if(ctxA.state==='suspended') await ctxA.resume().catch(()=>{})
     audio.src=url; volMax=.001
+    audio.playbackRate=1          // скорость уже заложена синтезом; хвост от прошлой правки снимаем
     await audio.play()
     speaking=true
     // ⚠️ Сторож: короткая реплика может доиграть РАНЬШЕ подписки на `ended` —
@@ -4194,6 +4239,10 @@ const убратьЗагрузку=()=>{ const el=$('#boot'); if(!el) return
   tick()
   // ⚠️ Ждём КАРТИНКУ СТРАНИЦЫ, а не только json: без неё урок открывается на
   // белом листе, и это ровно то, что выглядело как «грузится».
+  // ⚠️ Ждём учителя ДО того, как убрать заставку: иначе она уходит, а слева ещё
+  // несколько секунд пустой квадрат — «загрузка прошла, а аватар появляется не сразу».
+  шагЗагрузки('учитель',.9)
+  await Promise.race([teacherReady, new Promise(r=>setTimeout(r,12000))])
   шагЗагрузки('страница учебника',.95)
   await new Promise((готово)=>{
     const im=document.querySelector('#leftImg')
