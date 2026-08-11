@@ -15,8 +15,8 @@
 Вход **по ключу, пароль root не нужен**: `ssh -i .tmp/keys/klassio-lab root@5.35.90.219`.
 Служба `klassio-lab` (systemd, `Restart=always`), nginx + basic-auth + Let's Encrypt.
 
-Три сборки на витрине: **АЛЬФА v1.0** (`/kniga/v1`) · **БРАВО v2.3** (`/kniga/v23`) ·
-**ЧАРЛИ v2.5** (`/kniga`, текущая).
+Три сборки на витрине: **АЛЬФА v1.0** (`/kniga/v1`) · **БЕТА v2.3** (`/kniga/v23`) ·
+**ГАММА v2.6** (`/kniga`, текущая).
 ⚠️ **v2.4 отдельной сборкой не существует** — v2.5 легла поверх неё в тот же круг.
 
 ## Как выложить правку и как откатиться (с 11.08 — релизами)
@@ -36,10 +36,10 @@ node scripts/lab-rollback.mjs --back               # вернуть предыд
 ```
 node scripts/check-kniga.mjs            # 53 — страница, показы, карточки
 node scripts/check-kniga-control.mjs    # 80 — весь цикл закрепления
-node scripts/check-kniga-drill.mjs      # 61 — тренажёр по методичке
+node scripts/check-kniga-drill.mjs      # 62 — тренажёр по методичке
 node scripts/check-kniga-panel.mjs      # 207 — привязки показов
 node scripts/check-kniga-figures.mjs    # 21 — иллюстрации учебника
-LAB_URL=https://5.35.90.219.nip.io LAB_USER=klassio LAB_PASS=... node scripts/check-lab.mjs   # 20, можно по БОЕВОМУ адресу
+LAB_URL=https://5.35.90.219.nip.io LAB_USER=klassio LAB_PASS=... node scripts/check-lab.mjs   # 23, можно по БОЕВОМУ адресу
 node .tmp/probes/walk-prod.mjs          # полный прогон урока на боевом: битые запросы + ошибки JS
 node .tmp/probes/probe-720.mjs          # как экраны садятся на ноутбук 1280×720
 ```

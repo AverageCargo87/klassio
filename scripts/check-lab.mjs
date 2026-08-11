@@ -1,0 +1,124 @@
+#!/usr/bin/env node
+// ═══════════════════════════════════════════════════════════════════════════
+//  ПРИЁМКА ВИТРИНЫ СБОРОК (/lab)
+//  Проверяем ровно то, ради чего она сделана: руководитель видит три сборки,
+//  каждая ОТКРЫВАЕТСЯ, у каждой есть «что изменилось», и замечание доходит.
+//  node scripts/check-lab.mjs [папка-для-снимков]
+// ═══════════════════════════════════════════════════════════════════════════
+import { chromium } from 'playwright'
+import fs from 'node:fs'
+
+const OUT = process.argv[2] || '.tmp/shots-lab'
+// Приёмку можно навести на боевой адрес — те же проверки, но снаружи:
+//   LAB_URL=https://5.35.90.219.nip.io LAB_USER=klassio LAB_PASS=... node scripts/check-lab.mjs
+const BASE = (process.env.LAB_URL || 'http://127.0.0.1:8781').replace(/\/$/, '')
+const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe'
+fs.mkdirSync(OUT, { recursive: true })
+const browser = await chromium.launch({ executablePath: fs.existsSync(CHROME) ? CHROME : undefined,
+  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
+const page = await browser.newPage({ viewport: { width: 1280, height: 720 },
+  httpCredentials: process.env.LAB_USER ? { username: process.env.LAB_USER, password: process.env.LAB_PASS || '' } : undefined })
+const errs = []
+page.on('pageerror', (e) => errs.push(String(e).slice(0, 140)))
+const ok = [], bad = []
+const say = (g, t) => (g ? ok : bad).push(t)
+
+await page.goto(BASE + '/lab', { waitUntil: 'networkidle', timeout: 30000 })
+
+const cards = await page.evaluate(() => [...document.querySelectorAll('.card')].map((c) => ({
+  метка: (c.querySelector('.tag i') || {}).textContent || '',
+  версия: (c.querySelector('.tag') || {}).textContent || '',
+  описание: ((c.querySelector('.desc') || {}).textContent || '').length,
+  ссылка: (c.querySelector('a.go') || {}).getAttribute('href'),
+  кнопкаЛога: !!c.querySelector('[data-log]'),
+})))
+say(cards.length === 3, 'на витрине три сборки: ' + cards.map((c) => c.метка).join(' · '))
+say(cards.every((c) => c.описание > 120), 'у каждой есть короткое описание своими словами')
+say(cards.every((c) => c.ссылка), 'у каждой есть кнопка «пройти урок»: ' + cards.map((c) => c.ссылка).join(' '))
+say(cards.every((c) => c.кнопкаЛога), 'у каждой есть «что изменилось»')
+say(/сейчас развиваем/.test(cards[2].версия), 'видно, какая сборка текущая')
+
+// каждая ссылка обязана открываться — иначе руководитель упрётся в 404
+for (const c of cards) {
+  const r = await page.request.get(BASE + c.ссылка)
+  const html = await r.text()
+  say(r.ok() && /УЧЕБНИК/i.test(html), 'сборка ' + c.метка + ' открывается (' + c.ссылка + ', ' + r.status() + ')')
+}
+
+// чейнджлог — отдельным окном поверх страницы (раньше разворачивался внутри карточки
+// шириной 300 px, и руководитель сказал, что читать невозможно)
+await page.click('.card:last-child [data-log]')
+await page.waitForTimeout(700)
+const log = await page.evaluate(() => {
+  const m = document.querySelector('#modal'), b = document.querySelector('#mbody')
+  const r = b.getBoundingClientRect()
+  return { видно: m.classList.contains('on'), знаков: b.textContent.length,
+    заголовков: b.querySelectorAll('h3').length, пунктов: b.querySelectorAll('li').length,
+    ширина: Math.round(r.width), высота: Math.round(r.height),
+    метка: (document.querySelector('#mver') || {}).textContent || '' } })
+say(log.видно && log.знаков > 400, 'чейнджлог открывается и не пустой (' + log.знаков + ' знаков)')
+say(log.пунктов >= 3, 'в нём список правок (' + log.пунктов + ' пунктов, ' + log.заголовков + ' подзаголовка)')
+// ⚠️ Ради этого его и переделывали: читать надо в широком окне, а не в колонке карточки
+say(log.ширина >= 600 && log.высота >= 380,
+  'и его правда можно читать: окно ' + log.ширина + '×' + log.высота + ' px')
+say(/v\d/.test(log.метка), 'видно, чей это список правок: «' + log.метка + '»')
+await page.screenshot({ path: OUT + '/40-lab-changelog.png' })
+await page.keyboard.press('Escape')
+await page.waitForTimeout(300)
+say(await page.evaluate(() => !document.querySelector('#modal').classList.contains('on')),
+  'закрывается по Escape')
+await page.screenshot({ path: OUT + '/40-lab.png', fullPage: true })
+
+// замечание доходит до сервера
+const было = (await (await page.request.get(BASE + '/api/feedback')).json()).length
+await page.selectOption('#fbVer', { index: 2 })
+await page.fill('#fbText', 'Приёмка витрины: проверка, что замечание доходит.')
+await page.click('#fbSend')
+await page.waitForTimeout(900)
+const стало = await (await page.request.get(BASE + '/api/feedback')).json()
+say(стало.length === было + 1, 'замечание записано на сервере (' + было + ' → ' + стало.length + ')')
+say(стало[0] && /ГАММА/.test(стало[0].версия || ''), 'вместе с номером сборки: ' + (стало[0] || {}).версия)
+const наЭкране = await page.evaluate(() => document.querySelectorAll('#fbList .item').length)
+say(наЭкране >= 1, 'и сразу видно в списке под формой (' + наЭкране + ')')
+say(await page.evaluate(() => /Записал/.test(document.querySelector('#fbSent').textContent)),
+  'человеку сказано, что замечание принято')
+
+// ничего не должно вылезать вбок на ноутбуке
+const wide = await page.evaluate(() => document.body.scrollWidth - document.body.clientWidth)
+say(wide <= 1, 'по горизонтали ничего не вылезает (' + wide + ' px)')
+
+// ── замечание ПРЯМО ИЗ УРОКА ───────────────────────────────────────────────
+//  Ценность кнопки не в форме, а в том, что вместе с текстом уходит МЕСТО:
+//  иначе замечание звучит как «где-то в тесте мелкий шрифт».
+await page.goto(BASE + '/kniga', { waitUntil: 'domcontentloaded', timeout: 60000 })
+await page.waitForFunction(() => window.__kniga && window.__kniga.beats() > 10, null, { timeout: 60000 })
+const было2 = (await (await page.request.get(BASE + '/api/feedback')).json()).length
+say(await page.isVisible('#fbBtn'), 'в уроке есть кнопка «замечание»')
+await page.click('#fbBtn')
+await page.waitForTimeout(400)
+const где = await page.textContent('#fbWhere')
+say(/v\d/.test(где) && /стр\.|до начала/.test(где), 'окошко знает, где мы сейчас: «' + где + '»')
+await page.fill('#fbTx', 'Приёмка: замечание из урока.')
+await page.click('#fbOk')
+// окошко прячется через секунду после отправки — «спасибо» должно успеть прочитаться
+await page.waitForTimeout(1600)
+const стало2 = await (await page.request.get(BASE + '/api/feedback')).json()
+say(стало2.length === было2 + 1, 'замечание из урока дошло до сервера (' + было2 + ' → ' + стало2.length + ')')
+say(стало2[0] && (стало2[0].место || '').length > 8,
+  'вместе с местом, а не просто текстом: «' + ((стало2[0] || {}).место || '') + '»')
+// ⚠️ Ждём условие, а не «полторы секунды»: на боевом адресе запрос идёт дольше, чем
+// на localhost, и отсчёт до закрытия начинается позже. Фиксированная пауза врала.
+let скрылось = false
+for (let i = 0; i < 40; i++) {
+  скрылось = await page.evaluate(() => !document.querySelector('#fbBox').classList.contains('on'))
+  if (скрылось) break
+  await page.waitForTimeout(200)
+}
+say(скрылось, 'после отправки окошко закрылось само')
+
+console.log('\n✅ ' + ok.join('\n✅ '))
+if (bad.length) console.log('\n❌ ' + bad.join('\n❌ '))
+if (errs.length) console.log('\n⚠ ошибки страницы:\n  ' + [...new Set(errs)].slice(0, 4).join('\n  '))
+console.log('\nитог: ' + ok.length + ' ок, ' + bad.length + ' мимо · снимки → ' + OUT)
+await browser.close()
+process.exit(bad.length ? 1 : 0)
