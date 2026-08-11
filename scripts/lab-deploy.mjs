@@ -21,7 +21,7 @@ import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import {
   assertRoot, sshScript, scpUp, git, md5, owner, sources, buildVersion,
-  ROOT, HOST, KEEP, SRC, MIRROR, REMOTE_HEALTH, REMOTE_LINK_SHARED,
+  ROOT, HOST, KEY, KEEP, SRC, MIRROR, REMOTE_HEALTH, REMOTE_LINK_SHARED,
 } from './lab-common.mjs'
 
 assertRoot()
@@ -202,7 +202,10 @@ const описание = JSON.stringify({
 
 console.log('\n── ставлю релиз ' + ID + ' и переключаю ──')
 // ⚠️ Имена переменных в bash обязаны быть латиницей: PREV/NEW/LIVE, а не БЫЛО/НОВЫЙ.
-sshScript(`
+// Провал — штатный исход: сервер сам вернул прежний релиз, и сказать об этом надо
+// одной внятной строкой, а не стектрейсом node.
+try {
+  sshScript(`
 set -eu
 ${REMOTE_HEALTH}
 ${REMOTE_LINK_SHARED}
@@ -246,6 +249,12 @@ echo
 df -h / | tail -1
 du -sh releases
 `)
+} catch {
+  console.error(`\n✗ Релиз ${ID} НЕ ВСТАЛ. Боевой сам вернулся на ${CURRENT} — руководитель видит то же, что и до выкладки.`)
+  console.error(`  Снимок исходников в git остался (метка lab-${nextNum}), боевого он не касается.`)
+  console.error(`  Что смотреть: ssh -i ${KEY} ${HOST} "journalctl -u klassio-lab -n 50"`)
+  process.exit(1)
+}
 
 const URL = 'https://' + HOST.split('@').pop() + '.nip.io'
 console.log(`

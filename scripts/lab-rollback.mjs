@@ -19,7 +19,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { assertRoot, sshScript, git, md5, ROOT, HOST, SRC, MIRROR, REMOTE_HEALTH } from './lab-common.mjs'
+import { assertRoot, sshScript, git, md5, ROOT, HOST, KEY, SRC, MIRROR, REMOTE_HEALTH } from './lab-common.mjs'
 
 const хеш = (buf) => crypto.createHash('md5').update(buf).digest('hex')
 
@@ -100,7 +100,10 @@ console.log(`   зачем он был: ${цель.инфо.зачем || цел
 console.log(`   сборки:       ${версией(цель)}\n`)
 
 // ── боевой ─────────────────────────────────────────────────────────────────
-sshScript(`
+// Неудача здесь — штатный исход, а не авария скрипта: сервер уже вернул прежний
+// релиз сам. Поэтому ловим и говорим по-человечески, без стектрейса на пол-экрана.
+try {
+  sshScript(`
 set -eu
 ${REMOTE_HEALTH}
 cd ${ROOT}
@@ -121,6 +124,11 @@ else
   exit 1
 fi
 `)
+} catch {
+  console.error(`\n✗ Релиз ${цель.папка} не поднялся — сервер сам вернул тот, что был.`)
+  console.error(`  Что смотреть: ssh -i ${KEY} ${HOST} "journalctl -u klassio-lab -n 50"`)
+  process.exit(1)
+}
 
 // ── исходники на рабочей машине ────────────────────────────────────────────
 if (LOCAL) {

@@ -91,8 +91,8 @@ export const md5 = (file) => crypto.createHash('md5').update(fs.readFileSync(fil
 export const buildVersion = (file) => {
   try {
     const html = fs.readFileSync(path.join(SRC, file), 'utf8')
-    const m = html.match(/id=["']?ver["']?[^>]*>([^<]+)/)
-    return m ? m[1].trim() : '?'
+    const m = html.match(/id=["']?ver["']?[^>]*>\s*(v\d+\.\d+)/)   // «v2.3 · архив» → v2.3
+    return m ? m[1] : '?'
   } catch { return '?' }
 }
 
