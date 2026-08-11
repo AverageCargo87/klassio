@@ -1,0 +1,2773 @@
+<!doctype html><html lang=ru><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>АРХИВ v2.3 · УЧЕБНИК · §20 · урок с ИИ-учителем</title>
+<!-- ВЕРСИЯ СБОРКИ. Стоит и в заголовке вкладки, и плашкой в нижней панели: по скриншоту
+     должно быть видно, о какой версии речь. Журнал версий — .planning/KNIGA-VERSIONS.md,
+     прошлые сборки открываются по /kniga/v1. Меняя версию — правь оба места и журнал. -->
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+   ФОРМА ВТОРАЯ: УРОК ПО УЧЕБНИКУ (прототип, 02.08.2026)
+
+   На созвоне забраковали 3D-иммерсив целиком. Новая форма — референс
+   online.fliphtml5.com: НАСТОЯЩИЙ учебник в центре экрана, который листается
+   разворотами, а слева живёт ИИ-учитель и ВЕДЁТ по нему урок: сама листает,
+   подчёркивает строки, выделяет маркером, наводит прожектор на картинку — то
+   есть показывает ровно то, о чём сейчас говорит.
+
+   Три вещи, которые здесь принципиальны:
+   1. Страницы — НЕ рисунок «под учебник», а рендер настоящих страниц PDF
+      (scripts/make-book-pages.py, стр. книги 120–125 = §20).
+   2. Подчёркивания и выделения — НЕ полоски на глаз: координаты взяты из
+      текстового слоя PDF (page.search_for) и лежат в долях страницы, поэтому
+      метка сидит на своих словах при любом размере окна.
+   3. Голос и разговор — те же, что в прошлой форме: Яндекс SpeechKit (alena)
+      озвучивает, SpeechKit STT слышит ребёнка, DeepSeek V4 Flash отвечает.
+
+   ⚠️ Учебник под копирайтом: страницы лежат в .tmp (в репозиторий не идут),
+      прототип крутится только локально.
+   Запуск: node scripts/yandex-test-server.mjs → http://localhost:8781/kniga
+  ═══════════════════════════════════════════════════════════════════════════
+-->
+<style>
+:root{
+  --bg:#171922; --panel:#20232E; --line:#333748; --ink:#E8E4DC; --dim:#9A9384;
+  --accent:#F2A33C; --ok:#8FD08A; --paper:#fff;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%,#232636,#141620 70%);
+  color:var(--ink);font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+#app{display:flex;height:100%;gap:0}
+
+/* ── ЛЕВО: учитель ─────────────────────────────────────────────────────── */
+#teacher{width:340px;flex:none;display:flex;flex-direction:column;padding:16px 14px;position:relative;z-index:20;
+  background:linear-gradient(180deg,#20232E,#191C26);border-right:1px solid var(--line)}
+#tchWrap{position:relative;border-radius:16px;overflow:hidden;background:#2A2D3A;
+  box-shadow:0 10px 30px rgba(0,0,0,.35);aspect-ratio:1/1}
+#tchCanvas{width:100%;height:100%;display:block}
+#bhVideo,#clipVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#2A2D3A}
+#tchBadge{position:absolute;left:10px;bottom:10px;background:rgba(20,22,30,.72);border-radius:8px;
+  padding:4px 9px;font-size:12px;font-weight:600;color:#CFE6CF}
+#name{margin:12px 0 2px;font-size:19px;font-weight:700}
+#role{color:var(--dim);font-size:13px}
+#subs{margin-top:12px;background:#1A1D27;border:1px solid var(--line);border-radius:12px;
+  padding:12px 13px;font-size:14.5px;line-height:1.55;min-height:120px;flex:1;overflow:auto}
+#subs .who{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.4px;display:block;margin-bottom:4px}
+#subs .me{color:var(--ok)}
+#micBtn{margin-top:10px;padding:12px;border-radius:12px;border:1px solid #4A5A46;background:#26332A;
+  color:#CFEFCF;font:600 15px/1 Segoe UI;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+#micBtn.rec{background:#4A2530;border-color:#7A3A46;color:#FFD9DE;animation:pulse 1.1s infinite}
+#micBtn:disabled{opacity:.55;cursor:default;animation:none}
+@keyframes pulse{50%{filter:brightness(1.35)}}
+#micSt{margin-top:6px;font-size:12px;color:var(--dim);min-height:16px}
+
+/* ── ЦЕНТР: книга ──────────────────────────────────────────────────────── */
+#center{flex:1;display:flex;flex-direction:column;min-width:0}
+#stage{flex:1;display:flex;align-items:center;justify-content:center;padding:18px 20px 6px;min-height:0}
+#book{position:relative;display:flex;perspective:2600px;filter:drop-shadow(0 24px 44px rgba(0,0,0,.5))}
+.pg{position:relative;background:var(--paper);overflow:hidden;flex:none}
+.pg img{display:block;width:100%;height:100%;object-fit:fill;user-select:none;-webkit-user-drag:none}
+#left{border-radius:6px 0 0 6px;box-shadow:inset -22px 0 26px -22px rgba(0,0,0,.55)}
+
+/* ── ПРАВАЯ ПОЛОВИНА: рабочая панель ─────────────────────────────────────
+   Стоит на месте второй страницы и сделана из той же бумаги — иначе рядом с
+   учебником она читается как чужое окно поверх книги. Сверху показ, снизу
+   тизеры; пропорция 1.5 : 1, потому что картинка должна быть крупной. */
+#panel{border-radius:0 6px 6px 0;box-shadow:inset 22px 0 26px -22px rgba(0,0,0,.55);
+  background:linear-gradient(180deg,#FCFAF5,#F4F0E6);display:flex;flex-direction:column;
+  padding:3.4% 3.8%;gap:2.6%;color:#2A2B31}
+#panel .zh{flex:none;display:flex;align-items:center;gap:7px;font:700 11.5px/1 Segoe UI;
+  letter-spacing:1.4px;color:#7C8496;margin-bottom:7px}
+#panel .zh b{font-weight:800;color:#3E465A;margin-left:2px}
+#panel .dot{width:7px;height:7px;border-radius:50%;background:#4A90E2;flex:none}
+#panel .dot.k{background:var(--accent)}
+#demo{flex:1.18;min-height:0;display:flex;flex-direction:column}
+#demoBox{flex:1;min-height:0;border-radius:9px;overflow:hidden;background:#E9E4D8;
+  display:flex;align-items:center;justify-content:center;position:relative;
+  box-shadow:0 2px 10px rgba(60,50,30,.13),0 0 0 1px rgba(120,105,75,.16)}
+.dimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:0;transition:opacity .5s ease}
+/* Очень медленный наезд, пока картинка «звучит»: показ отличается от вклеенной
+   иллюстрации именно тем, что живой. Быстрее делать нельзя — начнёт отвлекать. */
+.dimg.on{opacity:1;animation:kenburns 22s ease-out forwards}
+/* Уходящий слой гасим ТОЛЬКО прозрачностью, не снимая .on: снимешь — вместе с классом
+   исчезнет и анимация наезда, и картинка прыгнет обратно в исходный масштаб прямо
+   посреди перехода. Именно это и читалось как «резко». */
+.dimg.on.out{opacity:0}
+@keyframes kenburns{from{transform:scale(1)}to{transform:scale(1.07)}}
+#demoBox:hover .dimg.on{filter:brightness(1.04)}
+/* ── КАРТА как показ (v2.0) ─────────────────────────────────────────────────
+   Фон коробки — цвет моря: карта вписывается целиком (meet), и по бокам не должно
+   быть видно шва между ней и коробкой. Наезд на область — трансформом внутреннего
+   слоя, поэтому он плавный и обратимый, в отличие от смены картинки. */
+#demoMap{position:absolute;inset:0;opacity:0;transition:opacity .5s ease;background:#BBD5E4;
+  pointer-events:none;overflow:hidden}
+#demoMap.on{opacity:1}
+#demoMapIn{position:absolute;inset:0;transition:transform 2.4s cubic-bezier(.32,.72,.28,1);
+  transform-origin:50% 50%}
+#demoMapIn svg{width:100%;height:100%;display:block}
+/* показ можно рассмотреть во весь экран — курсор об этом и говорит */
+#demoBox:has(.dimg.on){cursor:pointer}
+#demoBox .lupa{position:absolute;right:8px;bottom:8px;width:26px;height:26px;border-radius:50%;
+  background:rgba(20,22,30,.75);color:#FFD79A;display:flex;align-items:center;justify-content:center;
+  opacity:0;transform:scale(.8);transition:opacity .18s ease,transform .18s ease;pointer-events:none}
+#demoBox:hover .lupa{opacity:1;transform:scale(1)}
+#demoBox:not(:has(.dimg.on)) .lupa{display:none}
+#demoEmpty{font:13px/1.5 Segoe UI;color:#9A9384;text-align:center;padding:0 18px;
+  transition:opacity .4s ease}
+#demoCap{flex:none;margin-top:8px;font:800 14.5px/1.2 Segoe UI;letter-spacing:.4px;color:#233047;
+  min-height:17px;opacity:0;transition:opacity .3s ease}
+#demoSub{flex:none;margin-top:2px;font:13px/1.35 Segoe UI;color:#6B7183;min-height:18px;
+  opacity:0;transition:opacity .3s ease}
+#demoCap.on,#demoSub.on{opacity:1}
+
+/* ── ПРОВЕРКА СТРАНИЦЫ ───────────────────────────────────────────────────
+   Тот же лист бумаги, что и панель: проверка — часть урока, а не всплывшее
+   поверх него окно. На тесте забирает панель целиком (тизеры прячем — это
+   готовые ответы), на чтении и пересказе делит её с ними. */
+#ctrl{display:none;flex-direction:column;min-height:0}
+#panel.ctrl #demo{display:none}
+#panel.ctrl #ctrl{display:flex;flex:1.5}
+#panel.ctrl.st-tell #keep,#panel.ctrl.st-test #keep{display:none}
+#panel .dot.c{background:#6FA8DC}
+#ctrlStep{margin-left:auto;color:#9A9384;letter-spacing:.2px}
+#ctrlBody{flex:1;min-height:0;display:flex;flex-direction:column;gap:9px;overflow:auto}
+/* на тесте панель занята одним вопросом — ставим его по центру листа, иначе низ пустует */
+#panel.st-test #ctrlBody,#panel.st-done #ctrlBody{justify-content:center}
+.cq{font:800 15px/1.35 Segoe UI;color:#233047}
+.chint{font:13px/1.4 Segoe UI;color:#6B7183}
+.copt{text-align:left;padding:9px 12px;border-radius:9px;border:1px solid rgba(150,132,92,.32);
+  background:#FFFDF7;color:#2A3346;font:14px/1.3 Segoe UI;cursor:pointer;
+  transition:background .15s ease,border-color .15s ease,transform .1s ease}
+.copt:hover{background:#FFF6E2;border-color:var(--accent)}
+.copt:active{transform:translateY(1px)}
+.copt.ok{background:#E8F5E4;border-color:#7FB877;color:#25502A;font-weight:700}
+.copt.no{background:#F8E5E2;border-color:#D08A80;color:#6B2A22}
+.copt:disabled{cursor:default}
+.cbtn{align-self:flex-start;padding:10px 16px;border-radius:10px;border:1px solid #4E7A4E;
+  background:#2E4A38;color:#CFEFCF;font:700 14px/1 Segoe UI;cursor:pointer}
+.cbtn.sec{background:#EFEADD;border-color:rgba(150,132,92,.4);color:#5A5F6E;font-weight:600}
+.cbtn:hover{filter:brightness(1.1)}
+.crow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cres{font:700 14px/1.4 Segoe UI;min-height:20px}
+/* пустое место под итог ответа: держится с самого начала, чтобы вопрос не подпрыгнул */
+.cres.hold{visibility:hidden}
+.cres.ok{color:#3C7A3C}.cres.no{color:#B4564A}
+/* ── чтение вслух: полоса «сколько куска закрыто» и живая транскрипция ──── */
+.rdbar{height:6px;border-radius:4px;background:rgba(150,132,92,.22);overflow:hidden}
+.rdbar i{display:block;height:100%;width:0;border-radius:4px;background:#7FA36B;
+  transition:width .5s ease}
+.rdtext{font:13.5px/1.55 Segoe UI;color:#3F4658;background:rgba(255,255,255,.55);
+  border:1px solid rgba(150,132,92,.28);border-radius:9px;padding:9px 11px;
+  max-height:150px;overflow:auto}
+/* каждое слово проявляется отдельно: видно, как речь превращается в текст */
+.rdtext .wd{opacity:0;transform:translateY(3px);display:inline-block;
+  transition:opacity .45s ease,transform .45s cubic-bezier(.3,.7,.3,1)}
+.rdtext .wd.on{opacity:1;transform:none}
+/* строка учебника, в которой ответ: на разборе её видно глазами и слышно голосом,
+   а на странице она в этот момент подсвечена */
+.csrc{font:italic 13.5px/1.45 Georgia,serif;color:#4A4326;background:rgba(214,190,124,.20);
+  border-left:3px solid rgba(180,150,80,.55);padding:7px 10px;border-radius:0 7px 7px 0}
+/* галочки против карточек: что назвал в пересказе, а что забыл */
+.kc.said{border-left-color:#7FB877}
+.kc.said .t::after{content:' ✓';color:#3C7A3C}
+.kc.miss{border-left-color:#D08A80;opacity:.75}
+.kc.miss .t::after{content:' — забыл';color:#B4564A;font-weight:600;font-size:11.5px}
+
+/* закрытая страница */
+#veil{position:absolute;left:0;top:0;bottom:0;z-index:6;border-radius:6px 0 0 6px;
+  background:linear-gradient(180deg,#262936,#1C1F2A);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  color:#C9C3B4;font:14px/1.7 Segoe UI;opacity:0;transition:opacity .35s ease}
+#veil.off{display:none}
+#veil.on{opacity:1}
+#veil b{display:block;font-size:17px;color:#E8E4DC;margin-bottom:2px}
+
+/* ── тизеры «что запомнить» ──────────────────────────────────────────────
+   Карточка — не абзац конспекта, а короткая зарубка: слово и одна строка.
+   Появляется ровно в тот момент, когда факт прозвучал. */
+#keep{flex:1;min-height:0;display:flex;flex-direction:column}
+#keepAll{margin-left:auto;font-weight:600;letter-spacing:.2px;color:#9A9384}
+#keepList{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:5px;
+  padding-right:3px;scrollbar-width:thin}
+#keepEmpty{font:13px/1.5 Segoe UI;color:#A9A292;padding:8px 2px}
+.kc{flex:none;background:#FFFDF7;border:1px solid rgba(150,132,92,.24);border-left:3px solid var(--accent);
+  border-radius:7px;padding:5px 9px;box-shadow:0 1px 4px rgba(80,66,40,.10);
+  opacity:0;transform:translateY(8px);transition:opacity .32s ease,transform .32s cubic-bezier(.32,.72,.35,1)}
+.kc.on{opacity:1;transform:none}
+.kc.fresh{box-shadow:0 0 0 3px rgba(242,163,60,.22),0 1px 4px rgba(80,66,40,.10)}
+.kc .t{font:800 13px/1.2 Segoe UI;color:#2A3346}
+.kc .d{font:12.5px/1.3 Segoe UI;color:#6B7183;margin-top:1px}
+/* На ноутбучном окне (у руководителя 1280×720) панель ниже, а карточек столько же —
+   поджимаем, чтобы верхняя не срезалась: обрезанная карточка читается как поломка. */
+@media (max-height:800px){
+  #demo{flex:.98}
+  #panel .zh{margin-bottom:5px}
+  .kc{padding:4px 8px}
+  .kc .t{font-size:12.5px}
+  .kc .d{font-size:11.5px}
+}
+/* лист, который переворачивается: перед — правая страница, изнанка — следующая левая.
+   Поворот считаем покадрово в JS (не CSS-transition): тень изгиба обязана жить вместе
+   с углом — появляться в середине поворота и уходить к его концу. Статичная тень у
+   корешка (как было) читается как «страница почернела». */
+/* Лист занимает ПРАВУЮ половину (там, где панель) и поворачивается вокруг корешка —
+   своей левой кромки: так он приходит справа и ложится на страницу, как в бумажной книге. */
+#flip{position:absolute;top:0;transform-style:preserve-3d;transform-origin:left center;z-index:5;display:none}
+#flip .face{position:absolute;inset:0;backface-visibility:hidden;background:var(--paper);overflow:hidden}
+/* Лицо листа пустое (справа не страница, а панель) — поэтому оно не белый прямоугольник,
+   а лист бумаги: тёплый тон и намёк на изгиб, иначе в кадре просто вспышка. */
+#flip .front{background:linear-gradient(100deg,#F6F2E9,#FCFAF5 42%,#EFE9DC)}
+#flip .back{transform:rotateY(180deg)}
+#flip .face img{display:block;width:100%;height:100%;object-fit:fill}
+/* тень на самом листе: у переда она гуще у корешка (слева), у изнанки — у её корешка
+   (в её собственных координатах это правый край, лист ведь зеркальный) */
+#flip .shade{position:absolute;inset:0;pointer-events:none;opacity:0}
+#flip .front .shade{background:linear-gradient(90deg,rgba(20,16,12,.55),rgba(20,16,12,0) 55%)}
+#flip .back  .shade{background:linear-gradient(270deg,rgba(20,16,12,.5),rgba(20,16,12,0) 55%)}
+/* тень, которую лист роняет на то, над чем навис */
+#castShade{position:absolute;top:0;bottom:0;pointer-events:none;opacity:0;z-index:3;
+  background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.34))}
+
+/* метки поверх страницы — координаты в ДОЛЯХ страницы, поэтому масштаб не важен */
+.marks{position:absolute;inset:0;pointer-events:none;z-index:4}
+.mk{position:absolute}
+/* ── МАРКЕР ──────────────────────────────────────────────────────────────
+   Не заливка прямоугольником, а след настоящего маркера: multiply (бумага
+   просвечивает), неровные скруглённые концы, чуть неровная плотность внутри
+   и микро-наклон, чтобы линия не выглядела печатной. Появляется протяжкой. */
+.mk.marker,.mk.band{
+  background:linear-gradient(90deg,rgba(255,214,84,.72),rgba(255,224,120,.62) 45%,rgba(255,208,72,.70));
+  mix-blend-mode:multiply;
+  border-radius:9px 4px 8px 5px / 5px 9px 4px 8px;
+  box-shadow:0 0 0 .5px rgba(232,176,40,.28) inset;
+  width:0;transition:width .5s cubic-bezier(.32,.72,.35,1)}
+/* полоса «мы читаем этот кусок» — мягче маркера, чтобы не спорить с бегущей строкой */
+.mk.band{background:linear-gradient(90deg,rgba(255,228,158,.24),rgba(255,236,190,.18));
+  border-radius:8px;box-shadow:none;mix-blend-mode:multiply;
+  border-left:3px solid rgba(242,163,60,.55)}
+/* ── ПОДЧЁРКИВАНИЕ ───────────────────────────────────────────────────────
+   Прямая тонкая линия. Волна выглядела неряшливо, а главное — линия ПЕРЕЕЗЖАЛА
+   со строки на строку. Теперь у каждой строки СВОЯ линия: дочерчена — остаётся,
+   на следующей начинается новая. */
+.mk.under,.mk.line{height:3px;width:0;border-radius:2px;
+  background:linear-gradient(90deg,#F2A33C,#E58A2E);
+  box-shadow:0 1px 4px rgba(226,130,40,.40);
+  transition:width .28s cubic-bezier(.32,.72,.35,1)}
+.mk.line{transition:width .18s linear}
+/* ── ВОПРОС ──────────────────────────────────────────────────────────────
+   Не рамка-коробка, а мягкая карточка на голубой бумаге с полосой слева. */
+.mk.qbox{background:linear-gradient(90deg,rgba(150,200,255,.30),rgba(180,215,255,.20));
+  mix-blend-mode:multiply;border-radius:10px;border-left:3px solid rgba(74,144,226,.85);
+  box-shadow:0 1px 10px rgba(60,120,200,.18)}
+/* ── ПРОЖЕКТОР ───────────────────────────────────────────────────────────
+   Мягкая рамка со свечением вместо жёсткой обводки. */
+.mk.spot{box-shadow:0 0 0 9999px rgba(14,12,18,.58),0 0 22px 2px rgba(255,206,120,.35);
+  border:2px solid rgba(255,200,110,.85);border-radius:10px;
+  opacity:0;transition:opacity .5s ease}
+.mk.on{opacity:1}
+/* указатель: тонкая стрелка на поле, а не жёлтая клякса возле текста */
+.pointer{position:absolute;width:0;height:0;margin:-1px 0 0 -17px;
+  border-top:6px solid transparent;border-bottom:6px solid transparent;
+  border-left:9px solid rgba(242,163,60,.85);
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.25));
+  opacity:0;transform:translateX(-4px);transition:opacity .3s ease,transform .35s ease}
+.pointer.on{opacity:1;transform:translateX(0)}
+
+/* ── КЛИКАБЕЛЬНЫЕ ИЛЛЮСТРАЦИИ ────────────────────────────────────────────
+   В учебнике рисунок напечатан крошечным (в PDF это растр 400×220), рассмотреть
+   в нём нечего. Поверх каждой такой картинки лежит прозрачная кнопка по её рамке
+   из figures.json — нажал, и открывается апскейл во весь экран.
+   Рамку показываем еле-еле: ребёнок должен ЗАМЕТИТЬ, что сюда можно нажать, но
+   разворот при этом обязан остаться похожим на настоящий учебник. */
+.figs{position:absolute;inset:0;z-index:4;pointer-events:none}
+/* курсор — обычная «рука»: ребёнку она читается как «сюда можно нажать».
+   Лупа (zoom-in) выглядела как инструмент увеличения, а не как кнопка. */
+.fig{position:absolute;pointer-events:auto;cursor:pointer;padding:0;background:none;
+  border:1.5px solid rgba(242,163,60,.22);border-radius:7px;
+  transition:border-color .18s ease,box-shadow .18s ease,background .18s ease}
+.fig:hover,.fig:focus-visible{border-color:rgba(242,163,60,.95);outline:none;
+  background:rgba(255,206,120,.10);
+  box-shadow:0 0 0 3px rgba(255,206,120,.18),0 6px 22px rgba(255,180,80,.28)}
+/* значок в углу — «развернуть», нарисован вектором: эмодзи в каждой системе своё,
+   а лупа читалась как увеличительное стекло, а не как кнопка */
+.fig .lupa{position:absolute;right:6px;bottom:6px;width:26px;height:26px;border-radius:50%;
+  background:rgba(20,22,30,.75);color:#FFD79A;display:flex;align-items:center;justify-content:center;
+  opacity:0;transform:scale(.8);transition:opacity .18s ease,transform .18s ease}
+.fig:hover .lupa,.fig:focus-visible .lupa{opacity:1;transform:scale(1)}
+
+/* ── ОКНО ПРОСМОТРА ──────────────────────────────────────────────────────
+   Апскейл открывается поверх всего. По умолчанию вписан в экран целиком;
+   нажатие на саму картинку переводит её в натуральный размер с прокруткой. */
+#lens{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;
+  background:rgba(10,11,16,.92);backdrop-filter:blur(3px);
+  opacity:0;transition:opacity .3s ease}
+#lens.off{display:none}
+#lens.on{opacity:1}
+#lensTop{flex:none;display:flex;align-items:center;gap:12px;padding:14px 18px}
+#lensCap{font-size:16px;font-weight:600;color:var(--ink)}
+#lensSub{font-size:12.5px;color:var(--dim)}
+#lensX{margin-left:auto;width:36px;height:36px;border-radius:10px;border:1px solid var(--line);
+  background:#242836;color:var(--ink);font-size:16px;cursor:pointer}
+#lensWrap{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;padding:0 18px 8px}
+/* закрывается ЛЮБЫМ следующим кликом, в том числе по самой картинке — поэтому и здесь «рука» */
+/* Картинка не возникает вместе с фоном, а «подъезжает»: чуть уменьшенная и
+   прозрачная — и за треть секунды встаёт на место. Так открытие читается как
+   движение, а не как подмена кадра. Закрытие — то же самое назад. */
+#lensImg{display:block;max-width:100%;max-height:100%;border-radius:10px;cursor:pointer;
+  box-shadow:0 24px 60px rgba(0,0,0,.55);background:#2A2D3A;
+  opacity:0;transform:scale(.955);
+  transition:opacity .34s ease,transform .42s cubic-bezier(.22,.72,.3,1)}
+/* .ready вешается, когда файл догрузился: фон отзывается на нажатие СРАЗУ, а картинка
+   (апскейлы под мегабайт) вплывает, как только готова. Ждать её всем окном нельзя —
+   ребёнок нажал, и полсекунды ничего не происходит. */
+#lensImg.ready{opacity:1;transform:none}
+#lensTop,#lensHint{opacity:0;transition:opacity .3s ease .06s}
+#lens.on #lensTop,#lens.on #lensHint{opacity:1}
+#lensHint{flex:none;text-align:center;padding:6px 0 14px;font-size:12.5px;color:var(--dim)}
+
+/* ── НИЗ: панель ───────────────────────────────────────────────────────── */
+#bar{flex:none;display:flex;align-items:center;gap:10px;padding:10px 18px 14px;flex-wrap:wrap}
+.btn{padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:#242836;color:var(--ink);
+  font:600 14px/1 Segoe UI;cursor:pointer}
+.btn:hover{filter:brightness(1.15)}
+.btn.go{background:#2E4A38;border-color:#4E7A4E;color:#CFEFCF}
+.btn.sm{padding:7px 11px;font-size:13px}
+#pgLabel{font-variant-numeric:tabular-nums;color:var(--dim);min-width:96px;text-align:center}
+#runSt{color:var(--ok);font-size:13px;flex:1;min-width:180px}
+#cost{font-size:12px;color:var(--dim)}
+#ver{font:700 12px/1 Segoe UI;color:#8A93AD;background:#242836;border:1px solid var(--line);
+  padding:5px 9px;border-radius:8px;letter-spacing:.5px}
+#steps{display:flex;gap:3px;margin-left:auto}
+#steps b{width:9px;height:9px;border-radius:50%;background:#3A3F52;display:block}
+#steps b.on{background:var(--accent)}
+#steps b.done{background:#5A6A55}
+
+/* ── настройки справа ──────────────────────────────────────────────────── */
+#hud{position:fixed;right:14px;top:14px;width:250px;background:rgba(26,29,39,.95);border:1px solid var(--line);
+  border-radius:12px;padding:12px;font-size:13px;z-index:40}
+#hud.off{display:none}
+#hud h3{margin:0 0 8px;font-size:13px;letter-spacing:.5px;color:var(--accent)}
+#hud label{display:flex;align-items:center;gap:7px;margin:6px 0;color:var(--dim)}
+#hud select,#hud input[type=range]{width:100%;background:#242836;color:var(--ink);border:1px solid var(--line);
+  border-radius:7px;padding:4px}
+.sl{display:flex;align-items:center;gap:8px;margin:6px 0}.sl span{color:var(--dim);flex:none;width:82px;font-size:12px}
+#hudBtn{position:fixed;right:14px;top:14px;z-index:41;width:34px;height:34px;border-radius:9px;
+  border:1px solid var(--line);background:rgba(26,29,39,.95);color:var(--accent);cursor:pointer;font-size:15px}
+</style>
+<script type="importmap">{"imports":{
+"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}</script>
+</head>
+<body>
+<div id=app>
+  <!-- ЛЕВО: живой учитель -->
+  <div id=teacher>
+    <div id=tchWrap>
+      <canvas id=tchCanvas></canvas>
+      <!-- Видео-учитель bitHuman: MJPEG-поток раннера. Здесь панель обычная, DOM-овская,
+           поэтому кадры кладём прямо в <img> — канвас и WebGL-текстура (как в 3D-форме)
+           не нужны вовсе. -->
+      <img id=bhVideo alt="" style="display:none">
+      <!-- ЗАПИСАННЫЙ УРОК: ролики учителя, отрендеренные заранее (scripts/make-teacher-clips.mjs).
+           Ребёнку приезжает обычное видео по 100–300 КБ, звук внутри ролика — значит и синтез
+           тратится один раз, при подготовке, а не на каждом уроке. -->
+      <video id=clipVideo playsinline style="display:none"></video>
+      <div id=tchBadge>3D · 0 ₽/мин</div>
+    </div>
+    <div id=name>Аня</div>
+    <div id=role>ведёт урок истории · 5 класс</div>
+    <!-- Метку «АНЯ» убрали: Кратов прочитал её как обращение к себе. Имя и так
+         подписано под аватаром, а здесь — просто то, что она говорит. -->
+    <div id=subs><span id=subsText>Нажми «▶ начать урок» — и я поведу тебя по параграфу.</span></div>
+    <button id=micBtn>🎙 <b>Говорить</b></button>
+    <div id=micSt></div>
+  </div>
+
+  <!-- ЦЕНТР: книга -->
+  <div id=center>
+    <div id=stage>
+      <div id=book>
+        <div class=pg id=left><img id=leftImg alt=""></div>
+        <!-- ПРАВАЯ ПОЛОВИНА — не вторая страница, а рабочая панель (правка по фидбэку
+             руководителя 03.08). Разворот показывает ОДНУ страницу — ту, которую сейчас
+             читают, — а место второй занимает то, чего в бумажном учебнике быть не может:
+             сверху показ того, о чём Аня говорит прямо сейчас, снизу копятся тизеры
+             «что запомнить» с этой страницы. По ним же потом делаем контроль. -->
+        <div class=pg id=panel>
+          <!-- ПРОВЕРКА СТРАНИЦЫ (фидбэк руководителя 03.08): послушал → прочитал сам →
+               пересказал → тест → не сдал → повтор именно того куска, где ошибся. Живёт на
+               месте показа, а на тесте забирает панель целиком. -->
+          <div id=ctrl>
+            <div class=zh><span class="dot c"></span><span id=ctrlHead>ПРОВЕРКА</span>
+              <span id=ctrlStep></span></div>
+            <div id=ctrlBody></div>
+          </div>
+          <div id=demo>
+            <div class=zh><span class=dot></span>СМОТРИ</div>
+            <div id=demoBox>
+              <!-- Два слоя, а не один <img>: при смене показа старая картинка обязана
+                   ДОжить свой наезд и раствориться, пока новая проявляется. С одним
+                   слоем она на полпути прыгала обратно в исходный масштаб. -->
+              <img class=dimg id=demoA alt="">
+              <img class=dimg id=demoB alt="">
+              <!-- КАРТА (v2.0). Под текст про географию — «Греция делилась на три части,
+                   Аттика с городом Афины, Пелопоннес, Лакония с центром в Спарте» —
+                   никакая иллюстрация не годится: нужна карта, и она должна ехать за
+                   голосом. Лежит отдельным слоем, потому что это живой SVG: у него
+                   загорается названная область и он наезжает на неё, а не просто
+                   меняется картинкой. Собирается scripts/make-map-greece.mjs. -->
+              <div id=demoMap><div id=demoMapIn></div></div>
+              <div id=demoEmpty>здесь появится то,<br>о чём говорит Аня</div>
+              <!-- тот же значок «развернуть», что у картинок учебника: показ тоже
+                   открывается во весь экран, и язык нажатия должен быть один -->
+              <span class=lupa><svg viewBox="0 0 24 24" width="15" height="15" fill="none"
+                stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6"></path></svg></span>
+            </div>
+            <div id=demoCap></div>
+            <div id=demoSub></div>
+          </div>
+          <div id=keep>
+            <div class=zh><span class="dot k"></span>ЗАПОМНИ СО СТРАНИЦЫ <b id=keepPage>120</b>
+              <span id=keepAll></span></div>
+            <div id=keepList><div id=keepEmpty>карточки появятся по ходу чтения</div></div>
+          </div>
+        </div>
+        <!-- метки живут НАД разворотом, а не внутри страницы: прожектор обязан гасить
+             оба листа сразу, а внутри страницы его затемнение обрезалось её же overflow -->
+        <div class=marks id=bookMarks></div>
+        <!-- прозрачные кнопки по рамкам иллюстраций: нажатие открывает апскейл -->
+        <div class=figs id=bookFigs></div>
+        <!-- на тесте страница закрывается: «запомнить текст» проверяется по памяти, а не
+             списыванием с открытой страницы -->
+        <div id=veil class=off><div><b>Страница закрыта</b><br>отвечай по памяти</div></div>
+        <div id=castShade></div>
+        <div id=flip>
+          <div class="face front"><img id=flipFront alt=""><div class=shade id=shadeF></div></div>
+          <div class="face back"><img id=flipBack alt=""><div class=shade id=shadeB></div></div>
+        </div>
+      </div>
+    </div>
+    <div id=bar>
+      <button class="btn go" id=btnRun>▶ начать урок</button>
+      <button class=btn id=btnPause style="display:none">⏸ пауза</button>
+      <button class="btn sm" id=btnPrev>‹</button>
+      <span id=pgLabel>120–121</span>
+      <button class="btn sm" id=btnNext>›</button>
+      <span id=runSt></span>
+      <span id=cost></span>
+      <span id=ver title="версия сборки урока · журнал в .planning/KNIGA-VERSIONS.md">v2.3 · архив</span>
+      <div id=steps></div>
+    </div>
+  </div>
+</div>
+
+<!-- Иллюстрация во весь экран. Показываем не увеличенный кусок страницы (там пиксели),
+     а отдельный файл-апскейл: hi-*.jpg рядом со страницами учебника. -->
+<div id=lens class=off>
+  <div id=lensTop>
+    <div><div id=lensCap></div><div id=lensSub></div></div>
+    <button id=lensX title="закрыть (Esc)">✕</button>
+  </div>
+  <div id=lensWrap><img id=lensImg alt=""></div>
+  <div id=lensHint>нажми ещё раз — закрыть (или Esc)</div>
+</div>
+
+<button id=hudBtn title="настройки">⚙</button>
+<div id=hud class=off>
+  <h3>НАСТРОЙКИ</h3>
+  <!-- В списке только то, что похоже на живого человека И умеет губы. Проверено
+       загрузкой всех моделей: ringo и rpm-female приходят без морф-целей (рот не
+       двигается), avatarsdk — скан с бородой на женской причёске, anya-rpm надевает
+       две причёски разом. Остались Avaturn (реалистичная) и Брюнетка (стилизованная). -->
+  <div class=sl><span>кто ведёт</span><select id=tchWho>
+    <option value="av-avaturn">3D · реалистичная учительница — 0 ₽</option>
+    <option value="av-brunette">3D · стилизованная — 0 ₽</option>
+    <option value="clips">ВИДЕО · записанный урок — 0 ₽</option>
+    <option value="bh">ВИДЕО · bitHuman ≈ 1.7 ₽/мин</option>
+    <option value="off">без аватара</option>
+  </select></div>
+  <!-- Видео-учитель. Лица приходят от самого источника (GET /avatars): у боевого
+       раннера это .imx из галереи bitHuman, у заглушки — нарисованные наборы кадров. -->
+  <div id=bhBox style="display:none">
+    <div class=sl><span>лицо</span><select id=bhFace></select></div>
+    <div class=sl><span>источник</span><select id=bhSrc>
+      <option value="auto">боевой раннер (нет — веду 3D-учителем)</option>
+      <option value="run">только боевой раннер bitHuman</option>
+      <option value="mock">рисованная заглушка — для проверки связи</option>
+    </select></div>
+    <input id=bhBase placeholder="URL раннера (http://localhost:8090)"
+      style="width:100%;background:#242836;color:var(--ink);border:1px solid var(--line);
+             border-radius:7px;padding:4px 6px;font-size:11px;margin:2px 0">
+    <button class="btn sm" id=bhGo style="width:100%;margin:2px 0">🔌 подключить заново</button>
+    <div id=bhSt style="font-size:11px;color:var(--dim);min-height:14px"></div>
+  </div>
+  <div class=sl><span>голос Ани</span><select id=sVoice></select></div>
+  <button class="btn sm" id=btnVoiceTry style="width:100%;margin:2px 0 6px">▶ послушать голос</button>
+  <div class=sl><span>темп речи</span><input type=range id=sSpeed min=".80" max="1.15" step=".01" value=".95"></div>
+  <div class=sl><span>сила губ</span><input type=range id=sLips min="0" max="2" step=".05" value="1"></div>
+  <div class=sl><span>пауза после</span><input type=range id=sHold min="0" max="6" step=".1" value="1.2"></div>
+  <label><input type=checkbox id=cAsk checked> слушать ответ, когда спрашивает</label>
+  <label><input type=checkbox id=cCheck checked> проверять каждую страницу (чтение · пересказ · тест)</label>
+  <label><input type=checkbox id=cVoice checked> озвучивать (Яндекс TTS)</label>
+  <div style="font-size:11.5px;color:var(--dim);line-height:1.5;margin-top:8px">
+    Страницы — рендер настоящего учебника (§20, стр. 120–125). Подчёркивания взяты
+    из текстового слоя PDF, поэтому попадают точно в слова.
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+const $=s=>document.querySelector(s)
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  КНИГА: развороты, листание, метки
+// ═══════════════════════════════════════════════════════════════════════════
+const PAGES=[120,121,122,123,124,125]
+// 🔴 Правка по фидбэку руководителя (03.08): разворота больше нет. Книга показывает
+// ОДНУ страницу — ту, которую сейчас читают, — а вторую половину занимает рабочая
+// панель. Причин две: ребёнок перестаёт искать глазами, где из двух страниц читают,
+// и освобождается место под показ и тизеры. Поэтому «где мы» — индекс СТРАНИЦЫ.
+let sheet=0, flipping=false
+let MARKS={}
+const imgUrl=(p)=>'/book/p'+p+'.jpg'
+
+// Размер считаем от окна: страница 210×297 (A4-пропорция скана 957×1252). Панель —
+// ровно такая же по размеру: вместе они дают привычный силуэт раскрытой книги.
+const PAGE_AR=1252/957
+function layout(){
+  const st=$('#stage'), maxH=st.clientHeight-10, maxW=(st.clientWidth-40)/2
+  const h=Math.min(maxH, maxW*PAGE_AR), w=h/PAGE_AR
+  for(const el of [$('#left'),$('#panel'),$('#veil')]){ el.style.width=w+'px'; el.style.height=h+'px' }
+  const f=$('#flip'); f.style.width=w+'px'; f.style.height=h+'px'; f.style.left=w+'px'
+}
+addEventListener('resize',layout)
+
+function paintSheet(){
+  const p=PAGES[sheet]
+  $('#leftImg').src=imgUrl(p); $('#leftImg').dataset.page=p
+  $('#pgLabel').textContent='стр. '+p
+  clearMarks()
+  paintFigs()                                        // кнопки «рассмотреть» на этой странице
+  paintKeep(p)                                       // тизеры, собранные с этой страницы
+  // 🔴 «Перевернул страницу — и там зачем-то картинка с лабиринтом» (05.08).
+  // Показ оставался от ПРОШЛОЙ страницы и висел, пока на новой не прозвучит первая
+  // привязанная фраза. Чужая картинка хуже, чем пустое место: пустое место честно
+  // говорит «сейчас появится», а чужая — врёт про то, что сейчас читают.
+  if(demoPageNow&&demoPageNow!==p) clearDemo()
+}
+// Перелистывание. 🔴 «Переворачивание страницы как-то не туда» (03.08): лист уходил ВПРАВО,
+// а это жест «назад» — вперёд в книге страница ПРИХОДИТ СПРАВА и ложится налево. Теперь как
+// в бумажной: лист поднимается от корешка (середина книги), проходит над страницей справа
+// налево и ложится на неё новой страницей — она нарисована на его изнанке.
+// Лицевая сторона листа пустая: справа у нас не вторая страница, а панель, нарисовать её на
+// летящем листе нечем. Поэтому в начале лист ПРОЯВЛЯЕТСЯ — пока он лежит плашмя, видно
+// панель, и лист становится виден уже приподнятым.
+//
+// 🔴 Прогон 03.08: «ближе к корешку страница почему-то темнеет». Тень изгиба была
+// статичной картинкой на листе и висела весь поворот — читалось как грязное пятно.
+// Считаем поворот покадрово и вяжем к углу ЧЕТЫРЕ вещи:
+//   · тень на самом листе — сильнее всего, когда лист стоит ребром (середина поворота);
+//   · какая из двух сторон затенена — перед до 90°, изнанка после;
+//   · тень, которую лист роняет на то, над чем навис, — ползёт вместе с ним;
+//   · прозрачность: плашмя над панелью лист виден быть не должен, он закрыл бы показ.
+const FLIP_MS=950
+function flipFrame(dir,t){
+  const f=$('#flip'), cast=$('#castShade')
+  const e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2          // easeInOut, как у бумаги
+  const a=dir>0 ? -176*e : -176*(1-e)
+  f.style.transform='rotateY('+a+'deg)'
+  const bend=Math.sin(Math.PI*t)                     // 0 → 1 → 0: лист ребром = максимум
+  const front=Math.abs(a)<90
+  $('#shadeF').style.opacity=front?bend*0.5:0
+  $('#shadeB').style.opacity=front?0:bend*0.45
+  // ширина падающей тени = насколько лист навис: до 90° он ещё над панелью, после —
+  // уже над страницей
+  const w=$('#left').clientWidth, cos=Math.abs(Math.cos(a*Math.PI/180))
+  const cw=Math.max(12,w*cos*0.55)
+  cast.style.width=cw+'px'
+  cast.style.left=(front?w:w-cw)+'px'
+  cast.style.opacity=bend*0.7
+  cast.style.transform=front?'none':'scaleX(-1)'
+  // Плашмя над панелью лист прозрачен и проявляется, ПОКА ПОДЫМАЕТСЯ, — к моменту,
+  // когда встанет ребром, он уже плотный. Быстрее нельзя: белый лист, вспыхнувший поверх
+  // показа, читается как мигание, а не как страница.
+  const flat=dir>0?t:1-t
+  f.style.opacity=flat<.45?flat/.45:1
+}
+// 🔴 Перелистывания обязаны становиться В ОЧЕРЕДЬ. Раньше turn во время другого поворота
+// молча возвращал «готово», и goPage крутил `while(sheet!==t)` вхолостую — вкладка
+// намертво вставала. Ловится это только двумя листаниями подряд (нажать ›› или уйти
+// на страницу через три), поэтому и дожило до сих пор.
+let flipQ=Promise.resolve()
+function turn(dir){
+  const p=flipQ.then(()=>turnNow(dir))
+  flipQ=p.catch(()=>{})
+  return p
+}
+function turnNow(dir){
+  const to=sheet+dir
+  if(to<0||to>=PAGES.length) return Promise.resolve()
+  flipping=true; clearMarks(); clearFigs()           // на летящем листе нажимать нечего
+  // 🔴 «Перевернула страницу — и на мгновение появился лабиринт» (05.08). Показ гасили
+  // в paintSheet, а это середина переворота: картинка прошлой страницы успевала
+  // мелькнуть на новой. Гасим в самом начале — пока лист ещё лежит плашмя.
+  if(demoPageNow&&demoPageNow!==PAGES[to]) clearDemo()
+  const f=$('#flip'), from=PAGES[sheet], next=PAGES[to], w=$('#left').clientWidth
+  // На изнанке листа — та страница, что окажется слева, когда он ляжет:
+  //   вперёд — следующая (лист приходит справа и накрывает ею текущую);
+  //   назад  — текущая (лист снимает её со страницы и уносит вправо, открывая прошлую).
+  $('#flipBack').src=imgUrl(dir>0?next:from)
+  $('#flipFront').removeAttribute('src')             // лицо пустое: справа панель, а не страница
+  if(dir<0) $('#leftImg').src=imgUrl(next)           // прошлая страница уже под листом
+  f.style.left=w+'px'; f.style.display='block'
+  flipFrame(dir,0)
+  return new Promise(res=>{
+    const t0=performance.now()
+    const step=()=>{
+      const t=Math.min(1,(performance.now()-t0)/FLIP_MS)
+      flipFrame(dir,t)
+      if(t<1) return requestAnimationFrame(step)
+      f.style.display='none'; f.style.opacity=1
+      $('#castShade').style.opacity=0; $('#shadeF').style.opacity=0; $('#shadeB').style.opacity=0
+      sheet=to; paintSheet(); flipping=false
+      // страница сменилась — если читаемый кусок на ней, метки возвращаем
+      if(shownBeat&&sheetOf(shownBeat.page)===sheet) showBeat(shownBeat,true)
+      res()
+    }
+    requestAnimationFrame(step)
+  })
+}
+const sheetOf=(p)=>PAGES.indexOf(p)
+// К нужной странице ведёт РОВНО ОДИН водитель. Иначе два goPage подряд (а их зовёт
+// каждый такт) считают направление по ещё не обновившемуся `sheet` и проскакивают цель:
+// в прогоне это выглядело как «уехали на 125-ю вместо 120-й».
+let wantSheet=0, navBusy=false, navQ=Promise.resolve()
+function goPage(p){
+  const t=sheetOf(p); if(t<0) return navQ
+  wantSheet=t
+  if(navBusy) return navQ              // ведущий сам заметит новую цель
+  navBusy=true
+  navQ=(async()=>{ try{ while(sheet!==wantSheet) await turn(wantSheet>sheet?1:-1) }
+                   finally{ navBusy=false } })()
+  return navQ
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ПРАВАЯ ПОЛОВИНА: показ и тизеры
+//
+//  Обе половины ведёт один и тот же такт урока: то, что Аня произносит, решает и
+//  что показать, и какую карточку добавить. Привязка — по дословному куску реплики
+//  (поле re в /book/panel.json), а не по номеру такта: такты пересобираются из PDF
+//  при каждой загрузке, и номера поехали бы от любой правки разбора.
+//  Тизеры копятся ПО СТРАНИЦАМ: страница — это то, что потом спросят.
+// ═══════════════════════════════════════════════════════════════════════════
+let DEMOS=[], TEASERS=[]
+const KEEP=new Map()                      // страница → [{term,txt}]
+// Итог пересказа (что назвал, что забыл) живёт ОТДЕЛЬНО от разметки карточек.
+// Иначе первая же новая карточка перерисовывает список — и галочки исчезают:
+// приёмка ловила это как «0 назвал / 0 забыл» через раз.
+const KEEPMARK=new Map()                  // term → 'said' | 'miss'
+let demoNow='', keepFired=new Set()
+const artUrl=(id)=> id.startsWith('book:') ? '/book/hi-'+id.slice(5)+'.jpg' : '/art-'+id+'.jpg'
+function loadPanel(data){
+  DEMOS=[]; TEASERS=[]
+  for(const pg of data||[]){
+    for(const d of pg.demos||[]){ const re=mkRe(d.re); if(re) DEMOS.push({...d,page:pg.page,_re:re}) }
+    for(const t of pg.teasers||[]){ const re=mkRe(t.re); if(re) TEASERS.push({...t,page:pg.page,_re:re}) }
+  }
+}
+// регулярка приходит текстом; кривую молча выбрасываем — из-за неё не должен падать урок
+function mkRe(src){ try{ return new RegExp(src,'i') }catch(e){ console.warn('плохая привязка:',src,e.message); return null } }
+
+let demoTop=1                                   // какой из двух слоёв сейчас сверху
+const demoImg=()=>$(demoTop?'#demoB':'#demoA')  // верхний слой — его и открывают по клику
+// плавная смена подписи: текст меняем в тот момент, когда он уже погашен
+function fadeText(el,txt){
+  el.classList.remove('on')
+  setTimeout(()=>{ el.textContent=txt; requestAnimationFrame(()=>el.classList.add('on')) },200)
+}
+// ── КАРТА как показ ───────────────────────────────────────────────────────
+//  Живой SVG, а не картинка: у него загорается НАЗВАННАЯ область и он наезжает
+//  на неё. Собран scripts/make-map-greece.mjs из Natural Earth; подписи в нём —
+//  только те названия, что звучат в §20.
+//  art: "map" — вся Греция · "map:attica" — метка · "map:zone-middle" — часть Греции.
+let mapSvg=null, mapLoad=null
+// Кегль подписей на карте меняется при наезде. Чтобы он ЕХАЛ вместе с картой, а не
+// прыгал (иначе на едущей карте это читается как дрожь), переменные регистрируются:
+// незарегистрированные custom properties браузер не умеет интерполировать.
+// ⚠️ Делать это в самом SVG нельзя: `syntax:'<length>'` внутри <style> ломает файл как
+// XML — угловые скобки разбираются как тег, и вместо карты остаётся чёрное место.
+for(const [n,v] of [['--fs','34px'],['--fsw','7px']]){
+  try{ CSS.registerProperty({name:n,syntax:'<length>',inherits:true,initialValue:v}) }catch(e){}
+}
+function ensureMap(){
+  if(mapSvg) return Promise.resolve(mapSvg)
+  if(!mapLoad) mapLoad=fetch('/book/map-greece.svg').then(r=>r.text()).then(t=>{
+    $('#demoMapIn').innerHTML=t
+    mapSvg=$('#demoMapIn').querySelector('svg')
+    return mapSvg
+  }).catch(e=>{ console.warn('карта не загрузилась:',e.message); return null })
+  return mapLoad
+}
+// Наезд считаем от НЕтрансформированной геометрии, иначе каждый следующий наезд
+// считался бы от предыдущего и карта уезжала бы в никуда.
+// 🔴 «Она говорит про Коринфский перешеек и зумит карту, а подписи на карте не видно»
+// (05.08). Наезжали на ТОЧКУ места, а у половины меток подпись отодвинута выноской —
+// её и выносило за край. Теперь на входе рамка: точка вместе со своей подписью, и
+// масштаб подбирается так, чтобы рамка целиком легла в коробку с запасом.
+const MAP_ZOOM_MAX=2.4
+function mapView(fit){
+  const box=$('#demoMap'), inn=$('#demoMapIn'), svg=mapSvg
+  if(!svg) return
+  const bw=box.clientWidth, bh=box.clientHeight
+  const vb=svg.viewBox.baseVal, VW=vb.width, VH=vb.height
+  if(!fit){ inn.style.transform='none'; svg.style.setProperty('--fs','34px'); svg.style.setProperty('--fsw','7px'); return }
+  const k=Math.min(bw/VW,bh/VH)                       // preserveAspectRatio=meet
+  const ox=(bw-VW*k)/2, oy=(bh-VH*k)/2
+  // масштаб: рамка должна занять не больше 78 % коробки по каждой стороне
+  const zoom=Math.max(1,Math.min(MAP_ZOOM_MAX,
+    .78*bw/Math.max(1,fit.w*k), .78*bh/Math.max(1,fit.h*k)))
+  const ex=ox+(fit.x+fit.w/2)*k, ey=oy+(fit.y+fit.h/2)*k
+  let tx=bw/2-zoom*ex, ty=bh/2-zoom*ey
+  // не выпускаем за края карты: пустого поля сбоку быть не должно
+  const clamp=(t,size,off,len)=>Math.min(-zoom*off, Math.max(size-zoom*(off+len*k), t))
+  tx=clamp(tx,bw,ox,VW); ty=clamp(ty,bh,oy,VH)
+  inn.style.transformOrigin='0 0'
+  inn.style.transform=`translate(${tx}px,${ty}px) scale(${zoom})`
+  // Подписи не должны раздуваться вместе с картой: при наезде они стали бы во всю
+  // коробку. Гасим встречным масштабом через переменную в самом SVG — не в лоб 1/zoom
+  // (тогда подпись застывает и наезд не читается как «вот сюда смотри»), а по корню.
+  // ⚠️ Переменная объявлена в карте через @property и переезжает ТЕМ ЖЕ переходом, что
+  // и наезд: без этого подпись меняла кегль скачком поверх едущей карты — «трясётся».
+  const k2=Math.sqrt(zoom)
+  svg.style.setProperty('--fs',(34/k2)+'px')
+  svg.style.setProperty('--fsw',(7/k2)+'px')
+}
+// рамка вокруг метки: точка, её подпись и выноска между ними
+function markFit(g){
+  const x=+g.dataset.x, y=+g.dataset.y
+  let x0=x-40,y0=y-40,x1=x+40,y1=y+40
+  const t=g.querySelector('text')
+  if(t){ const b=t.getBBox()
+    x0=Math.min(x0,b.x-10); y0=Math.min(y0,b.y-10)
+    x1=Math.max(x1,b.x+b.width+10); y1=Math.max(y1,b.y+b.height+10) }
+  return { x:x0, y:y0, w:x1-x0, h:y1-y0 }
+}
+function mapAim(id){
+  const svg=mapSvg; if(!svg) return
+  svg.querySelectorAll('.mk').forEach(g=>g.classList.remove('on'))
+  svg.querySelectorAll('.zone').forEach(z=>z.classList.remove('on'))
+  if(!id){ mapView(null); return }
+  if(id.startsWith('zone-')){
+    const z=svg.querySelector('#'+id); if(!z){ mapView(null); return }
+    z.classList.add('on')
+    const b=z.getBBox(); mapView({x:b.x,y:b.y,w:b.width,h:b.height})
+    return
+  }
+  const g=svg.querySelector('#mk-'+id); if(!g){ mapView(null); return }
+  g.classList.add('on')
+  mapView(markFit(g))
+}
+function showMapDemo(d){
+  ensureMap().then(svg=>{
+    if(!svg) return
+    mapAim(d.art.startsWith('map:')?d.art.slice(4):'')
+    $('#demoMap').classList.add('on')
+    // фотографии под картой гасим совсем: иначе просвечивают по краям
+    for(const el of [$('#demoA'),$('#demoB')]) el.classList.remove('on','out')
+    const e=$('#demoEmpty'); e.style.opacity='0'; setTimeout(()=>{ e.style.display='none' },400)
+    fadeText($('#demoCap'),d.cap); fadeText($('#demoSub'),d.sub)
+  })
+}
+// Пустой показ: честнее чужой картинки. Возвращает панель в состояние «сейчас появится».
+function clearDemo(){
+  demoNow=''; demoPageNow=0; clearTimeout(demoWait); demoWait=0; demoQ=[]
+  $('#demoMap').classList.remove('on')
+  for(const el of [$('#demoA'),$('#demoB')]) el.classList.add('out')
+  setTimeout(()=>{ for(const el of [$('#demoA'),$('#demoB')]) if(el.classList.contains('out')) el.classList.remove('on','out') },520)
+  const e=$('#demoEmpty'); e.style.display=''; requestAnimationFrame(()=>{ e.style.opacity='1' })
+  fadeText($('#demoCap'),''); fadeText($('#demoSub'),'')
+}
+// 🔴 «Картинка была только на мегарон, всего на секунду» (05.08). Когда две привязки
+// стоят рядом в короткой реплике, вторая сменяла первую раньше, чем её успевали
+// разглядеть. Показ держится не меньше DEMO_MIN, а то, что прилетело за это время,
+// ВЫСТРАИВАЕТСЯ В ОЧЕРЕДЬ и доигрывается следом.
+// ⚠️ Сначала очередь была длиной в один («побеждает последний») — и приёмка тут же
+// поймала, что из пяти показов реплики на экран попадают два: остальные затирались.
+// Очередь держит края и выбрасывает середину, поэтому отставание не копится.
+const DEMO_MIN=2500
+let demoAt=0, demoWait=0, demoQ=[], demoPageNow=0
+function flushDemo(){
+  demoWait=0
+  // на паузе картинки стоят вместе с голосом, иначе они уезжают «не в попад»
+  if(paused){ demoWait=setTimeout(flushDemo,250); return }
+  const d=demoQ.shift(); if(!d) return
+  applyDemo(d)
+  if(demoQ.length) demoWait=setTimeout(flushDemo,DEMO_MIN+20)
+}
+function showDemo(d){
+  const key=d.art+'|'+d.cap; if(key===demoNow) return
+  // 🔴 «Не понравилось, что есть картинки, которые повторяются» (05.08).
+  // Половина «повторов» была не повтором, а сменой ПОДПИСИ у той же картинки: разговор
+  // продолжается про то же самое. Раньше на это пересобирался весь показ — картинка
+  // моргала и заново начинала наезд, и глаз читал это как «мне показали то же самое».
+  // Теперь у той же картинки меняется только подпись, а сама она спокойно живёт дальше.
+  if(demoNow&&demoNow.split('|')[0]===d.art){
+    demoNow=key; demoPageNow=d.page||demoPageNow
+    fadeText($('#demoCap'),d.cap); fadeText($('#demoSub'),d.sub)
+    const img=demoImg(); if(img){ img.dataset.cap=d.cap; img.dataset.sub=d.sub }
+    return
+  }
+  const left=DEMO_MIN-(performance.now()-demoAt)
+  if(left>0){
+    demoQ.push(d)
+    if(demoQ.length>3) demoQ.splice(1,demoQ.length-3)   // края важнее середины
+    if(!demoWait) demoWait=setTimeout(flushDemo,left+20)
+    return
+  }
+  applyDemo(d)
+}
+function applyDemo(d){
+  demoNow=d.art+'|'+d.cap; demoAt=performance.now(); demoPageNow=d.page||demoPageNow
+  if(d.art==='map'||d.art.startsWith('map:')) return showMapDemo(d)
+  $('#demoMap').classList.remove('on')
+  const src=artUrl(d.art)
+  const pre=new Image()
+  // сначала грузим, только потом переключаем: иначе на месте показа мигает пустота
+  pre.onload=()=>{
+    const cur=demoImg(), next=demoTop?$('#demoA'):$('#demoB')
+    next.src=src; next.dataset.cap=d.cap; next.dataset.sub=d.sub
+    // наезд обязан начаться заново — без снятия класса и «дёрганья» вёрстки
+    // анимация просто не перезапустится
+    next.classList.remove('on','out'); void next.offsetWidth
+    requestAnimationFrame(()=>{
+      next.classList.add('on')
+      cur.classList.add('out')                       // гаснет, досматривая свой наезд
+      setTimeout(()=>{ if(cur.classList.contains('out')) cur.classList.remove('on','out') },620)
+    })
+    demoTop=1-demoTop
+    const e=$('#demoEmpty'); e.style.opacity='0'; setTimeout(()=>{ e.style.display='none' },400)
+    fadeText($('#demoCap'),d.cap); fadeText($('#demoSub'),d.sub)
+  }
+  pre.onerror=()=>console.warn('нет картинки показа:',src)
+  pre.src=src
+}
+function addKeep(page,t){
+  if(!KEEP.has(page)) KEEP.set(page,[])
+  KEEP.get(page).push(t)
+  if(+$('#leftImg').dataset.page===page) paintKeep(page)
+}
+function paintKeep(page){
+  $('#keepPage').textContent=page
+  const list=$('#keepList'), items=KEEP.get(page)||[]
+  list.innerHTML=''
+  if(!items.length){
+    const e=document.createElement('div'); e.id='keepEmpty'
+    e.textContent='карточки появятся по ходу чтения'; list.appendChild(e)
+  }
+  items.forEach((t,i)=>{
+    const d=document.createElement('div')
+    d.className='kc'+(i===items.length-1?' fresh':'')+(KEEPMARK.has(t.term)?' '+KEEPMARK.get(t.term):'')
+    const a=document.createElement('div'); a.className='t'; a.textContent=t.term
+    const b=document.createElement('div'); b.className='d'; b.textContent=t.txt
+    d.appendChild(a); d.appendChild(b); list.appendChild(d)
+    requestAnimationFrame(()=>d.classList.add('on'))
+  })
+  // счётчик за весь урок показываем, только когда есть собранное с ДРУГИХ страниц:
+  // иначе он повторяет то, что и так видно списком
+  const all=[...KEEP.values()].reduce((a,b)=>a+b.length,0)
+  $('#keepAll').textContent=all>items.length?('за урок '+all):''
+  requestAnimationFrame(()=>{ list.scrollTop=list.scrollHeight })
+}
+// ── показ идёт ЗА ФРАЗОЙ, а не за тактом (v2.0) ───────────────────────────
+//  🔴 Первая претензия руководителя к v1.0: «текст, который она рассказывает, не
+//  соответствует картинке — она говорит про карту и расположение государств, а
+//  показывается абстракция с кораблём».
+//  Причина была механическая: такт — это до 380 знаков, несколько предложений, а
+//  показ вешался на ВЕСЬ такт и вставал в его начале. Пока Аня доходила до Аттики,
+//  на экране висело то, что подошло к первой фразе такта.
+//  Теперь у каждой привязки считается её МЕСТО в реплике (доля знаков до неё), и
+//  показ переключается, когда голос до этого места дошёл. Доля прочитанного уже
+//  есть — ровно та, что ведёт линию под строкой, второй источник правды не нужен.
+//  Карточка «запомни» считается по КОНЦУ фразы: факт должен сначала прозвучать.
+let PLAN=null
+function panelBeat(b){
+  const say=b.say||''
+  const len=Math.max(1,say.length)
+  const at=(re,end)=>{ const m=re.exec(say); if(!m) return null
+    return Math.max(0,Math.min(1,(m.index+(end?m[0].length:0))/len)) }
+  PLAN={items:[],fired:new Set()}
+  for(const d of DEMOS){ const a=at(d._re,false); if(a!==null) PLAN.items.push({a,kind:'demo',x:d}) }
+  for(const t of TEASERS){
+    if(keepFired.has(t.page+'|'+t.term)) continue
+    const a=at(t._re,true); if(a!==null) PLAN.items.push({a,kind:'keep',x:t})
+  }
+  PLAN.items.sort((p,q)=>p.a-q.a)
+  panelTick(0)          // то, что стоит в самом начале реплики, показываем сразу
+}
+// prog — доля произнесённого такта (voiceProg). Вызывается из readTick каждый кадр.
+function panelTick(prog){
+  if(!PLAN) return
+  let show=null
+  PLAN.items.forEach((it,i)=>{
+    if(PLAN.fired.has(i)||it.a>prog) return
+    PLAN.fired.add(i)
+    // Догоняя (вернулись на страницу посреди такта), проматываем показы и ставим
+    // ПОСЛЕДНИЙ: иначе три картинки мигнут одна за другой в одном кадре.
+    if(it.kind==='demo'){ show=it.x; return }
+    const k=it.x.page+'|'+it.x.term
+    if(!keepFired.has(k)){ keepFired.add(k); addKeep(it.x.page,it.x) }
+  })
+  if(show) showDemo(show)
+}
+function resetPanel(){
+  KEEP.clear(); KEEPMARK.clear(); keepFired=new Set(); demoNow=''; PLAN=null
+  demoAt=0; demoPageNow=0; clearTimeout(demoWait); demoWait=0; demoQ=[]
+  $('#demoMap').classList.remove('on'); if(mapSvg){ mapAim(''); }
+  for(const el of [$('#demoA'),$('#demoB')]){ el.classList.remove('on','out'); el.removeAttribute('src') }
+  demoTop=1
+  const e=$('#demoEmpty'); e.style.display=''; requestAnimationFrame(()=>{ e.style.opacity='1' })
+  $('#demoCap').textContent=''; $('#demoSub').textContent=''
+  $('#demoCap').classList.remove('on'); $('#demoSub').classList.remove('on')
+  paintKeep(PAGES[sheet])
+}
+// показ можно рассмотреть во весь экран — тем же окном, что и картинки учебника
+$('#demoBox').onclick=()=>{ const img=demoImg()
+  if(!img.classList.contains('on')||!img.currentSrc) return
+  openLensSrc(img.currentSrc, img.dataset.cap||'Показ', img.dataset.sub||'') }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ПРОВЕРКА СТРАНИЦЫ
+//
+//  Фидбэк руководителя 03.08: «дальше нужно, чтобы ребёнок самостоятельно прочитал
+//  прослушанный кусок и пересказал или поотвечал на вопросы, и далее перейти к
+//  тестированию и снова к повтору, если тест не сдан».
+//
+//  Цикл на КАЖДУЮ страницу, сразу после того как она дочитана:
+//    1. прочитай сам      — ВСЛУХ, система идёт за голосом и пишет транскрипцию (v2.0);
+//    2. расскажи          — микрофон → распознавание → разбор по карточкам страницы;
+//    3. разберём вопросы  — те же вопросы, тот же вид, но страница ОТКРЫТА, и Аня
+//                           показывает, где написан ответ (v2.0);
+//    4. тест              — страница ЗАКРЫТА, отвечаем по памяти;
+//    5. ошибся → повтор   — перечитывается ровно тот кусок, где ответ, и вопрос задаётся
+//                           снова. И так, пока не сдано.
+//  Повтор адресный, а не «прочитай страницу заново», потому что каждый вопрос знает свой
+//  такт: привязка лежит в test.json тем же способом, что показы и тизеры.
+// ═══════════════════════════════════════════════════════════════════════════
+let TESTS={}
+// вопросы САМОГО УЧЕБНИКА, собранные по страницам во время чтения: в закреплении они
+// идут первыми, до нашей проверки
+const PAGEQ=new Map()
+let CTRL={on:false,page:0,stage:'',round:0,left:0,wrong:0,passed:null}
+let ctrlRes=null
+const ctrlWait=()=>new Promise(r=>{ctrlRes=r})
+const ctrlDone=(v)=>{ if(ctrlRes){ const f=ctrlRes; ctrlRes=null; f(v) } }
+function loadTests(data){
+  TESTS={}
+  for(const pg of data||[]){
+    const qs=[]
+    for(const q of pg.questions||[]){ const re=mkRe(q.re); if(re) qs.push({...q,page:pg.page,_re:re}) }
+    if(qs.length) TESTS[pg.page]=qs
+  }
+}
+// 🔴 «Она может сказать мне „молодец, Аня“ — хотя я не Аня» (03.08).
+// Аня — имя УЧИТЕЛЬНИЦЫ. Модель видит его в своей роли и лепит в обращение к ребёнку.
+// Промпт помогает не всегда, поэтому режем ещё и текстом: убираем «Аня» там, где оно
+// стоит обращением (после запятой/тире или в начале фразы). Собственное представление
+// «меня зовут Аня» под правило не попадает — там перед именем нет запятой.
+const noName=(s)=>String(s||'')
+  .replace(/([,;:—–-]\s*)Ан[яею](?![а-яё])/gi,'$1')
+  .replace(/^\s*Ан[яею](?![а-яё])\s*[,!.—–-]*\s*/i,'')
+  .replace(/\s+([,.!?:;])/g,'$1')
+  .replace(/([,;:—–-])\s*([.!?])/g,'$2')
+  .replace(/\s{2,}/g,' ')
+  .trim()
+
+const beatBy=(re)=>BEATS.findIndex(b=>re.test(b.say||''))
+// кусок для «прочитай сам» — тот, на котором висит больше всего карточек страницы
+function keyBeat(page){
+  let best=-1, score=-1
+  BEATS.forEach((b,i)=>{
+    if(b.page!==page||b.kind!=='read') return
+    const s=TEASERS.filter(t=>t.page===page&&t._re.test(b.say)).length*1000+b.say.length
+    if(s>score){ score=s; best=i }
+  })
+  return best
+}
+function ctrlBody(html){ $('#ctrlBody').innerHTML=html }
+function ctrlStep(s,head,label){
+  CTRL.stage=s
+  $('#panel').className='pg ctrl st-'+s
+  $('#ctrlHead').textContent=head
+  $('#ctrlStep').textContent=label||''
+  // внизу во время проверки должно быть написано про проверку, а не «читаю 11 из 70»
+  $('#runSt').textContent='проверка · стр. '+CTRL.page+' · '+head.toLowerCase()
+}
+// ⚠️ Отложенное сокрытие обязано отменяться. Между «открыть на повтор» и «закрыть на
+// второй круг» проходит меньше, чем длится затухание, — и старый таймер снимал пелену уже
+// с идущего теста: страница открывалась посреди вопроса.
+let veilT=null
+function veil(on){
+  const v=$('#veil')
+  clearTimeout(veilT)
+  if(on){ v.classList.remove('off'); requestAnimationFrame(()=>v.classList.add('on')) }
+  else { v.classList.remove('on'); veilT=setTimeout(()=>v.classList.add('off'),360) }
+}
+$('#ctrlBody').addEventListener('click',(e)=>{
+  const el=e.target.closest('[data-act]'); if(!el||el.disabled) return
+  // 🔴 «Пусть будет кнопка „следующий вопрос“, чтобы я мог проскипать до того вопроса,
+  // где не знаю ответа» (06.08). Кнопка с data-cut глушит объяснение на полуслове:
+  // ждать, пока она договорит уже понятное, ребёнок не должен. На неверном ответе
+  // такой кнопки нет — там объяснение и есть смысл шага.
+  if(el.hasAttribute('data-cut')){ gen++; cutVoice() }
+  ctrlDone({act:el.dataset.act, i:+(el.dataset.i||-1)})
+})
+function ctrlOff(){
+  CTRL.on=false; ctrlDone(null); veil(false)
+  $('#panel').className='pg'; $('#ctrlBody').innerHTML=''
+}
+// разбор пересказа: судит DeepSeek по карточкам страницы — они и есть рубрика
+async function gradeTell(page,heard){
+  const list=TEASERS.filter(t=>t.page===page)
+  if(!list.length||!heard) return null
+  const sys='Ты Аня, учительница истории для 5 класса. Аня — ТВОЁ имя; имени ребёнка ты не знаешь, '+
+    'поэтому НИКОГДА не обращайся к нему по имени и тем более не называй его Аней. '+
+    'Проверяешь ПЕРЕСКАЗ ребёнка 11 лет по странице '+
+    'учебника. Суди по смыслу, а не по словам: мысль передана своими словами — засчитывай. '+
+    'Ответь СТРОГО одним JSON-объектом, без пояснений и без markdown: '+
+    '{"covered":[номера пунктов, которые ребёнок назвал],"reply":"одно-два предложения от первого лица: '+
+    'сначала похвали за то, что вспомнил, потом мягко скажи, что упустил. Без списков и канцелярита."}'
+  const rubric=list.map((t,i)=>(i+1)+'. '+t.term+' — '+t.txt).join('\n')
+  let j={}
+  try{ j=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'deepseek-v4-flash/latest',system:sys,
+      messages:[{role:'user',content:'Пункты страницы:\n'+rubric+'\n\nРебёнок сказал: «'+heard+'»'}]})})
+    .then(r=>r.json()) }
+  catch(e){ j={error:e.message} }
+  COST.llm++; paintCost()
+  const m=(j.text||'').match(/\{[\s\S]*\}/)
+  let v=null
+  try{ v=m?JSON.parse(m[0]):null }catch(e){ v=null }
+  if(!v) return null
+  v.reply=noName(v.reply)
+  const said=new Set((v.covered||[]).map(n=>list[n-1]&&list[n-1].term).filter(Boolean))
+  // галочки прямо на карточках: видно, что назвал, а что забыл.
+  // Пишем в KEEPMARK, а не только в DOM: список перерисовывается на каждой новой
+  // карточке, и разметка «в DOM» с него слетала.
+  document.querySelectorAll('#keepList .kc').forEach(el=>{
+    const t=el.querySelector('.t').textContent
+    KEEPMARK.set(t, said.has(t)?'said':'miss')
+    el.classList.add(KEEPMARK.get(t))
+  })
+  return { said, reply:(v.reply||'').trim(), всего:list.length }
+}
+// весь цикл проверки одной страницы. alive() — та же проверка живости, что у прогона
+async function controlPage(page,alive){
+  const all=TESTS[page]||[]
+  if(!all.length) return true
+  const ann=async(t)=>{ gen++; return speak(t,gen) }
+  CTRL={on:true,page,stage:'',round:1,left:all.length,wrong:0,passed:null}
+  let w
+
+  // ── 0. ВОПРОСЫ САМОГО УЧЕБНИКА (v2.3) ────────────────────────────────────
+  //  🔴 «Надо, чтобы сначала она задавала те вопросы, которые есть в самом учебнике
+  //  (снизу про природные условия, сверху „опишите рисунок“), а потом всё остальное».
+  //  Раньше они звучали посреди чтения и микрофон включался там же — выглядело как
+  //  «спросила и не дала ответить». Теперь это отдельный первый шаг закрепления:
+  //  вопрос на экране, подсвечен на странице, ждём голос, есть «пропустить».
+  const own=(PAGEQ.get(page)||[]).filter(q=>!/^Вопросы и задания/i.test(q.say))
+  if(own.length&&$('#cAsk').checked){
+    ctrlStep('own','ВОПРОСЫ УЧЕБНИКА','стр. '+page)
+    await ann(own.length>1
+      ? 'На этой странице учебник сам задаёт вопросы. Ответим сначала на них.'
+      : 'На этой странице учебник задаёт вопрос. Ответим сначала на него.')
+    if(!alive()) return false
+    for(let i=0;i<own.length;i++){
+      const b=own[i], q={say:b.say}
+      ctrlStep('own','ВОПРОСЫ УЧЕБНИКА','вопрос '+(i+1)+' из '+own.length+' · стр. '+page)
+      if(b){ if(sheetOf(b.page)!==sheet) await goPage(b.page); showBeat(b) }
+      ctrlBody('<div class=cq>'+esc(q.say)+'</div>'
+        +'<div class=chint>Это вопрос из учебника. Ответь вслух своими словами.</div>'
+        +'<div class=crow><button class=cbtn data-act=tell>🎙 ответить</button>'
+        +'<button class="cbtn sec" data-act=skip>пропустить</button></div>')
+      w=ctrlWait()
+      await ann(q.say)
+      if(!alive()) return false
+      const a=await w
+      if(a===null) return false
+      if(a.act!=='tell') continue
+      ctrlBody('<div class=cq>Слушаю…</div><div class=chint>Говори — закончишь, просто помолчи.</div>')
+      const heard=await hearOnce()
+      if(!alive()) return false
+      if(heard){
+        $('#subs').insertAdjacentHTML('beforeend','<div class=me style="margin-top:8px">ты: '+esc(heard)+'</div>')
+        $('#subs').scrollTop=1e6
+        ctrlBody('<div class=cq>Услышала</div><div class=rdtext>'+esc(heard)+'</div>'
+          +'<div class=crow><button class=cbtn data-act=go data-cut>дальше</button></div>')
+        w=ctrlWait()
+        await ann('Хорошо, я тебя услышала. Идём дальше.')
+        if(!alive()) return false
+        if(await w===null) return false
+      }
+    }
+  }
+
+  // ── 1. прочитай ВСЛУХ (v2.0) ─────────────────────────────────────────────
+  //  🔴 Правка руководителя: «нужно, чтобы ученик прочитал вслух, а система следила
+  //  за голосом и сделала на экране транскрибацию». В v1.0 здесь была кнопка
+  //  «прочитал» — то есть честное слово ребёнка, и проверялось ровно ничего.
+  ctrlStep('read','ПРОЧИТАЙ ВСЛУХ','стр. '+page)
+  const kb=keyBeat(page); if(kb>=0) showBeat(BEATS[kb])
+  const refText=kb>=0?(BEATS[kb].say||''):''
+  ctrlBody('<div class=cq>Прочитай этот кусок вслух</div>'
+    +'<div class=chint>Он подсвечен на странице. Я слушаю и записываю за тобой — строка под текстом пойдёт за твоим голосом.</div>'
+    +'<div class=crow><button class=cbtn data-act=aloud>🎙 читать вслух</button>'
+    +'<button class="cbtn sec" data-act=read>прочитал про себя</button></div>')
+  w=ctrlWait()
+  await ann('Теперь прочитай этот кусок вслух — он подсвечен на странице. Нажми «читать вслух», я слушаю.')
+  if(!alive()) return false
+  const a1=await w
+  if(a1===null) return false
+  if(a1.act==='aloud'&&refText){
+    const r=await readAloud(refText,()=>CTRL.on&&alive())
+    if(!alive()) return false
+    if(r&&r.words){
+      ctrlBody('<div class=cq>Прочитано '+Math.round(r.prog*100)+'% куска</div>'
+        +'<div class=chint>Вот что я услышала:</div>'
+        +'<div id=rdText class=rdtext>'+esc(r.text)+'</div>'
+        +'<div class=crow><button class=cbtn data-act=go>дальше</button></div>')
+      w=ctrlWait()
+      await ann(r.prog>=.8?'Хорошо прочитал, я всё слышала.'
+        :r.prog>=.4?'Хорошо. Кусок дочитан не весь, но идём дальше.'
+        :'Я расслышала не всё, но давай двигаться дальше.')
+      if(!alive()) return false
+      if(await w===null) return false
+    }
+  }
+
+  // ── 2. расскажи своими словами ───────────────────────────────────────────
+  ctrlStep('tell','РАССКАЖИ СВОИМИ СЛОВАМИ','стр. '+page)
+  ctrlBody('<div class=cq>О чём была эта страница?</div>'
+    +'<div class=chint>Нажми «рассказать» и скажи вслух — своими словами, как понял.</div>'
+    +'<div class=crow><button class=cbtn data-act=tell>🎙 рассказать</button>'
+    +'<button class="cbtn sec" data-act=skip>пропустить</button></div>')
+  w=ctrlWait()
+  await ann('А теперь расскажи своими словами, о чём была эта страница. Нажми «рассказать» и говори — я слушаю.')
+  if(!alive()) return false
+  const a2=await w
+  if(a2===null) return false
+  if(a2.act==='tell'){
+    ctrlBody('<div class=cq>Слушаю…</div><div class=chint>Говори, я запоминаю. Закончишь — просто помолчи.</div>')
+    const heard=await hearOnce()
+    if(!alive()) return false
+    if(heard){
+      $('#subs').insertAdjacentHTML('beforeend','<div class=me style="margin-top:8px">ты: '+heard+'</div>')
+      $('#subs').scrollTop=1e6
+      ctrlStep('told','РАЗБОР ПЕРЕСКАЗА','стр. '+page)
+      ctrlBody('<div class=cq>Смотрю, что ты вспомнил…</div>')
+      const g=await gradeTell(page,heard)
+      if(!alive()) return false
+      if(g){
+        ctrlBody('<div class=cq>Вспомнил '+g.said.size+' из '+g.всего+'</div>'
+          +'<div class=chint>На карточках ниже видно, что назвал, а что забыл.</div>'
+          +'<div class=crow><button class=cbtn data-act=go>дальше — тест</button></div>')
+        w=ctrlWait(); await ann(g.reply||'Хорошо, идём проверять.')
+        if(!alive()) return false
+        if(await w===null) return false
+      }
+    }
+  }
+
+  // ── 3. разберём вопросы вместе, страница ОТКРЫТА (v2.0) ─────────────────
+  //  🔴 Правка руководителя: «перед началом тестирования я бы сначала ещё раз в
+  //  приближённом к тестированию виде показал вопросы тестирования и разбирал их с
+  //  учителем, а только потом переходил непосредственно к тестированию».
+  //  Поэтому вопросы те же и вид тот же, что в тесте, но страница открыта, и на
+  //  каждый Аня показывает, ГДЕ это написано: подсвечивает кусок и зачитывает ровно
+  //  то предложение, в котором ответ. Тест после этого проверяет не сообразительность,
+  //  а память — ровно то, чего просили: «ребёнок должен элементарно запомнить текст».
+  // 🔴 Правка 05.08: на разборе ребёнок БОЛЬШЕ НЕ ОТВЕЧАЕТ. Было так: он выбирал вариант
+  // здесь, а через минуту те же четыре вопроса шли ещё раз при закрытой странице —
+  // «это как-то перебор, непонятно, какой тест лучше». Отвечает он теперь один раз, в
+  // тесте; разбор делает то, о чём и просили: показывает вопросы в тестовом виде и
+  // разбирает их — Аня называет верный вариант и показывает, ГДЕ это написано.
+  ctrlStep('pre','РАЗБЕРЁМ ВОПРОСЫ','стр. '+page)
+  ctrlBody('<div class=cq>Сейчас разберём вопросы вместе</div>'
+    +'<div class=chint>Я покажу каждый вопрос и место в тексте, где ответ. Отвечать будешь потом, при закрытой странице.</div>')
+  await ann('Сейчас разберём вопросы вместе. Я покажу каждый и то место в тексте, где ответ. Отвечать будешь потом, когда я страницу закрою.')
+  if(!alive()) return false
+  // 🔴 «Она всегда говорит одно и то же — хочется вариативности»
+  const LEAD=['Правильный ответ — ','Здесь верно — ','Ответ такой: ','Тут нужно выбрать ']
+  const WHERE=['Вот это место в тексте: ','Смотри, вот здесь про это: ','Написано так: ','Читаю оттуда: ']
+  for(let i=0;i<all.length;i++){
+    const q=all[i]
+    ctrlStep('pre','РАЗБЕРЁМ ВОПРОСЫ','вопрос '+(i+1)+' из '+all.length)
+    // вид тот же, что в тесте (о чём и просили), но кнопки не нажимаются
+    ctrlBody('<div class=cq>'+esc(q.q)+'</div>'
+      +q.options.map((o)=>'<button class=copt disabled>'+esc(o)+'</button>').join('')
+      +'<div class=chint>Читаю вопрос — посмотри варианты.</div>')
+    await ann(q.q)
+    if(!alive()) return false
+    await hold(700)                        // дать глазами пройти по вариантам
+    // показать, ГДЕ это написано, и зачитать ровно то предложение
+    const bi=beatBy(q._re)
+    let src=''
+    if(bi>=0){
+      const b=BEATS[bi]
+      if(sheetOf(b.page)!==sheet) await goPage(b.page)
+      src=(sentences(b.say||'').find(s=>q._re.test(s))||'').trim()
+      // подсвечиваем РОВНО то предложение, которое сейчас прозвучит, а не весь такт
+      showBeat(src?beatPart(b,src):b)
+    }
+    ;[...document.querySelectorAll('#ctrlBody .copt')].forEach((b,k)=>{ if(k===q.ok) b.classList.add('ok') })
+    $('#ctrlBody').insertAdjacentHTML('beforeend',
+      '<div class="cres ok">'+esc(LEAD[i%LEAD.length])+'«'+esc(q.options[q.ok])+'»</div>'
+      +(src?'<div class=csrc>«'+esc(src)+'»</div>':'')
+      +'<div class=crow><button class=cbtn data-act=go data-cut>'+(i<all.length-1?'следующий вопрос':'понятно, к тесту')+'</button></div>')
+    w=ctrlWait()
+    await ann(LEAD[i%LEAD.length]+'«'+q.options[q.ok]+'». '+(src?WHERE[i%WHERE.length]+src:'Запомни это.'))
+    if(!alive()) return false
+    if(await w===null) return false
+  }
+
+  // ── 4. тест (страница закрыта) и 5. повтор того, что не вышло ────────────
+  let pool=all.slice(), round=1
+  while(true){
+    ctrlStep('test','ТЕСТ','стр. '+page)
+    veil(true)
+    if(round===1) await ann('Закрываю страницу. Ответь по памяти.')
+    if(!alive()) return false
+    const wrong=[]
+    for(let i=0;i<pool.length;i++){
+      const q=pool[i]
+      CTRL.round=round; CTRL.left=pool.length-i
+      ctrlStep('test','ТЕСТ','вопрос '+(i+1)+' из '+pool.length+(round>1?' · круг '+round:''))
+      // 🔴 «Выбираю ответ — и всё прыгает, потому что снизу дорисовывается значок»
+      // (05.08). На тесте панель центрирует содержимое, и строка итога, появляясь
+      // после ответа, сдвигала весь вопрос вверх. Место под неё держим заранее.
+      ctrlBody('<div class=cq>'+esc(q.q)+'</div>'
+        +q.options.map((o,k)=>'<button class=copt data-act=ans data-i="'+k+'">'+esc(o)+'</button>').join('')
+        +'<div class="cres hold"></div>')
+      w=ctrlWait()
+      await ann(q.q)
+      if(!alive()) return false
+      const a=await w
+      if(a===null) return false
+      const good=a.i===q.ok
+      const btns=[...document.querySelectorAll('#ctrlBody .copt')]
+      btns.forEach((b,k)=>{ b.disabled=true
+        if(k===q.ok) b.classList.add('ok'); else if(k===a.i) b.classList.add('no') })
+      const slot=$('#ctrlBody').querySelector('.cres.hold')
+      if(slot){ slot.className='cres '+(good?'ok':'no'); slot.textContent=good?'✓ верно':'✗ не так — вернёмся к этому' }
+      else $('#ctrlBody').insertAdjacentHTML('beforeend',
+        '<div class="cres '+(good?'ok':'no')+'">'+(good?'✓ верно':'✗ не так — вернёмся к этому')+'</div>')
+      if(!good){ wrong.push(q); CTRL.wrong++ }
+      // одна и та же фраза на каждый ответ звучит как автоответчик — крутим по кругу
+      const YES=['Верно.','Так и есть.','Правильно.','Да, точно.']
+      const NO=['Не так. Ничего, вернёмся к этому.','Мимо. Не страшно, повторим.',
+        'Нет, но это поправимо — вернёмся.','Не угадал. Разберём ещё раз.']
+      // Ответил верно — даём проскочить дальше, не дослушивая: кнопка глушит реплику.
+      // Ответил неверно — кнопки нет, объяснение и есть смысл этого шага.
+      if(good&&i<pool.length-1){
+        $('#ctrlBody').insertAdjacentHTML('beforeend',
+          '<div class=crow><button class="cbtn sec" data-act=go data-cut>следующий вопрос →</button></div>')
+        ctrlWait()
+      }
+      await ann(good?YES[i%YES.length]:NO[i%NO.length])
+      if(!alive()) return false
+      await hold(good?120:350)
+    }
+    if(!wrong.length){ CTRL.passed=true; break }
+
+    // ── повтор: перечитываем ровно те куски, где ответ ─────────────────────
+    round++
+    veil(false)
+    ctrlStep('again','ПОВТОРИМ','осталось: '+wrong.map(q=>q.term).join(', '))
+    ctrlBody('<div class=cq>Перечитаем то, что не запомнилось</div>'
+      +'<div class=chint>'+esc(wrong.map(q=>q.term).join(' · '))+'</div>'
+      +(round>3?'<div class=crow><button class="cbtn sec" data-act=skip>идём дальше, вернёмся позже</button></div>':''))
+    // после трёх кругов даём выход: застрять на одной странице навсегда ребёнок не должен
+    let bailed=false
+    if(round>3) ctrlWait().then(()=>{ bailed=true })
+    await ann('Ничего страшного. Перечитаю то, что мы упустили, — слушай внимательно.')
+    if(!alive()) return false
+    for(const q of wrong){
+      const bi=beatBy(q._re); if(bi<0) continue
+      const b=BEATS[bi]
+      if(sheetOf(b.page)!==sheet) await goPage(b.page)
+      showBeat(b)
+      await ann(b.say)
+      if(!alive()) return false
+      if(bailed) break
+    }
+    if(bailed){ CTRL.passed=false; break }
+    ctrlDone(null)
+    pool=wrong
+    await ann('А теперь ещё раз те вопросы, которые не получились.')
+    if(!alive()) return false
+  }
+
+  // ── итог ────────────────────────────────────────────────────────────────
+  veil(false)
+  ctrlStep('done','СТРАНИЦА '+(CTRL.passed?'СДАНА':'ОТЛОЖЕНА'),'стр. '+page)
+  ctrlBody('<div class=cq>'+(CTRL.passed
+      ? (round>1?'Сдано со '+(round===2?'второго':round+'-го')+' раза':'Сдано с первого раза')
+      : 'Вернёмся к этой странице позже')+'</div>'
+    +'<div class=chint>Идём дальше по учебнику.</div>')
+  await ann(CTRL.passed
+    ? (round>1?'Вот теперь всё. Идём дальше.':'Отлично, с первого раза. Идём дальше.')
+    : 'Хорошо, вернёмся к этому позже. Идём дальше.')
+  if(!alive()) return false
+  await hold(700)
+  ctrlOff()
+  return true
+}
+const esc=(s)=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+
+// ── метки: подчеркнуть · маркер · прожектор ───────────────────────────────
+// Координаты в marks.json — доли СТРАНИЦЫ. Слой меток лежит на всей книге (страница +
+// панель), поэтому доли страницы занимают её левую половину: x и ширина делятся пополам.
+function clearMarks(){ $('#bookMarks').innerHTML='' }
+// -1 = этой страницы сейчас не видно (открыта другая)
+const onSheet=(page)=>+$('#leftImg').dataset.page===page ? 0 : -1
+const conv=(r)=>({ x:r[0]*50, y:r[1]*100, w:r[2]*50, h:r[3]*100 })
+// kind: 'under' (подчеркнуть) · 'marker' (выделить) · 'spot' (прожектор на картинку)
+function showMark(id,kind){
+  const m=MARKS[id]; if(!m) return
+  const s=onSheet(m.page); if(s<0) return
+  clearMarks()
+  const layer=$('#bookMarks'), rects=m.rects
+  if(kind==='spot'){
+    const c=conv(rects[0]), d=document.createElement('div')
+    d.className='mk spot'
+    d.style.cssText+=`left:${c.x}%;top:${c.y}%;width:${c.w}%;height:${c.h}%`
+    layer.appendChild(d); requestAnimationFrame(()=>d.classList.add('on'))
+    addPointer(layer,c)
+    return
+  }
+  rects.forEach((r,i)=>{
+    const c=conv(r), d=document.createElement('div')
+    if(kind==='marker'){
+      d.className='mk marker'
+      d.style.cssText+=`left:${c.x}%;top:${c.y-.4}%;height:${c.h+.8}%`
+      layer.appendChild(d)
+      setTimeout(()=>d.style.width=c.w+'%', 60+i*130)
+    } else {
+      d.className='mk under'
+      d.style.cssText+=`left:${c.x}%;top:${c.y+c.h+.2}%`
+      layer.appendChild(d)
+      setTimeout(()=>d.style.width=c.w+'%', 60+i*160)
+    }
+  })
+  addPointer(layer,conv(rects[0]))
+}
+function addPointer(layer,c){
+  const p=document.createElement('div'); p.className='pointer'
+  p.style.cssText+=`left:${c.x}%;top:${c.y}%`
+  layer.appendChild(p); requestAnimationFrame(()=>p.classList.add('on'))
+}
+
+// ── иллюстрации: нажать и рассмотреть ─────────────────────────────────────
+// Рамки картинок берём из figures.json (их выдал сам PDF, не рисовали на глаз) и
+// кладём по ним прозрачные кнопки. Кнопку ставим только там, где есть апскейл `hi`:
+// открывать оригинал 421×223 во весь экран незачем — там нечего рассматривать.
+let FIGS=[]
+function clearFigs(){ $('#bookFigs').innerHTML='' }
+function paintFigs(){
+  clearFigs()
+  const layer=$('#bookFigs')
+  for(const f of FIGS){
+    if(!f.hi) continue
+    if(onSheet(f.page)<0) continue
+    const c=conv(f.box), b=document.createElement('button')
+    b.className='fig'; b.dataset.fig=f.id
+    b.title=(f.title||'Иллюстрация')+' — нажми, чтобы рассмотреть'
+    b.setAttribute('aria-label',b.title)
+    b.style.cssText=`left:${c.x}%;top:${c.y}%;width:${c.w}%;height:${c.h}%`
+    b.innerHTML='<span class=lupa><svg viewBox="0 0 24 24" width="15" height="15" fill="none" '
+      +'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+      +'<path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6"></path></svg></span>'
+    b.onclick=()=>openLens(f)
+    layer.appendChild(b)
+  }
+}
+function openLensSrc(src,cap,sub){
+  const L=$('#lens')
+  $('#lensCap').textContent=cap||''
+  $('#lensSub').textContent=sub||''
+  const img=$('#lensImg')
+  img.classList.remove('ready'); img.removeAttribute('src')
+  L.classList.remove('off')
+  requestAnimationFrame(()=>L.classList.add('on'))      // фон и подписи — сразу
+  $('#lensX').focus()
+  const pre=new Image()
+  pre.onload=pre.onerror=()=>{ img.src=src; requestAnimationFrame(()=>img.classList.add('ready')) }
+  pre.src=src
+}
+function openLens(f){
+  openLensSrc('/book/'+f.hi, f.title||'Иллюстрация учебника',
+    `страница ${f.page} · в учебнике ${f.w}×${f.h} · увеличено до ${f.hiW||'?'}×${f.hiH||'?'}`)
+}
+function closeLens(){
+  const L=$('#lens'); if(L.classList.contains('off')) return
+  L.classList.remove('on'); $('#lensImg').classList.remove('ready')   // уезжает вместе с фоном
+  setTimeout(()=>{ L.classList.add('off'); $('#lensImg').removeAttribute('src') },420)
+}
+$('#lensX').onclick=closeLens
+// нажал — открылось, нажал ещё раз — закрылось: закрывает ЛЮБОЙ клик по окну,
+// хоть по картинке, хоть мимо неё
+$('#lens').onclick=closeLens
+addEventListener('keydown',(e)=>{ if(e.key==='Escape') closeLens() })
+// ── подсветка «мы читаем вот это» ─────────────────────────────────────────
+// 🔑 Строка подчёркивается ПО ХОДУ ЧТЕНИЯ: положение ведём от времени звучащего
+// аудио (currentTime/duration), поэтому линия идёт за голосом, а не по таймеру.
+let readEls=null, readLines=null, readW=null
+// 🔴 «Перевернул страницу и обратно — не видно, где читает» (03.08). Перелистывание
+// стирает метки, а рисуются они только на следующем такте. Поэтому помним ТЕКУЩИЙ
+// такт и долю прочитанного и восстанавливаем их сразу после переворота.
+let shownBeat=null, lastProg=0
+function showBeat(b,keepProg){
+  clearMarks(); readEls=null; readLines=null; readW=null
+  shownBeat=b
+  if(!keepProg) lastProg=0
+  panelBeat(b)                        // правая половина живёт от того же такта
+  const s=onSheet(b.page); if(s<0) return
+  const layer=$('#bookMarks')
+  if(b.kind==='own') return
+  if(b.kind==='spot'){
+    const c=conv(b.box), d=document.createElement('div')
+    d.className='mk spot'
+    d.style.cssText+=`left:${c.x}%;top:${c.y}%;width:${c.w}%;height:${c.h}%`
+    layer.appendChild(d); requestAnimationFrame(()=>d.classList.add('on'))
+    addPointer(layer,c)
+    return
+  }
+  // строка знает СВОЮ страницу: кусок текста может перетекать с левой на правую
+  const rects=[], byPage=new Map()
+  for(const l of (b.lines||[])){
+    const pg=l.page||b.page; if(onSheet(pg)<0) continue
+    const c=conv(l.r); rects.push(c)
+    if(!byPage.has(pg)) byPage.set(pg,[]); byPage.get(pg).push(c)
+  }
+  if(!rects.length) return
+  // мягкая полоса — своя на каждой странице, иначе она легла бы поперёк корешка
+  for(const list of byPage.values()){
+    const x0=Math.min(...list.map(r=>r.x)), x1=Math.max(...list.map(r=>r.x+r.w))
+    const y0=Math.min(...list.map(r=>r.y)), y1=Math.max(...list.map(r=>r.y+r.h))
+    const band=document.createElement('div')
+    band.className='mk '+(b.kind==='ask'?'qbox':'band')
+    band.style.cssText+=`left:${x0-.4}%;top:${y0-.5}%;width:0;height:${y1-y0+1}%`
+    layer.appendChild(band)
+    requestAnimationFrame(()=>{ band.style.width=(x1-x0+.8)+'%' })
+  }
+  // 🔴 «Линия переезжает на следующую строку — некрасиво» (03.08). Теперь у КАЖДОЙ
+  // строки своя линия: текущая дочерчивается, прошлые остаются подчёркнутыми.
+  // И сидит она чуть выше — вплотную к тексту, а не отдельной полосой под ним.
+  readEls=rects.map(c=>{ const d=document.createElement('div'); d.className='mk line'
+    d.style.cssText+=`left:${c.x}%;top:${c.y+c.h-.12}%;width:0%`
+    layer.appendChild(d); return d })
+  readLines=rects; readW=b.weights||null
+  applyReadWidths(lastProg)          // вернулись на страницу — линия на своём месте
+  addPointer(layer,rects[0])
+}
+// Доля прочитанного: у 3D-учителя звук лежит в <audio>, у видео-учителя — PCM в
+// WebAudio, где currentTime не спросишь. Поэтому один источник правды на оба пути.
+function voiceProg(){
+  if(teacherMode()==='clips'&&!clipEl.paused&&isFinite(clipEl.duration)&&clipEl.duration>0)
+    return Math.max(0,Math.min(1,clipEl.currentTime/clipEl.duration))
+  if(pcmDur>0) return Math.max(0,Math.min(1,(performance.now()-pcmT0)/(pcmDur*1000)))
+  const d=audio.duration
+  if(!isFinite(d)||d<=0) return -1
+  return Math.max(0,Math.min(1,audio.currentTime/d))
+}
+// ширины линий по доле прочитанного: строка «дольше звучит», если в ней больше знаков
+function applyReadWidths(prog){
+  if(!readEls||!readLines) return
+  const W=readW&&readW.length===readLines.length?readW:readLines.map(()=>1)
+  const total=W.reduce((a,b)=>a+b,0), target=prog*total
+  let acc=0,k=0,frac=1
+  for(k=0;k<readLines.length;k++){
+    if(acc+W[k]>=target||k===readLines.length-1){ frac=Math.max(0,Math.min(1,(target-acc)/W[k])); break }
+    acc+=W[k]
+  }
+  readEls.forEach((el,i)=>{
+    el.style.width = i<k ? readLines[i].w+'%' : i===k ? (readLines[i].w*frac)+'%' : '0%' })
+}
+function readTick(){
+  if(!speaking) return
+  const prog=voiceProg(); if(prog<0) return
+  panelTick(prog)                    // показ и карточки идут за фразой внутри такта
+  if(!readEls||!readLines) return    // такта на видимой странице нет — линии нет
+  lastProg=prog
+  applyReadWidths(prog)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  УЧИТЕЛЬ: 3D-модель + липсинк по громкости (проверенная связка из /krit3)
+// ═══════════════════════════════════════════════════════════════════════════
+const cv=$('#tchCanvas')
+const rnd=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:false})
+rnd.setPixelRatio(Math.min(2,devicePixelRatio)); rnd.outputColorSpace=THREE.SRGBColorSpace
+rnd.toneMapping=THREE.ACESFilmicToneMapping; rnd.toneMappingExposure=1.05
+const tScene=new THREE.Scene()
+// Фон-задник студии: мягкий градиент вместо плоской заливки — лицо от него отделяется.
+;(()=>{ const c=document.createElement('canvas'); c.width=8; c.height=256
+  const g=c.getContext('2d'), grd=g.createLinearGradient(0,0,0,256)
+  grd.addColorStop(0,'#454C60'); grd.addColorStop(.5,'#333A4A'); grd.addColorStop(1,'#232735')
+  g.fillStyle=grd; g.fillRect(0,0,8,256)
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; tScene.background=t })()
+// Портретный объектив: угол уже, камера дальше — меньше искажений лица, чем на 24°.
+const tCam=new THREE.PerspectiveCamera(19,1,.05,20)
+// Три источника, как на съёмке: рисующий тёплый, заполняющий холодный и контровой
+// сзади-сверху — именно он отделяет волосы от фона и даёт «живой» кадр.
+tScene.add(new THREE.HemisphereLight(0xFFF6E8,0x5A6070,1.1))
+;(()=>{ const k=new THREE.DirectionalLight(0xFFF1E0,2.3); k.position.set(.75,1.25,1.5); tScene.add(k)
+  const f=new THREE.DirectionalLight(0xBFD4FF,.6); f.position.set(-1.25,.45,.95); tScene.add(f)
+  const r=new THREE.DirectionalLight(0xFFFFFF,1.7); r.position.set(-.65,1.15,-1.35); tScene.add(r) })()
+const gltfL=new GLTFLoader()
+let av=null, meshes=[], head=null, blinkT=1.8, top=1.7, volMax=.001, speaking=false
+function fit(){ const s=cv.clientWidth||320
+  rnd.setSize(s,s,false); tCam.aspect=1; tCam.updateProjectionMatrix() }
+function aim(){ tCam.position.set(0, top-.14, 1.12); tCam.lookAt(0, top-.19, 0) }
+const MORPH=(n,v,sp)=>{ for(const m of meshes){ const i=m.morphTargetDictionary[n]
+  if(i!==undefined) m.morphTargetInfluences[i]=THREE.MathUtils.lerp(m.morphTargetInfluences[i],v,sp) } }
+function loadTeacher(slug){
+  if(av){ tScene.remove(av); av=null; meshes=[]; head=null }
+  if(slug==='off') return
+  gltfL.load('/'+slug+'.glb',g=>{
+    const o=g.scene; av=o; meshes=[]
+    o.traverse(x=>{ if(x.isMesh||x.isSkinnedMesh){ x.frustumCulled=false
+      if(x.morphTargetDictionary) meshes.push(x) }
+      if(/head/i.test(x.name)&&x.isBone&&!head) head=x })
+    o.updateWorldMatrix(true,true)
+    const box=new THREE.Box3().setFromObject(o), sz=box.getSize(new THREE.Vector3())
+    o.scale.setScalar(1.7/(sz.y||1)); o.updateWorldMatrix(true,true)
+    const b2=new THREE.Box3().setFromObject(o), c2=b2.getCenter(new THREE.Vector3())
+    o.position.set(-c2.x,-b2.min.y,-c2.z); tScene.add(o)
+    top=new THREE.Box3().setFromObject(o).max.y; aim()
+  })
+}
+// ═══════════════════════════════════════════════════════════════════════════
+//  ГОЛОС АНИ
+//  Отобраны женские голоса Яндекса, которые звучат как живой человек, а не диктор.
+//  v3 — новые нейросетевые: приятнее, но отдают только MP3, поэтому видео-учителю
+//  (ему нужен сырой PCM для губ) они не годятся — там подставляем Алёну.
+// ═══════════════════════════════════════════════════════════════════════════
+const VOICES=[
+  {id:'alena-good',    voice:'alena', role:'good',     label:'Алёна · тёплая'},
+  {id:'alena-neutral', voice:'alena', role:'neutral',  label:'Алёна · спокойная'},
+  {id:'jane-good',     voice:'jane',  role:'good',     label:'Джейн · тёплая'},
+  {id:'marina',        voice:'marina',                 label:'Марина'},
+  {id:'omazh',         voice:'omazh', role:'neutral',  label:'Омаж · ниже и мягче'},
+  {id:'masha-friendly',voice:'masha', role:'friendly', v3:true, label:'Маша · дружелюбная ✨'},
+  {id:'julia',         voice:'julia',  v3:true, label:'Юля ✨'},
+  {id:'dasha',         voice:'dasha',  v3:true, label:'Даша ✨'},
+  {id:'lera',          voice:'lera',   v3:true, label:'Лера ✨'},
+]
+const voiceNow=()=>VOICES.find(v=>v.id===(($('#sVoice')||{}).value))||VOICES[0]
+// что уходит в /api/tts. pcm=true — путь видео-учителя: там нужен именно LPCM,
+// а v3 его не отдаёт, поэтому такой голос молча заменяем на Алёну.
+function voiceBody(pcm){
+  const v=voiceNow()
+  if(pcm&&v.v3) return {voice:'alena',role:'good'}
+  return {voice:v.voice, role:v.role, v3:!!v.v3}
+}
+function fillVoices(){
+  const sel=$('#sVoice'); if(!sel) return
+  sel.innerHTML=VOICES.map(v=>'<option value="'+v.id+'">'+v.label+'</option>').join('')
+  let saved=''; try{ saved=localStorage.kn_voice||'' }catch(e){}
+  sel.value=VOICES.some(v=>v.id===saved)?saved:VOICES[0].id
+  sel.onchange=()=>{ try{ localStorage.kn_voice=sel.value }catch(e){} }
+}
+// послушать выбранный голос, не трогая урок
+const demoVoice=new Audio()
+$('#btnVoiceTry').onclick=async()=>{
+  const b=$('#btnVoiceTry'), was=b.textContent
+  b.textContent='синтезирую…'; b.disabled=true
+  try{
+    const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({...voiceBody(false),speed:+$('#sSpeed').value,
+        text:'Привет! Меня зовут Аня, и сегодня мы читаем параграф двадцать — начало греческой цивилизации.'})})
+    if(!r.ok) throw new Error(r.status)
+    demoVoice.src=URL.createObjectURL(await r.blob()); await demoVoice.play()
+  }catch(e){ b.textContent='не вышло: '+e.message; setTimeout(()=>b.textContent=was,2500); b.disabled=false; return }
+  b.textContent=was; b.disabled=false
+}
+
+let analyser=null, wave=null, ctxA=null
+const audio=new Audio(); audio.crossOrigin='anonymous'
+function ensureAnalyser(){
+  ctxA=ctxA||new (window.AudioContext||window.webkitAudioContext)()
+  if(!analyser){ analyser=ctxA.createAnalyser(); analyser.fftSize=1024
+    wave=new Uint8Array(analyser.fftSize)
+    ctxA.createMediaElementSource(audio).connect(analyser); analyser.connect(ctxA.destination) }
+}
+let prevT=performance.now()
+function tick(){
+  requestAnimationFrame(tick)
+  const now=performance.now(), dt=Math.min(.05,(now-prevT)/1000), t=now/1000; prevT=now
+  if(av){
+    // 🔴 «Аня дёргается вверх-вниз» (03.08). Дыхание было СДВИГОМ всей модели по
+    // вертикали (±4 мм). В полный рост это незаметно, но кадр здесь портретный, лицо во
+    // весь экран — 4 мм модели превращаются в ~7 px скачка головы, да ещё и с рывками:
+    // синус берётся от времени кадра, а кадры под WebGL идут неровно. Сдвиг убран
+    // совсем: живость дают поворот, наклон головы, моргание и губы — они вокруг оси,
+    // а не «лифтом», и глаз за них не цепляется.
+    av.position.y=0
+    av.rotation.y=Math.sin(t*.42)*.05
+    if(head) head.rotation.z=Math.sin(t*.63)*.03
+    blinkT-=dt
+    const blink=blinkT<0?(blinkT<-.14?(blinkT=1.6+Math.random()*3,0):1):0
+    MORPH('eyeBlinkLeft',blink,.55); MORPH('eyeBlinkRight',blink,.55)
+    let g=0
+    if(speaking&&analyser){
+      analyser.getByteTimeDomainData(wave)
+      let s=0; for(let i=0;i<wave.length;i++){ const v=(wave[i]-128)/128; s+=v*v }
+      const vol=Math.sqrt(s/wave.length); volMax=Math.max(volMax*.992,vol)
+      g=Math.min(.7,(volMax>.004?vol/volMax:0)*1.1)
+    }
+    const lip=+$('#sLips').value
+    MORPH('jawOpen',g*.30*lip,.4); MORPH('mouthOpen',g*.26*lip,.4); MORPH('viseme_aa',g*.18*lip,.4)
+    MORPH('mouthSmileLeft',.07,.1); MORPH('mouthSmileRight',.07,.1)
+  }
+  readTick()                 // линия под читаемой строкой идёт за голосом
+  rnd.render(tScene,tCam)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ВИДЕО-УЧИТЕЛЬ bitHuman
+//
+//  Тот же контракт, что в 3D-форме и в витрине /showcase: /health · /avatars ·
+//  /stream (MJPEG) · /push (PCM16 16 кГц — по нему у аватара двигаются губы).
+//  Источников два, и переключаются они сами:
+//    · боевой раннер bitHuman (scripts/bithuman-runner.py, запуск START-BITHUMAN.ps1);
+//    · заглушка внутри стенда (/api/bhmock) — если раннера нет, чтобы урок было чем вести.
+//  Звук в обоих случаях синтезирует Яндекс: браузер играет его сам, тот же PCM уходит
+//  раннеру. Раннер отдаёт ТОЛЬКО видео.
+// ═══════════════════════════════════════════════════════════════════════════
+const bhVideo=$('#bhVideo')
+let bhLive=false, bhGuard=null, bhT0=0, bhLast=0, bhFree=false, bhFallback=false
+let bhMs=0, bhFrom=0
+const bhSt=(t,tone)=>{ const e=$('#bhSt'); if(!e) return
+  e.textContent=t; e.style.color=tone==='bad'?'#E0857A':tone==='ok'?'#8FD08A':'var(--dim)' }
+const teacherMode=()=>$('#tchWho').value
+const bhSrcMode=()=>(($('#bhSrc')&&$('#bhSrc').value)||'auto')
+const bhMock=()=>{ const m=bhSrcMode(); return m==='mock'||(m==='auto'&&bhFallback) }
+const bhBase=()=>($('#bhBase').value||'').trim().replace(/\/+$/,'')
+const bhFace=()=>(($('#bhFace')&&$('#bhFace').value)||'')
+function bhUrl(kind){
+  const a=bhFace()?'avatar='+encodeURIComponent(bhFace()):''
+  if(bhMock()) return '/api/bhmock/'+kind+(a?'?'+a:'')
+  return '/api/bithuman-'+kind+'?base='+encodeURIComponent(bhBase())+(a?'&'+a:'')
+}
+function bhPush(b64){
+  const url=bhMock()?'/api/bhmock/push':'/api/bithuman-push'
+  const body=bhMock()?{b64,last:true}:{base:bhBase(),b64,last:true}
+  return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).catch(()=>{})
+}
+async function bhRunnerAlive(){
+  if(!bhBase()) return false
+  try{ const j=await fetch('/api/bithuman-health?base='+encodeURIComponent(bhBase())).then(r=>r.json())
+    return !!j.ok }catch(e){ return false }
+}
+async function fillFaces(){
+  const sel=$('#bhFace'); if(!sel) return
+  const want=sel.value||localStorage.kn_bh_face||''
+  let list=[], why=''
+  try{ const j=await fetch(bhMock()?'/api/bhmock/avatars'
+        :'/api/bithuman-avatars?base='+encodeURIComponent(bhBase())).then(r=>r.json())
+    list=j.avatars||[]; why=j.error||'' }catch(e){ why=e.message }
+  sel.innerHTML=''
+  if(!list.length){ sel.innerHTML='<option value="">— лиц нет'+(why?' ('+why+')':'')+' —</option>'; return }
+  for(const a of list){ const o=document.createElement('option')
+    o.value=a.id; o.textContent=a.name||a.id; sel.appendChild(o) }
+  if(list.some(a=>a.id===want)) sel.value=want
+  try{ localStorage.kn_bh_face=sel.value }catch(e){}
+}
+async function bhStart(){
+  // 🔴 «Мне не нужны картинки моков, нужен реалистичный учитель» (Кратов, 03.08).
+  // Поэтому в боевом режиме заглушка НЕ подставляется молча: нет раннера — возвращаемся
+  // к реалистичной 3D-учительнице (она и так 0 ₽), а рисованные лица остаются только
+  // под явным выбором «для проверки связи».
+  if(bhSrcMode()==='auto'){
+    bhSt('ищу боевой раннер bitHuman…')
+    if(!(await bhRunnerAlive())){
+      bhFallback=false
+      $('#tchWho').value='av-avaturn'
+      $('#bhBox').style.display='none'
+      loadTeacher('av-avaturn'); $('#tchBadge').textContent='3D · 0 ₽/мин'
+      $('#runSt').textContent='раннер bitHuman не поднят (нужен ключ bh_ и .imx) — веду 3D-учительницей'
+      bhSt('раннера нет — вернулась к 3D-учительнице','bad')
+      return
+    }
+    bhFallback=false
+  } else bhFallback=(bhSrcMode()==='mock')
+  await fillFaces(); await bhConnect()
+}
+async function bhConnect(){
+  if(!bhMock()&&!bhBase()) return bhSt('впиши адрес раннера','bad')
+  bhSt('проверяю источник…')
+  try{
+    const h=await fetch(bhUrl('health')).then(r=>r.json())
+    if(!h.ok) return bhSt('источник не отвечает: '+(h.error||'нет /health'),'bad')
+    bhVideo.onload=()=>{ if(bhLive) return
+      bhLive=true; bhFree=!!h.mock; bhFrom=h.mock?0:Date.now()
+      bhVideo.style.display=''; $('#tchCanvas').style.display='none'
+      $('#tchBadge').textContent=h.mock?'ВИДЕО · заглушка':'ВИДЕО · bitHuman'
+      bhSt(h.mock?'в кадре ЗАГЛУШКА — боевого раннера нет':'в кадре · настоящий bitHuman',h.mock?'bad':'ok')
+      bhMeterOn(!!h.mock); paintCost() }
+    bhVideo.onerror=()=>{ if(!bhLive) bhSt('поток не открылся','bad') }
+    const u=bhUrl('stream')
+    bhVideo.src=u+(u.includes('?')?'&':'?')+'t='+Date.now()
+  }catch(e){ bhSt('ошибка: '+e.message,'bad') }
+}
+function bhStop(why){
+  if(bhLive&&bhFrom){ bhMs+=Date.now()-bhFrom; bhFrom=0; paintCost() }
+  bhLive=false
+  bhVideo.onload=null; bhVideo.onerror=null
+  try{ bhVideo.removeAttribute('src') }catch(e){}
+  bhVideo.style.display='none'; $('#tchCanvas').style.display=''
+  clearInterval(bhGuard); bhGuard=null
+  removeEventListener('pagehide',bhGone); removeEventListener('beforeunload',bhGone)
+  bhSt('отключён'+(why?' · '+why:''))
+}
+const bhGone=()=>bhStop('вкладка закрыта')
+// Кайл-свитч: пять минут без речи — гасим поток. Боевой раннер биллит, пока считает
+// кадры, и забытая вкладка не должна капать деньгами.
+function bhMeterOn(mock){
+  bhT0=Date.now(); bhLast=Date.now()
+  bhGuard=setInterval(()=>{
+    if(bhFrom) paintCost()
+    const idle=300-(((Date.now()-bhLast)/1000)|0)
+    if(idle<=0) return bhStop('простой 5 мин')
+    if(speaking) return
+    const sec=((Date.now()-bhT0)/1000)|0
+    bhSt('в кадре · '+String(sec/60|0).padStart(2,'0')+':'+String(sec%60).padStart(2,'0')
+      +(mock?' · ЗАГЛУШКА':'')+' · автостоп через '+idle+' с', mock?'bad':'ok')
+  },1000)
+  addEventListener('pagehide',bhGone); addEventListener('beforeunload',bhGone)
+}
+// PCM16 16 кГц → WebAudio. Возвращает длительность: раннер отдаёт только видео,
+// звук играет страница, и по этой же длительности идёт подсветка строки.
+let pcmSrc=null, pcmT0=0, pcmDur=0
+function playPcm16(b64){
+  const bin=atob(b64), n=bin.length, u8=new Uint8Array(n)
+  for(let i=0;i<n;i++) u8[i]=bin.charCodeAt(i)
+  const pcm=new Int16Array(u8.buffer), f32=new Float32Array(pcm.length)
+  for(let i=0;i<pcm.length;i++) f32[i]=pcm[i]/32768
+  ensureAnalyser()
+  const buf=ctxA.createBuffer(1,f32.length,16000); buf.getChannelData(0).set(f32)
+  const src=ctxA.createBufferSource(); src.buffer=buf; src.connect(ctxA.destination); src.start()
+  pcmSrc=src; pcmDur=f32.length/16000; pcmT0=performance.now()
+  return pcmDur
+}
+$('#bhSrc').onchange=()=>{ if(teacherMode()==='bh'){ bhStop('сменили источник'); bhStart() } }
+$('#bhFace').onchange=()=>{ try{ localStorage.kn_bh_face=bhFace() }catch(e){}
+  if(teacherMode()==='bh'){ bhStop('меняем лицо'); bhConnect() } }
+$('#bhGo').onclick=()=>{ if(teacherMode()==='bh'){ bhStop('переподключаемся'); bhStart() } }
+$('#bhBase').onchange=()=>{ if(teacherMode()==='bh'&&bhSrcMode()!=='mock'){ bhStop('сменили адрес'); bhStart() } }
+function applyTeacher(){
+  const m=teacherMode()
+  $('#bhBox').style.display = m==='bh' ? '' : 'none'
+  clipEl.style.display = m==='clips' ? '' : 'none'
+  if(m==='clips'){
+    if(bhLive) bhStop('сменили учителя')
+    loadTeacher('off')
+    $('#tchBadge').textContent='ЗАПИСЬ · 0 ₽'
+    $('#runSt').textContent = CLIPS&&Object.keys(CLIPS).length
+      ? 'записанный урок: '+Object.keys(CLIPS).length+' роликов'
+      : 'роликов нет — прогони scripts/make-teacher-clips.mjs'
+    return
+  }
+  if(m!=='bh'){
+    if(bhLive) bhStop('сменили учителя')
+    $('#tchBadge').textContent = m==='off' ? 'без аватара' : '3D · 0 ₽/мин'
+    loadTeacher(m)
+  } else { loadTeacher('off'); bhSt('поднимаю видео…'); bhStart() }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ЗАПИСАННЫЙ УЧИТЕЛЬ: готовые ролики вместо синтеза на лету
+//
+//  Урок читает учебник ФИКСИРОВАННЫМ текстом, поэтому видео говорящей головы
+//  рендерится заранее (scripts/make-teacher-clips.mjs) — по ролику на такт, звук внутри.
+//  Тогда на уроке не тратится ни синтез, ни видео-аватар: 0 ₽ за прогон, сколько бы
+//  детей ни занималось. Живой аватар остаётся нужен только на ответы ребёнка.
+// ═══════════════════════════════════════════════════════════════════════════
+const clipEl=$('#clipVideo')
+// ⚠️ Ролик ищем по ХЕШУ ТЕКСТА, а не по номеру такта: вставили в урок одну реплику —
+// нумерация сползла, а хеш у остальных прежний, и переснимать ничего не надо.
+let CLIPS=null                       // {хеш текста → файл}
+const hashText=(t)=>{ let h=5381
+  for(const ch of String(t)) h=((h*33)^ch.codePointAt(0))>>>0
+  return h.toString(16).padStart(8,'0') }
+async function loadClips(){
+  try{ const j=await fetch('/clips/index.json').then(r=>r.json())
+    CLIPS={}; for(const b of (j.beats||[])) CLIPS[b.h||b.n]=b.file
+    return Object.keys(CLIPS).length }catch(e){ CLIPS=null; return 0 }
+}
+const clipFor=(n)=>{ const b=BEATS[n-1]; if(!b||!CLIPS) return null
+  const f=CLIPS[hashText(b.say)]; return f?('/clips/'+f):null }
+// Проиграть ролик такта. Возвращает false, если ролика нет — тогда урок озвучивает
+// такт синтезом, как раньше (например, ответ на вопрос ребёнка записать нельзя).
+async function playClip(n){
+  const src=clipFor(n); if(!src) return false
+  clipEl.src=src; clipEl.style.display=''; $('#tchCanvas').style.display='none'
+  try{ await clipEl.play() }catch(e){ return false }
+  speaking=true
+  await new Promise(res=>{ waitRes=res
+    const done=()=>{ clearInterval(iv); if(waitRes===res){ waitRes=null; waitCancel=null } res() }
+    clipEl.onended=done; clipEl.onerror=done
+    const iv=setInterval(()=>{ if(clipEl.ended||clipEl.error) done() },200)
+    waitCancel=()=>{ clearInterval(iv); try{ clipEl.pause() }catch(e){} } })
+  speaking=false
+  return true
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ГОЛОС: Яндекс TTS построчно (тот же путь, что в прошлой форме урока)
+// ═══════════════════════════════════════════════════════════════════════════
+const COST={chars:0,calls:0,sttSec:0,llm:0}
+function paintCost(){
+  // ⚠️ Минуты видео считаем ТОЛЬКО у боевого раннера: заглушка бесплатна, и приписывать
+  // ей 1.7 ₽/мин — врать самим себе (bhFrom у заглушки не заводится).
+  const bhMin=(bhMs+(bhFrom?Date.now()-bhFrom:0))/60000
+  const rub=COST.chars/1000*0.40 + COST.sttSec/60*0.9 + COST.llm*0.02 + bhMin*1.7
+  $('#cost').textContent='урок стоит '+rub.toFixed(2)+' ₽ · '+COST.chars+' симв'
+    +(bhMin>0.01?' · видео '+bhMin.toFixed(1)+' мин':'')
+}
+let gen=0, waitRes=null, waitCancel=null
+function say(text){ $('#subsText').textContent=text }
+function cutVoice(){
+  try{ audio.pause() }catch(e){}
+  try{ clipEl.pause() }catch(e){}
+  try{ if(pcmSrc) pcmSrc.stop() }catch(e){}
+  pcmSrc=null; pcmDur=0
+  speaking=false
+  if(waitCancel) try{ waitCancel() }catch(e){}
+  if(waitRes){ const r=waitRes; waitRes=null; waitCancel=null; r() }
+}
+// Пауза, в отличие от «остановить», НЕ рвёт ожидание реплики: звук встаёт на месте и
+// с него же продолжает. Единственное исключение — видео-учитель: у него звук идёт
+// потоком в WebAudio, поставить его на паузу нечем, там остаётся прежний обрыв.
+function pauseVoice(){
+  if(pcmSrc){ cutVoice(); return }
+  try{ audio.pause() }catch(e){}
+  try{ clipEl.pause() }catch(e){}
+  speaking=false
+}
+function resumeVoice(){
+  if(!running) return
+  try{ if(teacherMode()==='clips'&&clipEl.src&&!clipEl.ended) clipEl.play().catch(()=>{}) }catch(e){}
+  try{ if(audio.src&&!audio.ended&&audio.currentTime>0) audio.play().then(()=>{speaking=true}).catch(()=>{}) }catch(e){}
+}
+async function speak(text,myGen){
+  if(myGen==null) myGen=gen
+  say(text)
+  if(!$('#cVoice').checked){ await hold(900); return true }
+  try{
+    // ВИДЕО-УЧИТЕЛЬ: тот же синтез, но в PCM. Копия уходит раннеру (он двигает губы),
+    // играем звук сами — раннер отдаёт только картинку.
+    if(bhLive){
+      const j=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({...voiceBody(true),pcm:true,speed:+$('#sSpeed').value,text})}).then(r=>r.json())
+      if(j.error||!j.b64){ $('#runSt').textContent='синтез: '+(j.error||'нет аудио'); return false }
+      if(myGen!==gen) return true
+      COST.chars+=text.length; COST.calls++; paintCost()
+      bhPush(j.b64)
+      const dur=playPcm16(j.b64); bhLast=Date.now(); speaking=true
+      await new Promise(res=>{ waitRes=res
+        const t=setTimeout(()=>{ if(waitRes===res){ waitRes=null; waitCancel=null } res() }, dur*1000+250)
+        waitCancel=()=>clearTimeout(t) })
+      speaking=false; pcmDur=0
+      return true
+    }
+    const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({...voiceBody(false),speed:+$('#sSpeed').value,text})})
+    if(!r.ok){ $('#runSt').textContent='синтез не ответил: '+r.status; return false }
+    if(myGen!==gen) return true
+    COST.chars+=text.length; COST.calls++; paintCost()
+    const url=URL.createObjectURL(await r.blob())
+    ensureAnalyser(); if(ctxA.state==='suspended') await ctxA.resume().catch(()=>{})
+    audio.src=url; volMax=.001
+    await audio.play()
+    speaking=true
+    // ⚠️ Сторож: короткая реплика может доиграть РАНЬШЕ подписки на `ended` —
+    // событие потеряется и шаг повиснет навсегда (грабля из прошлой формы урока).
+    await new Promise(res=>{
+      waitRes=res
+      let iv=0
+      const done=()=>{ clearInterval(iv); if(waitRes===res){ waitRes=null; waitCancel=null } res() }
+      audio.onended=done; audio.onerror=done
+      // ⚠️ Сторож обязан молчать на паузе: `audio.paused && currentTime>0` — это ровно
+      // то состояние, в которое ставит пауза, и сторож засчитывал реплику дочитанной.
+      iv=setInterval(()=>{ if(paused) return
+        if(audio.ended||audio.error||(audio.paused&&audio.currentTime>0)) done() },200)
+      waitCancel=()=>clearInterval(iv)
+    })
+    speaking=false
+    URL.revokeObjectURL(url)
+    return true
+  }catch(e){ speaking=false
+    // Пауза и «остановить» рвут play() специально — это не поломка. Раньше ребёнку на
+    // каждое нажатие ⏸ выскакивало красное «ошибка синтеза: The play() request was
+    // interrupted by a call to pause()».
+    if(myGen!==gen||/interrupted by a call to pause|aborted/i.test(e.message||'')) return false
+    $('#runSt').textContent='ошибка синтеза: '+e.message; return false }
+}
+async function hold(ms){ let left=ms
+  while(left>0){ await new Promise(r=>setTimeout(r,100)); if(!paused) left-=100 } }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  СЦЕНАРИЙ УРОКА = САМ УЧЕБНИК
+//
+//  🔴 Задача-минимум (Кратов, 03.08): «пусть читает урок буквально как в учебнике
+//  написано, слово в слово, и параллельно подчёркивает-выделяет, а иногда задаёт
+//  вопросы». Поэтому реплики БОЛЬШЕ НЕ ПИШУТСЯ РУКАМИ: такты собираются из абзацев
+//  самого параграфа (blocks.json — текст + координаты каждой строки, взятые из
+//  текстового слоя PDF). Что читается — то и подсвечивается, строка в строку.
+//
+//  Абзац режется на куски по 4–7 строк с концом предложения: короткий кусок звучит
+//  живее, синтез отвечает быстрее, а подсветка не убегает от голоса.
+//  Вопросы учебника (их там пять) становятся тактами ask:true — учитель читает
+//  вопрос и включает микрофон.
+// ═══════════════════════════════════════════════════════════════════════════
+let BEATS=[]
+// Служебное со страницы читать не надо: колонтитул, номер страницы, значок «§ 20»,
+// хвост с адресом портала. Всё это на странице ВИДНО, но вслух звучит как мусор.
+const SKIP_RE=/^(\d{1,3}\s*)?(ГЛАВА|§\s*20\.)/i
+const isService=(t)=>!t || SKIP_RE.test(t) || /^[\d\s§?ÀS•]+$/.test(t)
+  || /^Дополнительные\s+МАТЕРИАЛЫ/i.test(t) || /УЧИТЕЛЮ И УЧЕНИКУ/i.test(t)
+// Номер параграфа стоит отдельной плашкой, в заголовок он не попадает
+const PARA=20
+// 🔴 Прогон 03.08: «она задала главный вопрос параграфа и молчит, а мы его ещё не
+// проходили». И правда: в учебнике вопрос на шмуцтитуле СТАВИТ ЗАДАЧУ на урок, ответ
+// на него собирается по ходу и формулируется в конце. Поэтому вопросы делятся надвое:
+//   · РАМОЧНЫЙ — читаем и идём дальше («держи в голове, ответим в конце»);
+//   · ПРОВЕРОЧНЫЙ (после пункта, «Вопросы и задания», к источнику) — тут замолкаем и слушаем.
+// ⚠️ Перед распознаванием снимаем служебные глифы полей («ÀÀ», «S S», «•», «?»):
+// из-за них задание «Используя рисунок, опишите…» считалось обычным текстом, и урок
+// его просто зачитывал, ничего не спросив.
+const bare=(t)=>String(t).replace(/^(?:ÀÀ|S\s+S|[?•])\s*/,'').trim()
+const isQuestion=(t0)=>{ const t=bare(t0); return /^(ÀÀ\s*)?(\d\.\s|Какие природные условия|Сформулируйте ответ|Прочитайте текст|Вопросы и задания|Используя рисунок)/i.test(t)
+                    || /\?\s*$/.test(t.trim()) }
+// «Прочитайте текст и ответьте на вопросы» — это инструкция перед источником, сами
+// вопросы идут следующим блоком. Ждать ответа здесь не на что.
+const isInstruction=(t)=>/^Прочитайте текст/i.test(bare(t))
+// Подписи под картинками — по ним наводим прожектор на саму картинку.
+const isCaption=(t)=>/(Реконструкция|Львиные ворота в Микенах|Золотая маска царя)/.test(bare(t))
+
+// Текст учебника → текст для синтеза. Правим ровно то, что мешает ГОЛОСУ, и ничего
+// больше: слова остаются авторские.
+function forSpeech(s){
+  return s
+    .replace(/­/g,'')                       // мягкие переносы
+    .replace(/́/g,'')                       // знаки ударения: «Фесса́лия» → «Фессалия»
+    .replace(/([а-яё])-\s+([а-яё])/gi,'$1$2')    // перенос по слогам: «гор- ная» → «горная»
+    .replace(/[IVXLC]+(?:—[IVXLC]+)?\s*\(([^)]+)\)/g,'$1')  // «III (3-м)» → «3-м»
+    .replace(/\bн\.\s*э\./g,'нашей эры')
+    .replace(/^ÀÀ\s*/,'').replace(/^S\s+S\s+/,'').replace(/^[?•]\s*/,'')
+    .replace(/^(\d)[\s	]{2,}/,'')          // «1   Природа и жизнь» — номер пункта вслух не нужен
+    .replace(/^§\s*(\d+)?\s*/,(m,d)=>'Параграф '+(d||PARA)+'. ')   // «§ Начало…» → «Параграф 20. Начало…»
+    .replace(/§\s*(\d+)/g,'параграф $1')
+    .replace(/^[•\s]*(.+•.+)$/,(m,t)=>'Новые слова: '+t.replace(/•/g,',').replace(/^,\s*/,''))
+    .replace(/[  ]+/g,' ').replace(/\s{2,}/g,' ')
+    .trim()
+}
+// 🔴 Прогон 03.08: «не в попад рассказывает, много пропускает». Причина была не в
+// голосе: абзац резался ПО ЧИСЛУ СТРОК, поэтому такт начинался с середины слова
+// («…для строительст» / «ва кораблей») и с середины фразы. Теперь режем по
+// ПРЕДЛОЖЕНИЯМ, а переносы по слогам склеиваем ДО нарезки.
+//
+// Строки абзаца → сплошной текст + карта «какой кусок текста лежит на какой строке».
+// Карта нужна дважды: чтобы подсветить ровно те строки, что сейчас звучат, и чтобы
+// линия шла по ним пропорционально числу знаков, а не «поровну на строку».
+function joinLines(lines){
+  let text=''; const map=[]
+  for(let i=0;i<lines.length;i++){
+    let t=lines[i].t.replace(/­/g,'').trim()
+    const nxt=((lines[i+1]||{}).t||'').trim()
+    const hyph=/[-‐]$/.test(t)&&/^[а-яё]/.test(nxt)
+    if(hyph) t=t.replace(/[-‐]$/,'')
+    const start=text.length
+    text+=t
+    map.push({start,end:text.length})
+    if(i<lines.length-1) text+=hyph?'':' '
+  }
+  return {text,map}
+}
+// Конец предложения ищем по точке, но НЕ на сокращениях и инициалах:
+// «до н. э.», «А. П. Чехова», «XV (15) в.» — не повод обрывать фразу.
+const ABBR=/(?:н\.\s*э|т\.\s*д|т\.\s*п|см|рис|гг?|вв?|[А-ЯЁ])\.$/
+function sentences(t){
+  const parts=t.split(/(?<=[.!?…»])\s+/), out=[]
+  let cur=''
+  for(const part of parts){
+    cur=cur?cur+' '+part:part
+    if(ABBR.test(cur)) continue
+    out.push(cur); cur=''
+  }
+  if(cur.trim()) out.push(cur.trim())
+  return out
+}
+// Абзац → такты по предложениям, не длиннее ~380 знаков (столько синтез отдаёт быстро)
+// Обрезка строки по куску текста [a,b): доля знаков строки → доля её ширины.
+// Вынесена наружу, потому что нужна дважды: при нарезке тактов и потом, когда надо
+// подсветить ОДНО предложение внутри уже собранного такта.
+function clipLine(L,m,a,b){
+  const len=Math.max(1,m.end-m.start)
+  const from=Math.max(0,(a-m.start)/len), to=Math.min(1,(b-m.start)/len)
+  const [x,y,w,h]=L.r
+  return { ...L, r:[x+w*from, y, Math.max(w*0.02,w*(to-from)), h] }
+}
+// Такт, обрезанный до одного предложения: подсветка совпадает с тем, что звучит.
+function beatPart(b,sentence){
+  if(!b||!b.parts||!b._lines) return b
+  const s=String(sentence||'').trim()
+  const p=b.parts.find(x=>x.s.trim()===s)||b.parts.find(x=>x.s.includes(s)||s.includes(x.s.trim()))
+  if(!p) return b
+  const idx=[]
+  for(let i=0;i<b._map.length;i++) if(b._map[i].end>p.a&&b._map[i].start<p.b) idx.push(i)
+  if(!idx.length) return b
+  return { ...b,
+    lines:idx.map(i=>clipLine(b._lines[i],b._map[i],p.a,p.b)),
+    weights:idx.map(i=>Math.max(1,Math.min(b._map[i].end,p.b)-Math.max(b._map[i].start,p.a))) }
+}
+function chunkBlock(lines,maxChars){
+  maxChars=maxChars||380
+  const {text,map}=joinLines(lines)
+  const sp=[]; let pos=0
+  for(const s of sentences(text)){
+    const at=text.indexOf(s,pos), a=at<0?pos:at, b=a+s.length
+    sp.push({s,a,b}); pos=b
+  }
+  const out=[]; let cur=[]
+  // 🔴 «Кусок кончается почти в конце строки, а в следующем надо прочесть одно слово —
+  // и линия летит на всю строку» (03.08). Значит крайние строки надо ОБРЕЗАТЬ по той
+  // части, которая реально звучит: доля знаков от строки → доля её ширины.
+  const clip=(i,a,b)=>clipLine(lines[i],map[i],a,b)
+  const flush=()=>{
+    if(!cur.length) return
+    const a=cur[0].a, b=cur[cur.length-1].b, idx=[]
+    for(let i=0;i<map.length;i++) if(map[i].end>a&&map[i].start<b) idx.push(i)
+    out.push({ say:cur.map(x=>x.s).join(' '), lines:idx.map(i=>clip(i,a,b)),
+               weights:idx.map(i=>Math.max(1,Math.min(map[i].end,b)-Math.max(map[i].start,a))),
+               // 🔴 «Когда она объясняет вопросы, выделяет больший кусок, чем озвучивает»
+               // (06.08). На разборе Аня читает ОДНО предложение, а подсвечивался весь
+               // такт. Сохраняем разметку предложений и строки блока, чтобы потом
+               // обрезать подсветку ровно по тому предложению, которое звучит.
+               parts:cur.map(x=>({s:x.s,a:x.a,b:x.b})), _lines:lines, _map:map })
+    cur=[]
+  }
+  for(const s of sp){
+    const len=cur.reduce((n,x)=>n+x.s.length+1,0)
+    if(len&&len+s.s.length>maxChars) flush()
+    cur.push(s)
+  }
+  flush()
+  return out
+}
+// Порядок чтения: сначала СПЛОШНОЙ ТЕКСТ страницы, потом врезки и подписи.
+// Иначе на 124-й учитель начинала со врезки про маску Агамемнона, перебивая рассказ,
+// который тянется с прошлой страницы. Короткий заголовок прилипает к блоку под ним,
+// чтобы «ПОДВЕДЁМ ИТОГИ» не уехало в конец без своего текста.
+function orderBlocks(all){
+  const res=[]
+  for(const pg of [...new Set(all.map(b=>b.page))].sort((a,b)=>a-b)){
+    const bs=all.filter(b=>b.page===pg&&!b.image&&!b.skip&&!isService(b.text.trim()))
+    const grp=bs.map((b,i)=>{
+      const short=b.lines.length<=1&&b.text.trim().length<60, nxt=bs[i+1]
+      if(short&&nxt&&nxt.box[1]-(b.box[1]+b.box[3])<.05) return isMainBox(nxt)?'m':'i'
+      return isMainBox(b)?'m':'i'
+    })
+    const byY=(a,b)=>a.box[1]-b.box[1]
+    const main=bs.filter((_,i)=>grp[i]==='m').sort(byY)
+    const ins=bs.filter((_,i)=>grp[i]==='i').sort(byY)
+    ins.forEach(b=>{ b._ins=true })
+    res.push(...main,...ins)
+  }
+  return res
+}
+// Картинка, к которой относится подпись: та, что прямо над ней и той же ширины
+function imageFor(cap,blocks){
+  const cands=blocks.filter(b=>b.image&&b.page===cap.page&&b.box[3]>.08&&b.box[2]<.95)
+    .filter(b=>b.box[1]+b.box[3]<=cap.box[1]+.02)
+    .filter(b=>Math.abs((b.box[0]+b.box[2]/2)-(cap.box[0]+cap.box[2]/2))<.25)
+  cands.sort((a,b)=>(cap.box[1]-(a.box[1]+a.box[3]))-(cap.box[1]-(b.box[1]+b.box[3])))
+  return cands[0]||null
+}
+// Абзац, который НАЧИНАЕТСЯ со строчной буквы, — это хвост фразы из прошлой колонки
+// («…для строительст|ва кораблей», «…во дворец в виде|налогов»). Склеиваем его с
+// предыдущим блоком ТОЙ ЖЕ страницы: тогда фраза звучит целиком, а подсветка честно
+// перескакивает из конца одной колонки в начало другой.
+// Через страницу не склеиваем: страница на экране одна, и такая склейка означала бы,
+// что половину читаемого не видно. Там фраза и правда разрывается переворотом —
+// ровно так же, как когда читаешь вслух сам.
+const isMainBox=(b)=>b.box[2]>=.62&&b.box[0]<=.17
+function mergeTails(list){
+  const out=[]
+  for(const b of list){
+    const lower=/^[а-яё]/.test(b.text.trim())
+    // ⚠️ Искать надо не «предыдущий блок», а последнюю НЕЗАКОНЧЕННУЮ фразу основной
+    // колонки: между хвостом и его началом в документе стоит подпись под картинкой.
+    let host=null, cross=false
+    if(lower&&isMainBox(b)&&!isCaption(b.text)&&!isQuestion(b.text)){
+      for(let i=out.length-1;i>=0;i--){
+        const c=out[i]
+        if(!isMainBox(c)) continue
+        if(!/[.!?»:]\s*$/.test(c.text.trim())){ host=c; cross=c.page!==b.page }
+        break
+      }
+    }
+    if(host&&!cross){
+      host.text=host.text.trim()+' '+b.text.trim()
+      host.lines=host.lines.concat(b.lines.map(l=>({...l,page:b.page})))
+      continue
+    }
+    const rec={...b, lines:b.lines.map(l=>({...l,page:b.page}))}
+    // 🔑 Переворот может разорвать СЛОВО: на 124-й строка кончается «учёные называ-»,
+    // а 125-я начинается с «ют землетрясения». Склеить блоки нельзя — половина текста
+    // осталась бы на невидимой странице. Поэтому отдаём разорванное слово целиком
+    // следующей странице: она скажет «называют», а прошлая — «Среди причин учёные».
+    if(host&&cross&&rec.lines.length){
+      const hl=host.lines[host.lines.length-1]
+      const m=hl&&String(hl.t).match(/(\S+)[-‐]\s*$/)
+      if(m){
+        hl.t=String(hl.t).replace(/\s*\S+[-‐]\s*$/,'')
+        host.text=host.text.replace(/\s*\S+[-‐]\s*$/,'')
+        rec.lines[0]={...rec.lines[0], t:m[1]+String(rec.lines[0].t).replace(/^\s+/,'')}
+      }
+    }
+    out.push(rec)
+  }
+  return out
+}
+// Главный вопрос параграфа стоит рядом со значком «?» на поле — по этому соседству мы
+// его и узнаём, а не по тексту: так правило переживёт любой другой параграф.
+function framingSet(blocks){
+  const out=new Set()
+  const marks=blocks.filter(b=>!b.image&&b.text.trim()==='?')
+  for(const m of marks){
+    for(const b of blocks){
+      if(b.image||b===m||b.page!==m.page) continue
+      const sameRow=Math.abs(b.box[1]-m.box[1])<.04, right=b.box[0]>m.box[0]
+      if(sameRow&&right&&b.text.trim().length>20) out.add(b.text.trim())
+    }
+  }
+  return out
+}
+function buildBeats(blocks){
+  const B=[]
+  const HELLO='Привет! Меня зовут Аня. Сегодня мы читаем параграф двадцать, «Начало греческой цивилизации», прямо по учебнику. Я буду читать и показывать, где мы находимся. Если что-то непонятно — нажми «Говорить» и спроси, я слушаю.'
+  B.push({page:120,kind:'own',say:HELLO})
+  let lastPage=120, nAsk=0
+  // ⚠️ Порядок операций важен: СНАЧАЛА склеиваем хвосты фраз по порядку самого
+  // документа (иначе между хвостом и его фразой уже вклинится подпись под картинкой),
+  // и только потом переставляем блоки в порядок чтения.
+  const FRAMING=framingSet(blocks)
+  const insSaid=new Set()
+  const clean=blocks.filter(b=>!b.image&&!b.skip&&!isService(b.text.trim()))
+  for(const b of orderBlocks(mergeTails(clean))){
+    const raw=b.text.trim()
+    if(b.page!==lastPage){
+      // Страница на экране одна, поэтому любая смена страницы — это переворот. Реплики
+      // «посмотри на правую страницу» больше нет: справа теперь панель, а не учебник.
+      B.push({page:b.page,kind:'own',say:'Переворачиваем страницу.'})
+      lastPage=b.page
+    }
+    const say=forSpeech(raw)
+    if(!say) continue
+    // 🔴 «Абзац „Природа Греции“ почему-то не прочитала… прочитала в самом конце».
+    // Врезки и правда идут после сплошного текста страницы — теперь переход к ним
+    // объявляется вслух, и ребёнок понимает, куда смотреть.
+    if(b._ins&&!insSaid.has(b.page)){ insSaid.add(b.page)
+      B.push({page:b.page,kind:'own',say:'А теперь посмотри на рамку на полях этой страницы — прочитаем её.'}) }
+    if(isCaption(raw)){
+      const img=imageFor(b,blocks)
+      B.push({page:b.page,kind:'spot',box:img?img.box:b.box,lines:b.lines,say})
+      continue
+    }
+    if(isQuestion(raw)){
+      const framing=FRAMING.has(raw)
+      // 🔴 «Пусть не выпаливает вопрос, а объявляет его» (03.08). Перед проверочным
+      // вопросом — короткая подводка, чтобы ребёнок успел переключиться на ответ.
+      if(!framing&&!isInstruction(raw)){
+        const lead=['А теперь вопрос. Подумай и ответь вслух.',
+                    'Проверим, как ты понял. Слушай вопрос.',
+                    'Теперь твоя очередь. Вопрос такой.',
+                    'Остановимся и подумаем вместе. Вопрос.']
+        B.push({page:b.page,kind:'own',say:lead[nAsk++%lead.length]})
+      }
+      // рамочный вопрос: читаем, подсвечиваем и сразу объясняем, что ответ будет в конце
+      B.push({page:b.page,kind:'ask',lines:b.lines,box:b.box,say,
+              ask:!framing&&!isInstruction(raw)})
+      if(framing) B.push({page:b.page,kind:'own',
+        say:'Это главный вопрос параграфа. Отвечать сейчас не надо — держи его в голове, мы вернёмся к нему в самом конце.'})
+      continue
+    }
+    for(const c of chunkBlock(b.lines)){
+      const t=forSpeech(c.say)
+      if(t) B.push({page:(c.lines[0]&&c.lines[0].page)||b.page,kind:'read',
+                    lines:c.lines,weights:c.weights,box:b.box,say:t})
+    }
+  }
+  B.push({page:125,kind:'own',ask:true,
+    say:'Параграф прочитан. Теперь ответь на главный вопрос: что объединяло государства, сложившиеся на Крите и в Микенах? Скажи своими словами — я слушаю.'})
+  return B
+}
+
+// ── старый рукописный сценарий: оставлен для сравнения, в уроке не участвует ──
+const BEATS_OWN=[
+ {p:120, say:'Привет! Меня зовут Аня, и сегодня историю ведём по учебнику — вот он, перед тобой. Открыт параграф двадцать, «Начало греческой цивилизации».'},
+ {p:120, mark:'q_main', kind:'under', say:'Смотри, я подчеркну главный вопрос параграфа. Что объединяло государства, сложившиеся на Крите и в Микенах? К концу урока ты на него ответишь сам.'},
+ {p:120, mark:'three_parts', kind:'marker', say:'Сначала — где это всё. Древняя Греция занимала юг Балканского полуострова и острова вокруг. И делилась она на три части.'},
+ {p:120, mark:'ellada', kind:'marker', say:'Себя греки называли эллинами, а свою страну — Элладой. Запомни эти два слова, они будут встречаться весь год.'},
+ {p:120, mark:'photo_knossos', kind:'spot', say:'А вот и главное здание урока — Кносский дворец на Крите. Красные колонны, бык на фреске. Приглядись к нему, мы к этой картинке ещё вернёмся.'},
+ {p:120, mark:'theseus', kind:'under', say:'И прямо под фотографией — миф: герой Тесей убил Минотавра, чудовище, жившее в лабиринте. Держи это в голове, дальше будет интересно.'},
+
+ {p:121, mark:'nature_h', kind:'under', say:'Теперь правая страница. Пункт первый — природа и жизнь.'},
+ {p:121, mark:'mountains', kind:'marker', say:'Греция — страна гор. Горы защищали от вторжений, но они же мешали грекам объединиться: до соседа за хребтом добраться труднее, чем до острова за морем.'},
+ {p:121, mark:'bays', kind:'marker', say:'Зато берег изрезан заливами и бухтами — есть где укрыть корабли. Отсюда и мореплавание.'},
+ {p:121, mark:'olives', kind:'marker', say:'Больших полей мало, зато оливки и виноград отлично росли прямо по склонам гор.'},
+ {p:121, mark:'clay', kind:'marker', say:'А ещё повсюду глина. Из неё делали посуду, и греческие расписные сосуды покупало всё Средиземноморье.'},
+ {p:121, mark:'vsyo_est', kind:'spot', ask:true,
+  say:'Внизу страницы есть фраза Чехова: «В Греции всё есть». Как думаешь, правда ли там есть всё? Чего грекам не хватало? Нажми «Говорить» и скажи вслух — я слушаю.'},
+
+ {p:122, mark:'crete_first', kind:'under', say:'Листаем дальше. Остров Крит в середине Средиземного моря: именно здесь была первая цивилизация Европы.'},
+ {p:122, mark:'minos_laws', kind:'marker', say:'Царь Минос. По мифам он первым ввёл на Крите законы и создал сильный флот — и этим флотом покончил с пиратами.'},
+ {p:122, mark:'rooms', kind:'marker', say:'Смотри, что было во дворце: жилые комнаты, святилища богов, мастерские, кладовые, помещения для архивов. Дворец — это не спальня царя, это целое государство под одной крышей.'},
+ {p:122, mark:'water', kind:'marker', say:'И вот деталь, от которой у меня до сих пор мурашки: вода во дворец шла по глиняным трубам. Водопровод, четыре тысячи лет назад.'},
+ {p:122, mark:'writing', kind:'under', say:'А письменность изобрели ради учёта. Представь: письмо придумали, чтобы считать кувшины с маслом.'},
+
+ {p:123, mark:'fera', kind:'marker', say:'Правая страница. На соседнем острове Фера рванул вулкан. Крит тряхнуло, но минойская цивилизация это пережила.'},
+ {p:123, mark:'achaeans', kind:'marker', say:'А потом на остров переселились ахейцы — греки с материка. Они заняли Кносс и стали править сами.'},
+ {p:123, mark:'fortress', kind:'spot', say:'И вот тут — самое важное отличие. Дворцы ахейцев были похожи на критские: те же комнаты, водопровод, фрески. Но их обнесли мощными стенами. Это уже крепости.'},
+
+ {p:124, mark:'cyclops', kind:'marker', say:'Микены стояли на высоком холме за стенами из огромных глыб. По легенде их сложили одноглазые великаны-циклопы — настолько невероятной казалась эта кладка.'},
+ {p:124, mark:'lion_cap', kind:'spot', say:'Львиные ворота. Древнейшая монументальная скульптура Европы — и сегодня стоят.'},
+ {p:124, mark:'mask_cap', kind:'spot', say:'А это золотая маска, которую Шлиман принял за маску царя Агамемнона. Позже выяснилось: маска старше царя на три века. Имя всё равно осталось.'},
+
+ {p:125, mark:'dorians', kind:'marker', say:'Конец микенской цивилизации: землетрясения, засуха, раздоры между царствами — и переселение дорийцев с севера.'},
+ {p:125, mark:'main_q', kind:'under', ask:true,
+  say:'Возвращаемся к главному вопросу параграфа. Что же объединяло Крит и Микены? Скажи своими словами — нажми «Говорить», я слушаю.'},
+]
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ПРОГОН
+// ═══════════════════════════════════════════════════════════════════════════
+let running=false, paused=false, beat=0, runGen=0
+function paintDots(){ const d=$('#steps'); d.innerHTML=''
+  BEATS.forEach((b,i)=>{ const el=document.createElement('b')
+    el.title=(i+1)+'. стр. '+b.page+' · '+b.say.slice(0,60); d.appendChild(el) }) }
+function paintSteps(){
+  document.querySelectorAll('#steps b').forEach((el,i)=>{
+    el.className = i===beat?'on':(i<beat?'done':'') })
+}
+async function run(){
+  if(running){ stop('остановлено'); return }
+  const my=++runGen
+  running=true; paused=false
+  $('#btnRun').textContent='⏹ остановить'; $('#btnPause').style.display=''
+  const live=()=>running&&my===runGen
+  if(beat>=BEATS.length) beat=0
+  if(beat===0) resetPanel()            // урок с начала — и панель с чистого листа
+  for(; beat<BEATS.length && live(); beat++){
+    const b=BEATS[beat]
+    paintSteps()
+    b._n=beat+1
+    $('#runSt').textContent='читаю '+(beat+1)+' из '+BEATS.length+' · стр. '+b.page
+    if(sheetOf(b.page)!==sheet){ $('#runSt').textContent='листаю на '+b.page+'…'; await goPage(b.page) }
+    if(!live()) return
+    showBeat(b); await hold(b.kind==='own'?60:300)
+    if(!live()) return
+    gen++
+    // записанный урок: играем готовый ролик (звук в нём), синтез не трогаем
+    let ok=true
+    if(teacherMode()==='clips'&&await playClip(beat+1)) { /* сыграли ролик */ }
+    else ok=await speak(b.say,gen)
+    if(!live()) return
+    if(ok===false){ stop('голос не пошёл'); return }
+    // Такт дочитан — досыпаем то, что привязано к самому его концу. Без этого
+    // карточка, стоящая на последних словах, может не появиться вовсе: последний
+    // кадр до `ended` приходит на доле 0.98, а её место — 1.0.
+    panelTick(1)
+    // 🔴 Новые слова на полях («мегарон · фреска», «Минос») — это реплики в два-три
+    // слова. Картинка к ним успевала мигнуть и уехать вместе с концом такта. Короткий
+    // такт, который что-то показал, теперь держит паузу: слово должно успеть уложиться.
+    // пауза растёт с числом картинок: два новых слова в одной реплике должны успеть
+    // показаться оба, а не мелькнуть на хвосте
+    if((b.say||'').length<70&&PLAN){ const k=PLAN.items.filter(i=>i.kind==='demo').length
+      if(k) await hold(1600+2500*(k-1)) }
+    if(!live()) return
+    // 🔴 «Сначала пусть задаёт те вопросы, которые есть в самом учебнике, а потом всё
+    // остальное» (06.08). Раньше вопрос учебника звучал ПОСРЕДИ чтения и микрофон
+    // включался прямо там — со стороны это читалось как «спросила и не дала ответить».
+    // Теперь вопрос по-прежнему зачитывается на своём месте (это текст учебника), но
+    // ответа ждут в закреплении: там он первый, до нашей проверки, с кнопкой и
+    // видимым «слушаю».
+    // ⚠️ Копим САМИ такты, а не их номера: номера у живых тактов нет — он вычисляется
+    // только при выгрузке сценария. Сравнение по «n» давало undefined===undefined, и
+    // второй вопрос страницы молча считался дублем первого (поймано приёмкой).
+    if(b.ask){ if(!PAGEQ.has(b.page)) PAGEQ.set(b.page,[]); const L=PAGEQ.get(b.page)
+      if(!L.includes(b)) L.push(b) }
+    await hold(+$('#sHold').value*1000)
+    // страница дочитана (следующий такт — уже на другой) → проверка по ней
+    const nxt=BEATS[beat+1]
+    if($('#cCheck').checked&&(!nxt||nxt.page!==b.page)){
+      const done=await controlPage(b.page,live)
+      if(!done||!live()) return
+    }
+  }
+  if(live()) stop('параграф пройден')
+}
+function stop(why){
+  running=false; paused=false; runGen++
+  cutVoice(); micAbort()
+  if(CTRL.on) ctrlOff()
+  $('#btnRun').textContent='▶ начать урок'; $('#btnPause').style.display='none'
+  $('#runSt').textContent=why||''
+}
+$('#btnRun').onclick=()=>run()
+// 🔴 «Поставил паузу — картинки продолжили показывать не в попад, а когда продолжил,
+// она начала не там, где остановилась» (05.08).
+// Пауза звала cutVoice() — тот же слом, что «остановить»: он ДОигрывал обещание, на
+// котором ждёт speak(), поэтому прогон считал реплику законченной и уезжал на
+// следующую. Пауза обязана только приостановить звук, не трогая ожидание.
+$('#btnPause').onclick=()=>{ paused=!paused
+  $('#btnPause').textContent=paused?'▶ продолжить':'⏸ пауза'
+  if(paused){ pauseVoice(); $('#runSt').textContent='⏸ пауза' }
+  else { resumeVoice(); $('#runSt').textContent='' } }
+$('#btnNext').onclick=()=>turn(1)
+$('#btnPrev').onclick=()=>turn(-1)
+addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return
+  if(!$('#lens').classList.contains('off')) return   // смотрим картинку — книгу не листаем
+  if(e.key==='ArrowRight'){ turn(1) } if(e.key==='ArrowLeft'){ turn(-1) }
+})
+$('#hudBtn').onclick=()=>$('#hud').classList.toggle('off')
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ГОЛОС РЕБЁНКА: микрофон → SpeechKit STT → DeepSeek → ответ голосом
+//  Тот же путь, что в прошлой форме: MediaRecorder не годится (Chrome отдаёт
+//  WebM, SpeechKit его не принимает) — собираем PCM16 16 кГц руками.
+// ═══════════════════════════════════════════════════════════════════════════
+const MIC={rec:false,stream:null,node:null,src:null,sink:null,chunks:[],rate:0,t0:0,quiet:0,spoke:false,auto:false}
+// Куда отдать распознанное. Обычно — в диалог с учителем (askTeacher), но проверка страницы
+// забирает текст себе: тот же микрофон, другой потребитель.
+let micSink=null
+const micGive=(t)=>{ if(!micSink) return false; const f=micSink; micSink=null; f(t); return true }
+// Шов для приёмки: подсунуть «услышанное» вместо микрофона. Микрофона в headless нет,
+// а разбор пересказа проверять надо — он один из четырёх этапов проверки страницы.
+let micFake=null
+function hearOnce(){
+  if(micFake!==null){ const t=micFake; micFake=null; return Promise.resolve(t) }
+  return new Promise(res=>{
+    micSink=res
+    micStart(false).then(()=>{ if(!MIC.rec) micGive(null) })   // микрофон не поднялся
+  })
+}
+const HIST=[]
+let dialogOn=false
+const paintMic=(cls,txt)=>{ const b=$('#micBtn'); b.className=cls||''; b.disabled=cls==='busy'
+  b.querySelector('b').textContent=cls==='rec'?'Стоп':'Говорить'; $('#micSt').textContent=txt||'' }
+function toPcm16(chunks,from,to){
+  let n=0; for(const c of chunks) n+=c.length
+  const all=new Float32Array(n); let o=0
+  for(const c of chunks){ all.set(c,o); o+=c.length }
+  const ratio=from/to, m=Math.max(0,Math.floor(all.length/ratio)), out=new Int16Array(m)
+  for(let i=0;i<m;i++){ const p=i*ratio, i0=Math.floor(p), i1=Math.min(all.length-1,i0+1)
+    const v=all[i0]+(all[i1]-all[i0])*(p-i0)
+    out[i]=Math.max(-32768,Math.min(32767,Math.round(v*32767))) }
+  return out.buffer
+}
+async function micStart(auto){
+  if(MIC.rec) return
+  try{
+    ensureAnalyser(); if(ctxA.state==='suspended') await ctxA.resume()
+    if(!MIC.stream) MIC.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true}})
+    MIC.rate=ctxA.sampleRate; MIC.chunks=[]; MIC.t0=performance.now(); MIC.quiet=0; MIC.spoke=false; MIC.auto=!!auto
+    MIC.src=ctxA.createMediaStreamSource(MIC.stream)
+    MIC.node=ctxA.createScriptProcessor(4096,1,1)
+    MIC.sink=ctxA.createGain(); MIC.sink.gain.value=0      // без стока узел не тикает, а сток в колонки даёт свист
+    MIC.src.connect(MIC.node); MIC.node.connect(MIC.sink); MIC.sink.connect(ctxA.destination)
+    MIC.node.onaudioprocess=e=>{
+      if(!MIC.rec) return
+      const d=e.inputBuffer.getChannelData(0); MIC.chunks.push(new Float32Array(d))
+      let s=0; for(let i=0;i<d.length;i++) s+=d[i]*d[i]
+      const rms=Math.sqrt(s/d.length)
+      if(rms>.008){ MIC.spoke=true; MIC.quiet=0 } else MIC.quiet+=d.length/MIC.rate
+      const t=performance.now()-MIC.t0
+      if((MIC.spoke&&MIC.quiet>2.0)||(!MIC.spoke&&t>14000)||t>25000) micStop()
+    }
+    MIC.rec=true; paintMic('rec',auto?'слушаю — ответь вслух':'слушаю…')
+  }catch(e){ paintMic('','микрофон не поднялся: '+e.message); dialogOn=false }
+}
+function micAbort(){ if(!MIC.rec){ micGive(null); return } MIC.rec=false
+  try{ MIC.node.onaudioprocess=null; MIC.node.disconnect(); MIC.src.disconnect(); MIC.sink.disconnect() }catch(e){}
+  dialogOn=false; paintMic('','') }
+async function micStop(){
+  if(!MIC.rec) return
+  MIC.rec=false
+  try{ MIC.node.onaudioprocess=null; MIC.node.disconnect(); MIC.src.disconnect(); MIC.sink.disconnect() }catch(e){}
+  const pcm=toPcm16(MIC.chunks,MIC.rate,16000); MIC.chunks=[]
+  if(pcm.byteLength<16000||(MIC.auto&&!MIC.spoke)){ paintMic('',''); dialogOn=false; micGive(null); return }
+  paintMic('busy','распознаю…')
+  let j={}
+  try{ j=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:pcm}).then(r=>r.json()) }
+  catch(e){ j={error:e.message} }
+  if(j.sec){ COST.sttSec+=j.sec; paintCost() }
+  const heard=(j.text||'').trim()
+  if(j.error||!heard){ paintMic('',j.error||'не разобрала — попробуй ещё раз'); dialogOn=false; micGive(null); return }
+  if(micSink){ paintMic('',''); dialogOn=false; micGive(heard); return }
+  $('#subs').insertAdjacentHTML('beforeend','<div class=me style="margin-top:8px">ты: '+heard+'</div>')
+  $('#subs').scrollTop=1e6
+  await askTeacher(heard)
+}
+// ═══════════════════════════════════════════════════════════════════════════
+//  ЧТЕНИЕ ВСЛУХ (v2.0)
+//
+//  🔴 «Нужно, чтобы ученик прочитал вслух, а система следила за голосом и сделала
+//  на экране транскрибацию». Раньше здесь была кнопка «прочитал» — честное слово.
+//
+//  Как сделано. Микрофон пишется НЕПРЕРЫВНО, а на распознавание уходит не всё
+//  разом, а куски по паузам: ребёнок читает фразами, и конец фразы — естественная
+//  граница. Поэтому строка появляется на экране через секунду после того, как
+//  фраза дочитана, а не в самом конце абзаца.
+//  ⚠️ Почему не потоковое распознавание: у Яндекса это gRPC-поток, отдельная
+//  проводка;короткое распознавание уже есть и оплачивается теми же блоками по
+//  15 с. Разница только в задержке внутри фразы, а не в цене.
+//
+//  Слежение за текстом: слова сверяются с ТЕМ САМЫМ куском учебника, который
+//  подсвечен, и линия под строкой едет за голосом РЕБЁНКА ровно так же, как она
+//  ехала за голосом Ани. Сравнение по первым пяти буквам — распознавание путает
+//  окончания, а ребёнок читает с оговорками, и придираться к этому нельзя.
+// ═══════════════════════════════════════════════════════════════════════════
+let rdFake=null                       // шов для приёмки: «услышанное» без микрофона
+const rdNorm=(s)=>String(s||'').toLowerCase().replace(/ё/g,'е')
+  .replace(/[^a-zа-я0-9\s-]/g,' ').split(/\s+/).filter(Boolean)
+const rdSame=(a,b)=>a===b||(a.length>=5&&b.length>=5&&a.slice(0,5)===b.slice(0,5))
+// Сколько слов эталона закрыто: идём вперёд и разрешаем перескок через пару слов.
+// ⚠️ Зацепляться можно только за ЗНАЧИМЫЕ слова (от 4 букв). На коротких («и», «мы»,
+// «во», «на») сверка ломается: они есть в любом тексте, и приёмка поймала, как
+// посторонняя болтовня закрывала восьмую часть куска. Служебные слова между двумя
+// значимыми считаются прочитанными заодно — по ним прогресс и не мерят.
+function rdAlign(ref,heard,from){
+  let p=from
+  for(const w of heard){
+    if(w.length<4) continue
+    for(let k=p;k<Math.min(ref.length,p+8);k++){ if(rdSame(ref[k],w)){ p=k+1; break } }
+  }
+  return p
+}
+async function readAloud(refText,alive){
+  const ref=rdNorm(refText); if(!ref.length) return null
+  const fin=(text,ptr)=>{ const prog=Math.max(0,Math.min(1,ptr/ref.length))
+    applyReadWidths(prog); return {text:text.trim(),words:rdNorm(text).length,prog} }
+  if(rdFake!==null){ const t=rdFake; rdFake=null; return fin(t,rdAlign(ref,rdNorm(t),0)) }
+
+  ctrlBody('<div class=cq>Слушаю — читай вслух</div>'
+    +'<div class=rdbar><i id=rdFill></i></div>'
+    +'<div id=rdText class=rdtext data-empty=yes>…</div>'
+    +'<div class=crow><button class=cbtn data-act=done>готово</button></div>')
+  let stop=null
+  const stopped=new Promise(r=>{ stop=r })
+  ctrlWait().then(()=>stop('кнопка'))
+
+  const S={buf:[],dur:0,quiet:0,spokeChunk:false,spokeEver:false,total:0,ptr:0,text:''}
+  let seq=Promise.resolve()
+  // 🔴 «Хочется, чтобы текст появлялся по мере того, как я читаю, плавно, по 1–2 слова»
+  // (05.08). Распознанное приходит кусками по фразам, и раньше фраза падала в панель
+  // целым абзацем. Теперь слова из очереди выкладываются по одному-два и каждое
+  // проявляется — на экране видно, как речь превращается в текст.
+  const queue=[]
+  let feeder=0
+  const feed=()=>{
+    if(!queue.length){ clearInterval(feeder); feeder=0; return }
+    const t=$('#rdText'); if(!t) return
+    const take=queue.splice(0, queue.length>14?2:1)   // отстали — догоняем по два
+    for(const w of take){
+      const s=document.createElement('span'); s.className='wd'; s.textContent=w
+      t.appendChild(s)
+      // ⚠️ Пробел — ОТДЕЛЬНЫМ текстовым узлом, а не хвостом внутри слова: у
+      // inline-block концевой пробел схлопывается, и первая фраза приезжала одним
+      // длинным словом без пробелов, а разъезжалась только со следующей.
+      t.appendChild(document.createTextNode(' '))
+      requestAnimationFrame(()=>s.classList.add('on'))
+    }
+    t.scrollTop=1e6
+  }
+  const push=(text)=>{
+    const t=$('#rdText'); if(t&&t.dataset.empty!=='no'){ t.textContent=''; t.dataset.empty='no' }
+    queue.push(...text.split(/\s+/).filter(Boolean))
+    if(!feeder) feeder=setInterval(feed,150)
+  }
+  const paint=()=>{
+    const prog=Math.min(1,S.ptr/ref.length)
+    const f=$('#rdFill'); if(f) f.style.width=(prog*100).toFixed(1)+'%'
+    applyReadWidths(prog)                 // линия под строкой идёт за голосом ребёнка
+  }
+  const send=(pcm)=>{ seq=seq.then(async()=>{
+    let j={}
+    try{ j=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:pcm}).then(r=>r.json()) }
+    catch(e){ j={error:e.message} }
+    if(j.sec){ COST.sttSec+=j.sec; paintCost() }
+    const t=(j.text||'').trim(); if(!t) return
+    S.text=(S.text?S.text+' ':'')+t
+    S.ptr=rdAlign(ref,rdNorm(t),S.ptr)
+    push(t); paint()
+    if(S.ptr>=ref.length-1) stop('дочитал')
+  }) }
+  const cut=()=>{
+    if(S.dur<1.2||!S.spokeChunk){ return }
+    const pcm=toPcm16(S.buf,rate,16000)
+    S.buf=[]; S.dur=0; S.spokeChunk=false
+    if(pcm.byteLength>=8000) send(pcm)
+  }
+
+  let rate=16000, stream=null, src=null, node=null, sink=null
+  try{
+    ensureAnalyser(); if(ctxA.state==='suspended') await ctxA.resume()
+    if(!MIC.stream) MIC.stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true}})
+    stream=MIC.stream; rate=ctxA.sampleRate
+    src=ctxA.createMediaStreamSource(stream)
+    node=ctxA.createScriptProcessor(4096,1,1)
+    sink=ctxA.createGain(); sink.gain.value=0    // без стока узел не тикает, а сток в колонки даёт свист
+    src.connect(node); node.connect(sink); sink.connect(ctxA.destination)
+    node.onaudioprocess=(e)=>{
+      const d=e.inputBuffer.getChannelData(0)
+      S.buf.push(new Float32Array(d))
+      const dt=d.length/rate; S.dur+=dt; S.total+=dt
+      let s=0; for(let i=0;i<d.length;i++) s+=d[i]*d[i]
+      const rms=Math.sqrt(s/d.length)
+      if(rms>.008){ S.spokeChunk=true; S.spokeEver=true; S.quiet=0 } else S.quiet+=dt
+      // конец фразы — режем и отправляем; длинную фразу режем по потолку
+      if((S.quiet>=.6&&S.dur>=2.0)||S.dur>=13) cut()
+      // молчит после чтения — заканчиваем сами; и потолок на всякий случай
+      if((S.spokeEver&&S.quiet>=3.5)||S.total>=180||(!S.spokeEver&&S.total>=20)) stop('тишина')
+    }
+  }catch(e){
+    ctrlBody('<div class=cq>Микрофон не поднялся</div><div class=chint>'+esc(e.message)+'</div>'
+      +'<div class=crow><button class=cbtn data-act=go>читать про себя</button></div>')
+    await ctrlWait()
+    return null
+  }
+  // сторож: если проверку прервали снаружи (пауза, «остановить») — уходим
+  const guard=setInterval(()=>{ if(!alive()) stop('прервано') },400)
+  await stopped
+  clearInterval(guard)
+  // очередь слов дослушиваем до конца, иначе хвост фразы пропадёт на переходе
+  for(let i=0;i<40&&queue.length;i++) await new Promise(r=>setTimeout(r,120))
+  clearInterval(feeder); feeder=0
+  try{ node.onaudioprocess=null; node.disconnect(); src.disconnect(); sink.disconnect() }catch(e){}
+  S.spokeChunk=S.spokeChunk||S.spokeEver; cut()     // остаток — тоже на распознавание
+  await seq
+  paint()
+  return fin(S.text,S.ptr)
+}
+async function askTeacher(text){
+  HIST.push({role:'user',content:text}); if(HIST.length>8) HIST.splice(0,HIST.length-8)
+  paintMic('busy','думаю…')
+  const b=BEATS[Math.min(beat,BEATS.length-1)]||{page:120,say:''}
+  // Контекст модели — не «весь урок», а ровно то, что сейчас перед глазами:
+  // страница учебника и последняя произнесённая фраза.
+  const sys='Ты Аня, учительница истории, ведёшь урок по учебнику для 5 класса, параграф 20 '+
+    '«Начало греческой цивилизации» (Крит, Кносс, Микены). Собеседнику 11 лет. '+
+    'Аня — ТВОЁ имя, а не его: имени ребёнка ты не знаешь, никогда не обращайся к нему по имени '+
+    'и ни в коем случае не называй его Аней. Отвечай ОЧЕНЬ коротко: '+
+    'одно-три предложения, живой разговорной речью, без списков и канцелярита. Не выдумывай фактов сверх '+
+    'школьного курса. Если спросили не по теме — ответь одной фразой и верни к уроку. '+
+    'Сейчас открыта страница '+b.page+' учебника, и только что ты прочитала: «'+b.say+'».'
+  let j={}
+  try{ j=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'deepseek-v4-flash/latest',system:sys,messages:HIST})}).then(r=>r.json()) }
+  catch(e){ j={error:e.message} }
+  const ans=noName((j.text||'').trim())
+  if(j.error||!ans){ paintMic('','учитель не ответил: '+(j.error||'пусто')); dialogOn=false; return }
+  COST.llm++; paintCost()
+  HIST.push({role:'assistant',content:ans})
+  paintMic('busy','отвечаю…')
+  gen++
+  await speak(ans,gen)
+  paintMic('',''); dialogOn=false
+}
+async function listen(){
+  if(dialogOn) return
+  dialogOn=true
+  await micStart(true)
+  while(dialogOn&&running) await new Promise(r=>setTimeout(r,140))
+}
+$('#micBtn').onclick=()=>{ if(MIC.rec) micStop(); else { dialogOn=true; micStart(false) } }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  СТАРТ
+// ═══════════════════════════════════════════════════════════════════════════
+let BLOCKS=[]
+;(async()=>{
+  try{ MARKS=await fetch('/book/marks.json').then(r=>r.json()) }
+  catch(e){ $('#runSt').textContent='не пришли метки: '+e.message }
+  // иллюстрации и их апскейлы: без файла урок просто останется без кнопок «рассмотреть»
+  try{ FIGS=await fetch('/book/figures.json').then(r=>r.json()) }
+  catch(e){ FIGS=[]; console.warn('нет figures.json — картинки не кликаются:',e.message) }
+  // показы и тизеры правой половины: без файла урок идёт как раньше, панель пустая
+  try{ loadPanel(await fetch('/book/v23/panel.json').then(r=>r.json())) }
+  catch(e){ console.warn('нет panel.json — правая половина будет пустой:',e.message) }
+  // вопросы проверки по страницам: без файла урок просто читается без тестов
+  try{ loadTests(await fetch('/book/v23/test.json').then(r=>r.json())) }
+  catch(e){ console.warn('нет test.json — проверки страниц не будет:',e.message) }
+  // 🔑 Урок собирается ИЗ УЧЕБНИКА: абзацы со строками и координатами приходят
+  // из текстового слоя PDF, а не пишутся руками (см. buildBeats).
+  try{ BLOCKS=await fetch('/book/blocks.json').then(r=>r.json()); BEATS=buildBeats(BLOCKS) }
+  catch(e){ $('#runSt').textContent='не пришёл текст учебника: '+e.message; BEATS=BEATS_OWN.map(b=>({page:b.p,kind:'own',say:b.say,ask:b.ask})) }
+  paintSheet(); layout(); fit(); aim(); paintCost(); paintDots(); paintSteps()
+  fillVoices()
+  $('#bhBase').value=localStorage.kn_bh_base||'http://localhost:8090'
+  $('#bhBase').oninput=e=>{ try{ localStorage.kn_bh_base=e.target.value }catch(err){} }
+  const nClips=await loadClips()
+  if(nClips) console.log('записанных роликов учителя:',nClips)
+  applyTeacher()                       // учитель поднимается сам: 3D, запись или видео
+  new ResizeObserver(()=>{ layout(); fit() }).observe($('#stage'))
+  new ResizeObserver(fit).observe($('#tchWrap'))
+  tick()
+})()
+
+// наружу — для headless-приёмки
+window.__kniga={
+  sheet:()=>({ номер:sheet, страница:PAGES[sheet], листает:flipping }),
+  turn:(d)=>{ turn(d) }, goPage:(p)=>{ goPage(p) },
+  // заморозить кадр переворота: приёмке нужен ДЕТЕРМИНИРОВАННЫЙ снимок середины,
+  // иначе под swiftshader попадаешь то в начало, то в конец
+  freeze:(dir,t)=>{ const to=sheet+dir; if(to<0||to>=PAGES.length) return false
+    $('#flipBack').src=imgUrl(dir>0?PAGES[to]:PAGES[sheet]); $('#flipFront').removeAttribute('src')
+    $('#flip').style.left=$('#left').clientWidth+'px'; $('#flip').style.display='block'
+    flipFrame(dir,t); return true },
+  shade:()=>({ перед:+($('#shadeF').style.opacity||0), изнанка:+($('#shadeB').style.opacity||0),
+               падающая:+($('#castShade').style.opacity||0) }),
+  marks:()=>Object.keys(MARKS),
+  // иллюстрации: что нашли в PDF и что уже подняли апскейлером
+  figures:()=>FIGS.map(f=>({ id:f.id, стр:f.page, вучебнике:f.w+'×'+f.h,
+    увеличено:f.hi?(f.hiW+'×'+f.hiH):null, название:f.title })),
+  figSpots:()=>[...document.querySelectorAll('.fig')].map(e=>({ id:e.dataset.fig,
+    left:e.style.left, top:e.style.top, ширина:e.style.width, высота:e.style.height,
+    курсор:getComputedStyle(e).cursor })),
+  openFig:(id)=>{ const f=FIGS.find(x=>x.id===id); if(!f||!f.hi) return false; openLens(f); return true },
+  lens:()=>({ открыто:!$('#lens').classList.contains('off'),
+    файл:($('#lensImg').currentSrc||'').split('/').pop(),
+    кадр:[$('#lensImg').naturalWidth,$('#lensImg').naturalHeight],
+    подпись:$('#lensCap').textContent }),
+  closeLens:()=>closeLens(),
+  mark:(id,kind)=>showMark(id,kind||'under'),
+  shown:()=>[...document.querySelectorAll('.mk')].map(e=>({ вид:e.className, ширина:e.style.width, left:e.style.left })),
+  beats:()=>BEATS.length,
+  // из чего собран урок: страница · вид такта · первые слова (для приёмки)
+  // полный сценарий с текстом — для предрендера роликов учителя
+  fullScript:()=>BEATS.map((b,i)=>({ n:i+1, page:b.page, kind:b.kind, ask:!!b.ask, say:b.say,
+    // на каких страницах лежат строки такта: страница на экране одна, и такт, чьи строки
+    // разъехались по двум, читался бы наполовину невидимым
+    pages:[...new Set((b.lines||[]).map(l=>l.page||b.page))] })),
+  // правая половина: что показано и что уже собрано в тизеры
+  panel:()=>({ показ:$('#demoCap').textContent, пояснение:$('#demoSub').textContent,
+    файл:(demoImg().currentSrc||'').split('/').pop(), виден:demoImg().classList.contains('on'),
+    слоёв:[...document.querySelectorAll('#demoBox .dimg.on')].length,
+    страница:+$('#keepPage').textContent,
+    тизеры:[...document.querySelectorAll('#keepList .kc')].map(e=>e.querySelector('.t').textContent),
+    собрано:[...KEEP.entries()].map(([p,v])=>p+':'+v.length).join(' ') }),
+  panelData:()=>({ показов:DEMOS.length, тизеров:TEASERS.length,
+    файлы:[...new Set(DEMOS.map(d=>artUrl(d.art)))] }),
+  // ── проверка страницы: приёмка обязана уметь пройти её без человека ──
+  tests:()=>Object.entries(TESTS).map(([p,q])=>p+':'+q.length).join(' '),
+  testData:()=>Object.entries(TESTS).map(([p,qs])=>({ стр:+p,
+    вопросы:qs.map(q=>({ q:q.q, вариантов:q.options.length, верный:q.ok, тема:q.term, re:q.re })) })),
+  control:()=>({ идёт:CTRL.on, этап:CTRL.stage, страница:CTRL.page, круг:CTRL.round,
+    ошибок:CTRL.wrong, сдано:CTRL.passed,
+    заголовок:$('#ctrlHead').textContent, шаг:$('#ctrlStep').textContent,
+    вопрос:($('#ctrlBody').querySelector('.cq')||{}).textContent||'',
+    кнопки:[...$('#ctrlBody').querySelectorAll('[data-act]')].map(b=>b.dataset.act+(b.dataset.i>=0?':'+b.dataset.i:'')),
+    страницаЗакрыта:$('#veil').classList.contains('on'),
+    карточкиВидны:getComputedStyle($('#keep')).display!=='none' }),
+  // подменить микрофон на готовый текст — следующий пересказ придёт отсюда
+  hear:(t)=>{ micFake=t; return true },
+  // то же для чтения вслух: подсунуть «что услышала» вместо микрофона
+  read:(t)=>{ rdFake=t; return true },
+  // вопросы самого учебника, собранные по страницам (в закреплении идут первыми)
+  ownQ:()=>Object.fromEntries([...PAGEQ].map(([p,l])=>[p,l.map(b=>b.say.slice(0,60))])),
+  // кусок, который дают читать вслух на этой странице (эталон для сверки)
+  keyText:(p)=>{ const i=keyBeat(p); return i>=0?(BEATS[i].say||''):'' },
+  // сверка прочитанного с эталоном — чистая функция, проверяется без микрофона
+  align:(ref,heard)=>{ const r=rdNorm(ref)
+    return { слов:r.length, закрыто:rdAlign(r,rdNorm(heard),0) } },
+  // что сейчас на карте: какая метка горит и какая часть Греции подсвечена
+  map:()=>{ if(!mapSvg) return { загружена:false }
+    return { загружена:true, видна:$('#demoMap').classList.contains('on'),
+      метка:(mapSvg.querySelector('.mk.on')||{}).id||'',
+      зона:(mapSvg.querySelector('.zone.on')||{}).id||'',
+      наезд:$('#demoMapIn').style.transform||'нет' } },
+  // голос: что выбрано и что уйдёт в синтез (у видео-учителя своя подстановка)
+  voice:()=>({ выбран:$('#sVoice').value, вариантов:$('#sVoice').options.length,
+    вэфир:voiceBody(false), длявидео:voiceBody(true) }),
+  // фильтр обращения по имени — проверяется как чистая функция
+  noName:(t)=>noName(t),
+  // нажать кнопку проверки: act='read'|'tell'|'skip'|'go'|'ans', i — номер варианта
+  press:(act,i)=>{ const el=$('#ctrlBody').querySelector('[data-act="'+act+'"]'+(i>=0?'[data-i="'+i+'"]':''))
+    if(!el) return false; el.click(); return true },
+  // Ответить на текущий вопрос правильно или заведомо неверно — для проверки повтора.
+  // false значит «отвечать сейчас некуда»: либо идёт разбор прошлого ответа (кнопки уже
+  // погашены), либо вопроса на экране нет. Приёмке остаётся подождать и позвать снова.
+  answer:(right)=>{ const q=(TESTS[CTRL.page]||[]).find(x=>x.q===(($('#ctrlBody').querySelector('.cq')||{}).textContent||''))
+    if(!q) return false
+    const k=right?q.ok:(q.ok+1)%q.options.length
+    const el=$('#ctrlBody').querySelector('[data-act="ans"][data-i="'+k+'"]')
+    if(!el||el.disabled) return false; el.click(); return true },
+  script:()=>BEATS.map((b,i)=>({ n:i+1, стр:b.page, вид:b.kind, вопрос:!!b.ask,
+    строк:(b.lines||[]).length, текст:b.say.slice(0,70) })),
+  readState:()=>({ строк:readLines?readLines.length:0,
+    линия:readEls&&readEls.length?readEls.map(e=>e.style.width).join('|'):null,
+    дочерчено:readEls?readEls.filter(e=>parseFloat(e.style.width)>0).length:0 }),
+  state:()=>({ идёт:running, пауза:paused, такт:beat+1,
+    страница:(BEATS[Math.min(beat,BEATS.length-1)]||{}).page,
+    вид:(BEATS[Math.min(beat,BEATS.length-1)]||{}).kind,
+    говорит:speaking, субтитры:$('#subsText').textContent.slice(0,60), статус:$('#runSt').textContent }),
+  run:()=>{ run() }, stop:()=>stop('приёмка'),
+  // начать прогон не с первого такта — приёмке нужно быстро добраться до конца страницы
+  goBeat:(n)=>{ beat=Math.max(0,Math.min(BEATS.length-1,n-1)); return beat+1 },
+  teacher:()=>({ есть:!!av, мешей:meshes.length, модель:$('#tchWho').value }),
+  // поза модели в кадре: приёмка проверяет, что по ВЕРТИКАЛИ она стоит намертво
+  teacherPose:()=>av?({ y:+av.position.y.toFixed(5), поворот:+av.rotation.y.toFixed(4),
+    голова:head?+head.rotation.z.toFixed(4):null }):null,
+  video:()=>({ режим:teacherMode(), источник:bhMock()?'ЗАГЛУШКА стенда':'боевой раннер '+bhBase(),
+    вкадре:bhLive, лицо:bhFace(), лиц:[...$('#bhFace').options].map(o=>o.value).filter(Boolean),
+    кадр:[bhVideo.naturalWidth,bhVideo.naturalHeight], видно:bhVideo.style.display!=='none',
+    статус:$('#bhSt').textContent }),
+  setTeacher:(m)=>{ $('#tchWho').value=m; applyTeacher() },
+  // показать подсветку такта без озвучки — для снимков и приёмки эффектов
+  // full=true — «такт дочитан до конца»: показ и карточки, привязанные к последним
+  // фразам, срабатывают. Без этого прыжок на такт показывает только то, что стоит
+  // в самом его начале, — остальное ждёт голоса.
+  showBeatAt:(n,full)=>{ const b=BEATS[n-1]; if(!b) return false
+    if(sheetOf(b.page)!==sheet) goPage(b.page)
+    setTimeout(()=>{ showBeat(b); if(full) panelTick(1) }, sheetOf(b.page)!==sheet?1100:0); return true },
+  // сколько показов ждёт очереди (показ держится не меньше DEMO_MIN)
+  demoQueue:()=>demoQ.length,
+  // где сейчас голос: приёмке надо видеть, что пауза не рвёт реплику, а держит её
+  voicePos:()=>({ говорит:speaking, пауза:paused,
+    время:+(audio.currentTime||0).toFixed(2), звукНаПаузе:audio.paused }),
+  // Промотать текущий такт до доли p — то же, что делает голос, только без голоса.
+  // Приёмке и снимкам нужно видеть, что показ меняется ВНУТРИ такта, а это главное
+  // изменение версии 2.0.
+  tickTo:(p)=>{ panelTick(Math.max(0,Math.min(1,+p||0))); return true },
+  // прямоугольники строк такта — приёмке нужно видеть, что крайние обрезаны по словам
+  beatLines:(n)=>{ const b=BEATS[n-1]; return b&&b.lines?b.lines.map(l=>({w:+(l.r[2]).toFixed(4)})):null },
+  clips:()=>({ есть:CLIPS?Object.keys(CLIPS).length:0, играет:!clipEl.paused,
+    файл:(clipEl.currentSrc||'').split('/').pop(), видно:clipEl.style.display!=='none',
+    сек:+clipEl.currentTime.toFixed(1), длина:isFinite(clipEl.duration)?+clipEl.duration.toFixed(1):null }),
+  // примерить любую модель, даже если её нет в списке — для отбора реалистичного лица
+  loadModel:(slug)=>loadTeacher(slug),
+  modelInfo:()=>({ есть:!!av, мешей:meshes.length,
+    морфов:meshes.map(m=>Object.keys(m.morphTargetDictionary||{}).length),
+    губы:meshes.some(m=>m.morphTargetDictionary&&('jawOpen' in m.morphTargetDictionary||'mouthOpen' in m.morphTargetDictionary||'viseme_aa' in m.morphTargetDictionary)) }),
+  setFace:(id)=>{ $('#bhFace').value=id; $('#bhFace').onchange() },
+}
+</script>
+</body></html>
