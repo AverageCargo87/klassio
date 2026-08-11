@@ -66,6 +66,17 @@ h1{margin:0;font:800 25px/1.15 Georgia,serif;letter-spacing:.2px}
 .mbody code{background:#1E212C;padding:1px 5px;border-radius:5px;font-size:13px}
 .mbody b{color:var(--ink)}
 .mbody p{margin:9px 0}
+/* ── лента выкладок ──
+   Раньше весь список правок висел под одной датой, и читалось это как «всё вышло
+   разом». Теперь видно, что и во сколько выходило: время берётся из релизов. */
+.tl{margin:2px 0 18px;padding:0 0 4px;border-bottom:1px solid var(--line)}
+.tl .h{font:800 12px/1.3 Segoe UI;letter-spacing:.7px;color:var(--accent);text-transform:uppercase;margin-bottom:9px}
+.tl .r{display:flex;gap:12px;align-items:baseline;padding:5px 0}
+.tl .r+.r{border-top:1px dashed rgba(42,47,62,.7)}
+.tl time{flex:none;width:118px;font:700 12.5px/1.5 Segoe UI;color:#C6CCDC}
+.tl .w{font-size:14px;color:#AEB6C8}
+.tl .r:first-of-type time{color:var(--accent)}
+@media (max-width:560px){ .tl .r{flex-direction:column;gap:2px} .tl time{width:auto} }
 @media (max-width:560px){ .mbody{padding:14px 16px 18px;font-size:14.5px} }
 /* ── замечания ── */
 .fb{margin-top:26px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 17px}
@@ -258,6 +269,29 @@ const выложено=(ver)=>{
     if(t) c.querySelector('.when').textContent='обновлена '+t
   })
 })()
+// Лента «что и во сколько выходило» — из релизов: у каждой выкладки записаны время и
+// строка «зачем». Это единственный источник, который не может разойтись с боевым.
+const мскКоротко=(iso)=>{
+  try{
+    const ч=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',day:'2-digit',month:'2-digit',
+      hour:'2-digit',minute:'2-digit'}).formatToParts(new Date(iso))
+    const п={}; for(const x of ч) п[x.type]=x.value
+    return {день:п.day+'.'+п.month, время:п.hour+':'+п.minute}
+  }catch(e){ return null }
+}
+const лента=(ver)=>{
+  if(!РЕЛИЗЫ||!РЕЛИЗЫ.length) return ''
+  // Выкладки, которые ничего не меняли для смотрящего (правка журнала, служебное),
+  // в ленту не идут: это шум, а не событие.
+  const свои=РЕЛИЗЫ.filter(r=>Object.values(r.версии||{}).some(v=>String(v).startsWith(ver))
+    &&r.зачем&&!/^(журнал|служебн)/i.test(r.зачем))
+  if(!свои.length) return ''
+  const строки=свои.slice().reverse().map(r=>{
+    const t=мскКоротко(r.когда); if(!t) return ''
+    return '<div class=r><time>'+t.день+' в '+t.время+'</time><span class=w>'+esc(r.зачем)+'</span></div>'
+  }).join('')
+  return '<div class=tl><div class=h>что и во сколько выходило</div>'+строки+'</div>'
+}
 const закрыть=()=>{ $('#modal').classList.remove('on'); document.body.style.overflow='' }
 $('#mclose').onclick=закрыть
 $('#modal').onclick=(e)=>{ if(e.target.id==='modal') закрыть() }   // клик мимо листа
@@ -290,9 +324,10 @@ document.addEventListener('click',async(e)=>{
   const когда=b.dataset.now?выложено(b.dataset.log):''
   // Дата версии — из журнала (когда сборку сделали), время выкладки — из релиза
   // (когда руководитель смог это увидеть). Это разные вещи, и обе полезны.
-  $('#mwhen').innerHTML=(когда?'вышло <b>'+esc(когда)+'</b>':'')
+  $('#mwhen').innerHTML=(когда?'последняя выкладка <b>'+esc(когда)+'</b>':'')
     +(дата?(когда?' · ':'')+'версия собрана '+esc(дата):'')
-  $('#mbody').innerHTML=raw?md(raw):'<p class=empty>Для этой сборки записей пока нет.</p>'
+  $('#mbody').innerHTML=лента(b.dataset.log)
+    +(raw?'<h3>что в этой версии целиком</h3>'+md(raw):'<p class=empty>Для этой сборки записей пока нет.</p>')
   $('#mbody').scrollTop=0
 })
 
