@@ -1,0 +1,484 @@
+<!doctype html><html lang=ru><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>МАКЕТ · экран закрепления · §20</title>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+   МАКЕТ ЭКРАНА ЗАКРЕПЛЕНИЯ (05.08.2026) — отдельно от урока, урок не тронут
+
+   Руководитель прислал Anatomy Atelier (anatomy-livid.vercel.app) и разметил:
+     · «после того как закончилось прочтение урока и начинается закрепление,
+        страница слева из учебника должна уйти и замениться на новый экран
+        наподобие правого»;
+     · «основные компоненты для запоминания и контроля» ← наши карточки «запомни»;
+     · «на подобном экране повторно разжёвываем материал с визуализацией всех
+        основных компонентов»;
+     · «далее детальный разбор тестовых карточек: показываем вопросы, объясняем,
+        показываем варианты с неправильными ответами, потом с учителем всё решаем
+        и уже потом самостоятельное тестирование».
+
+   🔑 Макет собран на НАСТОЯЩИХ данных §20 (book/zakrep.json = карточки «запомни» +
+   показы + предложения учебника + вопросы проверки). Ничего не выдумано: у каждого
+   термина подпись из карточки, картинка из показа и цитата из учебника.
+
+   Что здесь ПРАВДА, а что нарисовано:
+     ✅ левая колонка, центр (карта и иллюстрации), правая карточка, лента вопросов,
+        разбор вопроса по шагам — работают на живых данных;
+     🟡 «почему неверный вариант неверный» — текста нет ни в учебнике, ни в наших
+        данных; в макете эти места отмечены пунктиром: это ровно то, что придётся
+        писать руками, 48 пояснений на параграф.
+  ═══════════════════════════════════════════════════════════════════════════
+-->
+<style>
+:root{
+  --paper:#FBF7EF; --paper2:#F4EDE0; --ink:#2E2A24; --ink2:#5D564B; --dim:#918875;
+  --line:rgba(120,105,75,.22); --line2:rgba(120,105,75,.12);
+  --accent:#C4552F; --accent2:#8C3B1B; --ok:#4A7C4E;
+  --shell:#171A22; --shell2:#1E2230;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--shell);color:var(--ink);
+  font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+#app{display:flex;height:100vh;gap:0}
+
+/* ── слева учитель: та же оболочка, что в уроке ─────────────────────────── */
+#teacher{flex:none;width:300px;background:var(--shell);padding:16px 16px 18px;
+  display:flex;flex-direction:column;gap:12px;border-right:1px solid #262B39}
+#face{aspect-ratio:1;border-radius:14px;overflow:hidden;position:relative;
+  background:linear-gradient(160deg,#3A4152,#232735)}
+#face img{width:100%;height:100%;object-fit:cover;object-position:50% 18%}
+#face b{position:absolute;left:10px;bottom:10px;font:600 11px/1 Segoe UI;color:#CBD3E6;
+  background:rgba(15,17,23,.66);padding:5px 8px;border-radius:7px}
+#tname{color:#E7ECF7;font:700 17px/1.2 Segoe UI}
+#trole{color:#7E879B;font:12.5px/1.3 Segoe UI;margin-top:-6px}
+#says{flex:1;min-height:0;overflow:auto;background:#20242F;border:1px solid #2B3040;
+  border-radius:12px;padding:12px 13px;color:#D4DAE8;font-size:14px;line-height:1.5}
+#says .who{color:#7E879B;font:600 11px/1 Segoe UI;letter-spacing:.6px;display:block;margin-bottom:6px}
+#mic{flex:none;background:#2E4A38;border:1px solid #4E7A4E;color:#CFEFCF;
+  border-radius:11px;padding:11px;font:600 14px/1 Segoe UI;text-align:center}
+
+/* ── сцена ──────────────────────────────────────────────────────────────── */
+#stage{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--paper);
+  border-radius:18px 0 0 18px;overflow:hidden}
+#top{flex:none;display:flex;align-items:center;gap:18px;padding:16px 24px 12px}
+#logo{font:400 22px/1 Georgia,serif;letter-spacing:.2px}
+#logo i{color:var(--accent);font-style:normal}
+#logo span{font:12px/1 Georgia,serif;color:var(--dim);font-style:italic;margin-left:8px}
+#steps{display:flex;gap:6px;margin-left:auto;align-items:center}
+.stp{font:600 11px/1 Segoe UI;letter-spacing:.8px;color:var(--dim);
+  padding:8px 14px;border-radius:99px;border:1px solid var(--line2)}
+.stp.on{color:#fff;background:var(--accent);border-color:var(--accent)}
+.stp.done{color:var(--ok);border-color:rgba(74,124,78,.4)}
+#pill{font:600 11px/1 Segoe UI;letter-spacing:.6px;color:var(--dim);
+  border:1px solid var(--line2);border-radius:99px;padding:8px 12px}
+
+#grid{flex:1;min-height:0;display:grid;grid-template-columns:250px 1fr 330px;gap:14px;
+  padding:0 20px 12px}
+.pane{background:#fff;border:1px solid var(--line2);border-radius:14px;
+  box-shadow:0 1px 3px rgba(80,66,40,.05),0 8px 24px rgba(80,66,40,.04);
+  display:flex;flex-direction:column;min-height:0}
+.ph{flex:none;font:600 10.5px/1 Segoe UI;letter-spacing:1.1px;color:var(--dim);
+  padding:14px 16px 10px;display:flex;align-items:center;gap:8px}
+.ph b{margin-left:auto;font:600 10.5px/1 Segoe UI;color:var(--accent)}
+
+/* левая колонка — «что надо запомнить» */
+#lib{overflow:auto;padding:0 8px 10px}
+.pg{font:600 10px/1 Segoe UI;letter-spacing:1px;color:var(--dim);padding:12px 8px 6px}
+.it{display:flex;gap:10px;align-items:center;padding:8px;border-radius:11px;cursor:pointer;
+  border:1px solid transparent;transition:background .18s ease,border-color .18s ease}
+.it:hover{background:var(--paper2)}
+.it.on{background:#FBEDE6;border-color:rgba(196,85,47,.35)}
+.it .th{flex:none;width:40px;height:40px;border-radius:9px;background:var(--paper2);
+  overflow:hidden;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center}
+.it .th img{width:100%;height:100%;object-fit:cover}
+.it .th .mapmini{font:700 15px/1 Georgia,serif;color:var(--accent)}
+.it .tx{min-width:0}
+.it .tx b{display:block;font:400 15px/1.2 Georgia,serif;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .tx i{display:block;font:11.5px/1.3 Segoe UI;color:var(--dim);font-style:normal;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .chk{margin-left:auto;color:var(--ok);font-size:13px;opacity:0}
+.it.seen .chk{opacity:1}
+
+/* центр — визуал */
+#view{position:relative;overflow:hidden;background:#fff}
+#canvas{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:var(--paper)}
+#vimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;
+  transition:opacity .6s ease}
+#vimg.on{opacity:1;animation:kb 26s ease-out forwards}
+@keyframes kb{from{transform:scale(1)}to{transform:scale(1.06)}}
+#vmap{position:absolute;inset:0;opacity:0;transition:opacity .6s ease;background:#A9CBE0}
+#vmap.on{opacity:1}
+#vmapIn{position:absolute;inset:0;transform-origin:0 0;
+  transition:transform 2.2s cubic-bezier(.32,.72,.28,1)}
+#vmapIn svg{width:100%;height:100%;display:block}
+#tools{position:absolute;left:12px;top:50%;transform:translateY(-50%);z-index:3;
+  background:#fff;border:1px solid var(--line2);border-radius:12px;padding:6px;
+  display:flex;flex-direction:column;gap:2px;box-shadow:0 6px 18px rgba(80,66,40,.08)}
+.tool{width:38px;height:38px;border-radius:9px;border:0;background:transparent;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  color:var(--ink2);font:9px/1 Segoe UI}
+.tool:hover{background:var(--paper2)}
+.tool.on{background:#FBEDE6;color:var(--accent2)}
+.tool s{font-size:15px;text-decoration:none;line-height:1}
+#tip{position:absolute;right:14px;top:14px;z-index:3;width:180px;background:#FDF3C9;
+  border-radius:3px 12px 3px 12px;padding:12px 14px;transform:rotate(1.4deg);
+  box-shadow:0 8px 20px rgba(120,100,40,.14);font:12.5px/1.5 Georgia,serif;color:#5C5330}
+#tip b{display:block;font:600 10px/1 Segoe UI;letter-spacing:1px;color:#9A8A4E;margin-bottom:6px}
+#vcap{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:14px 18px;
+  background:linear-gradient(transparent,rgba(251,247,239,.94) 55%);
+  display:flex;align-items:flex-end;gap:12px}
+#vcap .t{font:600 10px/1 Segoe UI;letter-spacing:1.1px;color:var(--dim)}
+#vcap .n{font:400 21px/1.15 Georgia,serif;color:var(--ink);margin-top:3px}
+#vcap .src{margin-left:auto;font:11.5px/1.3 Segoe UI;color:var(--dim);text-align:right}
+
+/* правая колонка — карточка термина */
+#card{overflow:auto;padding:0 18px 18px}
+#cTop{display:flex;align-items:flex-start;gap:12px;padding-top:4px}
+#cName{font:400 30px/1.1 Georgia,serif;letter-spacing:-.3px}
+#cSub{font:italic 14px/1.3 Georgia,serif;color:var(--accent);margin-top:4px}
+#cThumb{flex:none;width:62px;height:62px;border-radius:50%;overflow:hidden;
+  border:1px solid var(--line2);background:var(--paper2)}
+#cThumb img{width:100%;height:100%;object-fit:cover}
+#cQuote{margin-top:16px;background:var(--paper);border-left:3px solid rgba(196,85,47,.45);
+  border-radius:0 10px 10px 0;padding:12px 14px;font:italic 14.5px/1.55 Georgia,serif;color:#4A4326}
+#cQuote small{display:block;font:600 10px/1 Segoe UI;letter-spacing:1px;color:var(--dim);
+  font-style:normal;margin-bottom:7px}
+.klabel{font:600 10.5px/1 Segoe UI;letter-spacing:1.1px;color:var(--dim);margin:18px 0 8px}
+.kf{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line2)}
+.kf s{flex:none;width:16px;text-decoration:none;color:var(--accent);font-size:12px}
+.kf b{flex:none;width:96px;font:400 13.5px/1.3 Georgia,serif;color:var(--ink2)}
+.kf span{font:13.5px/1.4 Segoe UI;color:var(--ink)}
+.act{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.btn{flex:1;min-width:120px;border:1px solid var(--line);background:#fff;color:var(--ink);
+  border-radius:10px;padding:11px 12px;font:600 13px/1 Segoe UI;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:7px;transition:.16s}
+.btn:hover{background:var(--paper2)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;flex-basis:100%}
+.btn.pri:hover{filter:brightness(1.06)}
+
+/* лента тестовых карточек */
+#rail{flex:none;display:flex;gap:12px;padding:4px 20px 18px;overflow-x:auto}
+.qc{flex:none;width:236px;background:#fff;border:1px solid var(--line2);border-radius:13px;
+  padding:14px;cursor:pointer;transition:.18s;display:flex;flex-direction:column;gap:8px;
+  box-shadow:0 1px 3px rgba(80,66,40,.05)}
+.qc:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(80,66,40,.10)}
+.qc .lab{font:italic 10.5px/1 Georgia,serif;letter-spacing:.8px;color:var(--dim)}
+.qc .q{font:400 15px/1.3 Georgia,serif;color:var(--ink)}
+.qc .go{margin-top:auto;font:600 11.5px/1 Segoe UI;color:var(--accent);display:flex;
+  align-items:center;justify-content:space-between;border-top:1px solid var(--line2);padding-top:9px}
+.qc.done{background:var(--paper)}
+.qc.done .go{color:var(--ok)}
+.qc.quote{background:var(--paper);border-style:dashed;justify-content:center;text-align:center;
+  font:italic 14px/1.5 Georgia,serif;color:var(--dim);width:200px}
+
+/* разбор вопроса */
+#modal{position:fixed;inset:0;z-index:20;background:rgba(30,26,20,.42);
+  backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .32s ease}
+#modal.on{opacity:1;pointer-events:auto}
+#mbox{width:min(620px,92vw);max-height:88vh;overflow:auto;background:var(--paper);
+  border-radius:18px;padding:26px 30px 24px;box-shadow:0 30px 70px rgba(30,20,10,.35);
+  transform:translateY(14px) scale(.985);transition:transform .32s cubic-bezier(.3,.7,.3,1)}
+#modal.on #mbox{transform:none}
+#mtop{text-align:center;color:var(--accent);font:600 10.5px/1 Segoe UI;letter-spacing:1.4px}
+#mq{font:400 26px/1.25 Georgia,serif;text-align:center;margin:12px 0 4px}
+#mwhy{text-align:center;font:italic 14px/1.5 Georgia,serif;color:var(--ink2);margin-bottom:18px}
+.opt{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--line2);
+  border-radius:11px;padding:12px 14px;margin-bottom:9px;opacity:0;transform:translateY(6px);
+  transition:opacity .4s ease,transform .4s ease,border-color .3s ease,background .3s ease}
+.opt.show{opacity:1;transform:none}
+.opt .mark{flex:none;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font:700 12px/1 Segoe UI;color:var(--dim)}
+.opt .body{min-width:0}
+.opt .body b{display:block;font:400 15.5px/1.3 Georgia,serif}
+.opt .body i{display:block;font:12.5px/1.45 Segoe UI;color:var(--dim);font-style:normal;margin-top:4px}
+.opt.good{border-color:rgba(74,124,78,.5);background:#F3F8F2}
+.opt.good .mark{border-color:var(--ok);color:var(--ok)}
+.opt.bad{border-color:rgba(180,86,74,.35)}
+.opt.bad .mark{border-color:#B4564A;color:#B4564A}
+.todo{border:1px dashed rgba(196,85,47,.5);border-radius:8px;padding:6px 9px;margin-top:6px;
+  font:11.5px/1.4 Segoe UI;color:var(--accent2);background:rgba(196,85,47,.05)}
+#msrc{margin-top:14px;background:#fff;border-left:3px solid rgba(196,85,47,.45);
+  border-radius:0 10px 10px 0;padding:12px 14px;font:italic 14px/1.55 Georgia,serif;color:#4A4326;
+  opacity:0;transition:opacity .4s ease}
+#msrc.show{opacity:1}
+#msrc small{display:block;font:600 10px/1 Segoe UI;letter-spacing:1px;color:var(--dim);
+  font-style:normal;margin-bottom:7px}
+#mact{display:flex;gap:9px;margin-top:18px}
+#mstep{font:600 11px/1 Segoe UI;color:var(--dim);letter-spacing:.6px;text-align:center;margin-top:12px}
+</style>
+</head>
+<body>
+<div id=app>
+  <aside id=teacher>
+    <div id=face><img src="/art-anyaface.jpg" alt="" onerror="this.style.display='none'"><b>3D · 0 ₽/мин</b></div>
+    <div id=tname>Аня</div>
+    <div id=trole>ведёт урок истории · 5 класс</div>
+    <div id=says><span class=who>АНЯ</span><span id=sayText>Параграф прочитан. Теперь закрепим — я разложила всё, что надо запомнить, и мы пройдём по каждому пункту.</span></div>
+    <div id=mic>🎙 Говорить</div>
+  </aside>
+
+  <main id=stage>
+    <div id=top>
+      <div id=logo>Закрепление<i>✦</i><span id=logoSub>§20. Начало греческой цивилизации</span></div>
+      <div id=steps>
+        <div class="stp on" id=st1>ЗАКРЕПЛЯЕМ</div>
+        <div class=stp id=st2>РАЗБОР ВОПРОСОВ</div>
+        <div class=stp id=st3>ТЕСТ</div>
+        <div id=pill>МАКЕТ</div>
+      </div>
+    </div>
+
+    <div id=grid>
+      <section class=pane>
+        <div class=ph>ЧТО НАДО ЗАПОМНИТЬ <b id=libCount></b></div>
+        <div id=lib></div>
+      </section>
+
+      <section class="pane" id=view>
+        <div id=canvas>
+          <img id=vimg alt="">
+          <div id=vmap><div id=vmapIn></div></div>
+        </div>
+        <div id=tools>
+          <button class="tool on" data-t=map><s>🗺</s>карта</button>
+          <button class=tool data-t=art><s>🖼</s>рисунок</button>
+          <button class=tool data-t=book><s>📖</s>учебник</button>
+          <button class=tool data-t=zoom><s>⤢</s>крупно</button>
+        </div>
+        <div id=tip><b>ПОДСКАЗКА</b>Нажимай на пункты слева — покажу, где это и о чём.</div>
+        <div id=vcap>
+          <div><div class=t id=vcapT>ПОКАЗ</div><div class=n id=vcapN>Выбери пункт слева</div></div>
+          <div class=src id=vcapS></div>
+        </div>
+      </section>
+
+      <section class="pane" id=cardPane>
+        <div id=card>
+          <div id=cTop>
+            <div style="flex:1;min-width:0">
+              <div id=cName>—</div>
+              <div id=cSub></div>
+            </div>
+            <div id=cThumb><img id=cThumbImg alt=""></div>
+          </div>
+          <div id=cQuote><small>ТАК СКАЗАНО В УЧЕБНИКЕ</small><span id=cQuoteText></span></div>
+          <div class=klabel>ЧТО ЗАПОМНИТЬ</div>
+          <div id=cFacts></div>
+          <div class=act>
+            <button class="btn pri" id=bAgain>Объясни ещё раз</button>
+            <button class=btn id=bWhere>Где на карте</button>
+            <button class=btn id=bCheck>Проверить меня</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id=rail></div>
+  </main>
+</div>
+
+<div id=modal><div id=mbox>
+  <div id=mtop>РАЗБИРАЕМ ВОПРОС</div>
+  <div id=mq></div>
+  <div id=mwhy></div>
+  <div id=mopts></div>
+  <div id=msrc><small>ГДЕ ЭТО НАПИСАНО В УЧЕБНИКЕ</small><span id=msrcText></span></div>
+  <div id=mact></div>
+  <div id=mstep></div>
+</div></div>
+
+<script>
+const $=(s)=>document.querySelector(s)
+const esc=(s)=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+const say=(t)=>{ $('#sayText').textContent=t }
+
+let DATA=null, TERMS=[], QS=[], cur=null, seen=new Set()
+
+// ── карта: тот же приём, что в уроке ─────────────────────────────────────
+let mapSvg=null, mapLoad=null
+for(const [n,v] of [['--fs','34px'],['--fsw','7px']]){
+  try{ CSS.registerProperty({name:n,syntax:'<length>',inherits:true,initialValue:v}) }catch(e){}
+}
+function ensureMap(){
+  if(mapSvg) return Promise.resolve(mapSvg)
+  if(!mapLoad) mapLoad=fetch('/book/map-greece.svg').then(r=>r.text()).then(t=>{
+    $('#vmapIn').innerHTML=t; mapSvg=$('#vmapIn').querySelector('svg'); return mapSvg })
+    .catch(()=>null)
+  return mapLoad
+}
+function mapView(fit){
+  const box=$('#vmap'), inn=$('#vmapIn'), svg=mapSvg; if(!svg) return
+  const bw=box.clientWidth, bh=box.clientHeight, vb=svg.viewBox.baseVal
+  if(!fit){ inn.style.transform='none'; svg.style.setProperty('--fs','34px'); svg.style.setProperty('--fsw','7px'); return }
+  const k=Math.min(bw/vb.width,bh/vb.height)
+  const ox=(bw-vb.width*k)/2, oy=(bh-vb.height*k)/2
+  const zoom=Math.max(1,Math.min(2.4,.78*bw/Math.max(1,fit.w*k),.78*bh/Math.max(1,fit.h*k)))
+  const ex=ox+(fit.x+fit.w/2)*k, ey=oy+(fit.y+fit.h/2)*k
+  const cl=(t,size,off,len)=>Math.min(-zoom*off,Math.max(size-zoom*(off+len*k),t))
+  inn.style.transform='translate('+cl(bw/2-zoom*ex,bw,ox,vb.width)+'px,'
+    +cl(bh/2-zoom*ey,bh,oy,vb.height)+'px) scale('+zoom+')'
+  const k2=Math.sqrt(zoom)
+  svg.style.setProperty('--fs',(34/k2)+'px'); svg.style.setProperty('--fsw',(7/k2)+'px')
+}
+function markFit(g){
+  const x=+g.dataset.x, y=+g.dataset.y
+  let x0=x-40,y0=y-40,x1=x+40,y1=y+40
+  const t=g.querySelector('text')
+  if(t){ const b=t.getBBox()
+    x0=Math.min(x0,b.x-10); y0=Math.min(y0,b.y-10)
+    x1=Math.max(x1,b.x+b.width+10); y1=Math.max(y1,b.y+b.height+10) }
+  return {x:x0,y:y0,w:x1-x0,h:y1-y0}
+}
+function mapAim(id){
+  const svg=mapSvg; if(!svg) return
+  svg.querySelectorAll('.mk').forEach(g=>g.classList.remove('on'))
+  svg.querySelectorAll('.zone').forEach(z=>z.classList.remove('on'))
+  if(!id){ mapView(null); return }
+  if(id.startsWith('zone-')){
+    const z=svg.querySelector('#'+id); if(!z){ mapView(null); return }
+    z.classList.add('on'); const b=z.getBBox()
+    mapView({x:b.x,y:b.y,w:b.width,h:b.height}); return
+  }
+  const g=svg.querySelector('#mk-'+id); if(!g){ mapView(null); return }
+  g.classList.add('on'); mapView(markFit(g))
+}
+const artUrl=(a)=> a.startsWith('book:') ? '/book/hi-'+a.slice(5)+'.jpg' : '/art-'+a+'.jpg'
+
+// ── показать термин ──────────────────────────────────────────────────────
+function showVisual(art,cap,page){
+  const isMap=art&&(art==='map'||art.startsWith('map:'))
+  $('#vcapT').textContent=isMap?'КАРТА ГРЕЦИИ':(art&&art.startsWith('book:')?'ИЛЛЮСТРАЦИЯ УЧЕБНИКА':'ПОКАЗ')
+  $('#vcapN').textContent=cap||''
+  $('#vcapS').innerHTML=page?('стр. '+page+'<br>§20'):''
+  document.querySelectorAll('.tool').forEach(b=>b.classList.toggle('on',
+    b.dataset.t===(isMap?'map':(art&&art.startsWith('book:')?'book':'art'))))
+  if(isMap){
+    ensureMap().then(()=>{ mapAim(art.startsWith('map:')?art.slice(4):'')
+      $('#vmap').classList.add('on'); $('#vimg').classList.remove('on') })
+    return
+  }
+  $('#vmap').classList.remove('on')
+  if(!art){ $('#vimg').classList.remove('on'); return }
+  const img=$('#vimg'), pre=new Image()
+  pre.onload=()=>{ img.classList.remove('on'); void img.offsetWidth
+    img.src=pre.src; requestAnimationFrame(()=>img.classList.add('on')) }
+  pre.src=artUrl(art)
+}
+function pick(i){
+  cur=TERMS[i]; if(!cur) return
+  seen.add(cur.term)
+  document.querySelectorAll('#lib .it').forEach((e,k)=>{
+    e.classList.toggle('on',k===i); if(seen.has(TERMS[k].term)) e.classList.add('seen') })
+  showVisual(cur.art,cur.cap,cur.page)
+  $('#cName').textContent=cur.term
+  $('#cSub').textContent=cur.txt
+  $('#cQuoteText').textContent='«'+cur.src+'»'
+  const th=$('#cThumbImg')
+  if(cur.art&&!cur.art.startsWith('map')){ th.src=artUrl(cur.art); th.style.display='' }
+  else th.style.display='none'
+  // «ключевые факты»: у исторического термина это не размер и вес, а страница,
+  // место и то, чем он назван в тексте. Всё берётся из данных, ничего не выдумано.
+  $('#cFacts').innerHTML=[
+    ['◇','Коротко',cur.txt],
+    ['⌖','Где в учебнике','страница '+cur.page+', абзац '+cur.beat],
+    ['❋','Что показываем',cur.cap||'—'],
+  ].map(([i,b,v])=>'<div class=kf><s>'+i+'</s><b>'+b+'</b><span>'+esc(v)+'</span></div>').join('')
+  say('Смотри: '+cur.term+'. '+cur.src)
+  $('#libCount').textContent=seen.size+' из '+TERMS.length
+}
+
+// ── разбор вопроса ───────────────────────────────────────────────────────
+let mq=null, mstep=0
+function openQ(i){
+  mq=QS[i]; mstep=0; $('#modal').classList.add('on'); drawQ()
+}
+function drawQ(){
+  const q=mq
+  $('#mq').textContent=q.q
+  $('#mwhy').textContent=mstep===0?'Сначала прочитай вопрос. Подумай, о чём он.':
+    mstep===1?'Теперь посмотрим варианты — и почему каждый из них такой.':
+    mstep===2?'Выбери вместе со мной — ответ есть в учебнике.':'Разобрали. Дальше ответишь сам, без подсказок.'
+  $('#mopts').innerHTML=q.options.map((o,k)=>{
+    const good=k===q.ok
+    const cls=mstep>=1?(good?'opt good show':'opt bad show'):'opt'
+    const why=mstep>=1?(good
+      ? '<i>Так и написано в учебнике.</i>'
+      : '<div class=todo>🟡 здесь нужно объяснение «почему не подходит» — этого текста нет ни в учебнике, ни в наших данных</div>'):''
+    return '<div class="'+cls+'" style="transition-delay:'+(k*90)+'ms">'
+      +'<div class=mark>'+(mstep>=1?(good?'✓':'✕'):String.fromCharCode(65+k))+'</div>'
+      +'<div class=body><b>'+esc(o)+'</b>'+why+'</div></div>'
+  }).join('')
+  $('#msrc').classList.toggle('show',mstep>=2)
+  $('#msrcText').textContent='«'+q.src+'»'
+  const acts=mstep<3
+    ? [['Дальше','next','pri'],['Закрыть','close','']]
+    : [['Перейти к тесту','test','pri'],['Закрыть','close','']]
+  $('#mact').innerHTML=acts.map(([t,a,c])=>'<button class="btn '+c+'" data-a="'+a+'">'+t+'</button>').join('')
+  $('#mstep').textContent='шаг '+(mstep+1)+' из 4'
+  say(mstep===0?'Вопрос: '+q.q
+    :mstep===1?'Смотри варианты. Верный — «'+q.options[q.ok]+'».'
+    :mstep===2?'Вот здесь про это написано: '+q.src
+    :'Разобрали. Теперь то же самое, но сам и без страницы.')
+}
+$('#mact').addEventListener('click',(e)=>{
+  const b=e.target.closest('[data-a]'); if(!b) return
+  if(b.dataset.a==='close'){ $('#modal').classList.remove('on'); return }
+  if(b.dataset.a==='test'){ $('#modal').classList.remove('on')
+    $('#st2').className='stp done'; $('#st3').className='stp on'
+    say('Закрываю страницу — теперь ответь по памяти. Этот шаг в уроке уже есть.')
+    return }
+  mstep=Math.min(3,mstep+1); drawQ()
+})
+$('#modal').addEventListener('click',(e)=>{ if(e.target.id==='modal') $('#modal').classList.remove('on') })
+
+// ── сборка ───────────────────────────────────────────────────────────────
+fetch('/book/zakrep.json').then(r=>r.json()).then(d=>{
+  DATA=d
+  $('#logoSub').textContent=d.paragraph
+  const lib=$('#lib')
+  for(const p of d.pages){
+    const h=document.createElement('div'); h.className='pg'; h.textContent='СО СТРАНИЦЫ '+p.page
+    lib.appendChild(h)
+    for(const t of p.terms){
+      const i=TERMS.length; TERMS.push({...t,page:p.page})
+      const el=document.createElement('div'); el.className='it'
+      const isMap=t.art&&t.art.startsWith('map')
+      el.innerHTML='<div class=th>'+(t.art&&!isMap?'<img src="'+artUrl(t.art)+'" alt="">':'<span class=mapmini>◉</span>')+'</div>'
+        +'<div class=tx><b>'+esc(t.term)+'</b><i>'+esc(t.txt)+'</i></div><div class=chk>✓</div>'
+      el.onclick=()=>pick(i)
+      lib.appendChild(el)
+    }
+    for(const q of p.questions) QS.push({...q,page:p.page})
+  }
+  $('#libCount').textContent='0 из '+TERMS.length
+  const rail=$('#rail')
+  rail.innerHTML='<div class="qc quote">Сначала разберём вопросы вместе.<br>Потом — сам.</div>'
+    +QS.map((q,i)=>'<div class=qc data-q="'+i+'"><div class=lab>ВОПРОС '+(i+1)+' · СТР. '+q.page+'</div>'
+      +'<div class=q>'+esc(q.q)+'</div><div class=go>разобрать <span>→</span></div></div>').join('')
+  rail.addEventListener('click',(e)=>{ const c=e.target.closest('[data-q]'); if(!c) return
+    $('#st1').className='stp done'; $('#st2').className='stp on'
+    c.classList.add('done'); openQ(+c.dataset.q) })
+  ensureMap().then(()=>pick(0))
+})
+$('#bWhere').onclick=()=>{ if(cur&&cur.art&&cur.art.startsWith('map')) showVisual(cur.art,cur.cap,cur.page)
+  else say('У этого пункта место на карте не отмечено — показываю рисунок.') }
+$('#bAgain').onclick=()=>{ if(cur) say(cur.term+'. '+cur.src+' Запомни: '+cur.txt+'.') }
+$('#bCheck').onclick=()=>{ const i=QS.findIndex(q=>cur&&q.term===cur.term)
+  if(i>=0){ $('#st1').className='stp done'; $('#st2').className='stp on'; openQ(i) }
+  else say('По этому пункту вопроса нет — он проверяется пересказом.') }
+document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{
+  if(!cur) return
+  if(b.dataset.t==='zoom'){ say('В боевом уроке здесь открывается картинка во весь экран.'); return }
+  say('Это макет: переключатель показывает, что у пункта может быть несколько видов показа.')
+})
+// приёмке и снимкам
+window.__zakrep={ терминов:()=>TERMS.length, вопросов:()=>QS.length,
+  выбрать:(i)=>{ pick(i); return TERMS[i].term },
+  разобрать:(i,step)=>{ openQ(i); for(let k=0;k<(step||0);k++){ mstep++ } drawQ(); return mq.q },
+  карта:()=>({ загружена:!!mapSvg, метка:(mapSvg&&(mapSvg.querySelector('.mk.on')||{}).id)||'',
+    зона:(mapSvg&&(mapSvg.querySelector('.zone.on')||{}).id)||'' }) }
+</script>
+</body></html>

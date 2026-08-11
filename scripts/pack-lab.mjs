@@ -54,7 +54,10 @@ total += copy('.planning/KNIGA-VERSIONS.md', path.join(STAGE, '.planning/KNIGA-V
 console.log('  KNIGA-VERSIONS.md (чейнджлог витрины)')
 
 console.log('── страницы ──')
-for (const f of ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html', 'obzor.html']) {
+// zakrep.html — макет экрана закрепления по референсу Anatomy Atelier, который присылал
+// руководитель. Ему нужны только `book/zakrep.json` и карта, а они и так едут: значит
+// показать эту ветку стоит один файл.
+for (const f of ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html', 'obzor.html', 'zakrep.html']) {
   console.log('  ' + f + ' — ' + human(add(f)))
 }
 
