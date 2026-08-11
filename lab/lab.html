@@ -132,8 +132,8 @@ footer{margin-top:26px;color:var(--dim);font-size:12.5px;line-height:1.7}
 </div>
 
 <footer>
-  Сборки заморожены: правки идут только в текущую, прошлые остаются как есть — чтобы «было и
-  стало» можно было посмотреть рядом, а не по памяти.<br>
+  Правки идут только в текущий вариант, остальные остаются как есть — чтобы сравнивать их
+  можно было рядом, а не по памяти. Нужен ещё один вариант подачи — скажите, соберём.<br>
   Страницы — рендер настоящего учебника, доступ закрыт паролем.
 </footer>
 </div>
@@ -181,7 +181,7 @@ $('#cards').innerHTML=BUILDS.map((b,i)=>
   +'<div class=when>обновлена '+b.when+'</div>'
   +'<div class=desc>'+esc(b.desc)+'</div>'
   +'<div class=row>'
-  +'<a class="btn go" href="'+b.url+'" target=_blank>▶ пройти урок</a>'
+  +'<a class="btn go" href="'+b.url+'" target=_blank>▶ '+(b.ver==='макет'?'открыть макет':'пройти урок')+'</a>'
   +'<button class=btn data-log="'+b.log+'" data-code="'+b.code+' · '+b.ver+'"'+(b.now?' data-now=1':'')+'>что изменилось</button>'
   +'</div>'
   +'</div>').join('')
