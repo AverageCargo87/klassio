@@ -53,7 +53,7 @@ export const scpUp = (local, remote) =>
 // ── что считаем исходником ─────────────────────────────────────────────────
 // Только ТЕКСТ: страницы сборок и данные урока. Рендеры страниц учебника,
 // иллюстрации и 3D-модели в git не едут — копирайт и вес (25 МБ + 1.2 ГБ рядом).
-export const PAGES = ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html']
+export const PAGES = ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html', 'obzor.html']
 
 export const sources = () => {
   const out = PAGES.filter((f) => fs.existsSync(path.join(SRC, f)))

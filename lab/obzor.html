@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang=ru>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Всё в уроке · §20 — обзор материалов</title>
+<!--
+  ОБЗОР МАТЕРИАЛОВ УРОКА (11.08.2026)
+  Постановка Кратова: «надо чтобы можно было все артефакты урока посмотреть, не проходя
+  весь урок, чтобы не слушать весь материал».
+  Урок идёт 25–30 минут и ведёт ребёнка по одному шагу за раз — это правильно для ребёнка
+  и невыносимо для того, кто пришёл ПРОВЕРИТЬ материал. Здесь всё то же самое, но разом
+  и молча: показы, карточки, экран топиков, задания тренажёра, вопросы учебника.
+  Своего тут нет ни строчки — страница читает те же файлы, что и урок.
+-->
+<style>
+:root{--bg:#12141C;--card:#1A1D27;--line:#2A2F3E;--ink:#E8EAF2;--dim:#9AA3B8;
+  --accent:#F2A33C;--good:#7FD07A;--bad:#E4796B;--paper:#FAF7EF}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Segoe UI,system-ui,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:22px 20px 70px}
+h1{margin:0;font:800 24px/1.2 Georgia,serif}
+.sub{color:var(--dim);font-size:14px;margin:7px 0 16px;max-width:820px}
+.sub a{color:var(--accent)}
+/* липкая навигация по страницам параграфа */
+nav{position:sticky;top:0;z-index:20;background:rgba(18,20,28,.94);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);padding:9px 0;margin-bottom:18px;display:flex;gap:7px;flex-wrap:wrap;
+  align-items:center}
+nav a{padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:#242836;
+  color:var(--ink);text-decoration:none;font:600 13.5px/1 Segoe UI}
+nav a:hover{background:#2B3040}
+nav .sp{flex:1}
+nav .cnt{color:var(--dim);font-size:12.5px}
+section{margin:0 0 34px}
+.ph{display:flex;align-items:baseline;gap:12px;margin:26px 0 12px;padding-top:8px;border-top:1px solid var(--line)}
+.ph h2{margin:0;font:800 20px/1.2 Georgia,serif}
+.ph .n{color:var(--dim);font-size:13px}
+h3.grp{margin:18px 0 10px;font:800 12px/1.3 Segoe UI;letter-spacing:.8px;color:var(--accent);
+  text-transform:uppercase}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  display:flex;flex-direction:column}
+.tile img{width:100%;aspect-ratio:16/9;object-fit:cover;background:#0E1016;cursor:zoom-in;display:block}
+.tile .no{width:100%;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;
+  background:#0E1016;color:var(--dim);font:12px/1.3 Segoe UI;text-align:center;padding:10px}
+.tile .b{padding:9px 11px 11px}
+.tile .cap{font:800 11.5px/1.3 Segoe UI;letter-spacing:.6px;color:var(--accent)}
+.tile .sub2{margin-top:4px;font-size:13.5px;color:#C6CCDC}
+.tile .re{margin-top:6px;font-size:12.5px;color:var(--dim);font-style:italic}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:0 12px 12px 0;padding:11px 13px}
+.card b{display:block;font:700 15px/1.3 Segoe UI}
+.card .zn{margin-top:3px;font-size:14px;color:#C6CCDC}
+.card .src{margin-top:7px;font-size:12.5px;color:var(--dim);border-top:1px dashed var(--line);padding-top:6px}
+.task{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.task .k{font:800 10.5px/1 Segoe UI;letter-spacing:1.2px;color:var(--dim);
+  background:#242938;padding:4px 8px;border-radius:20px;display:inline-block}
+.task .k.sp{color:var(--accent);background:rgba(242,163,60,.14)}
+.task .q{margin:8px 0 7px;font-size:15px}
+.task ol{margin:0;padding-left:20px}
+.task li{margin-bottom:3px;color:#C6CCDC}
+.task li.ok{color:var(--good);font-weight:600}
+.task .pair{color:#C6CCDC;font-size:14px;margin-bottom:3px}
+.task .src{margin-top:8px;font-size:12.5px;color:var(--dim)}
+#big{display:none;position:fixed;inset:0;z-index:60;background:rgba(8,9,13,.88);align-items:center;
+  justify-content:center;padding:26px;cursor:zoom-out}
+#big.on{display:flex}
+#big img{max-width:100%;max-height:100%;border-radius:10px}
+footer{margin-top:30px;color:var(--dim);font-size:12.5px}
+</style>
+
+<div class=wrap>
+<h1>Всё, что есть в уроке — одним экраном</h1>
+<p class=sub>Тот же материал, что урок показывает по одному шагу за 25–30 минут: показы,
+карточки «запомни», задания тренажёра и вопросы учебника. Здесь его можно просмотреть молча
+и целиком, не слушая. <a href="/kniga">пройти урок как ребёнок →</a></p>
+
+<nav id=nav></nav>
+<div id=out>Собираю материалы…</div>
+
+<footer>Страница ничего не придумывает: она читает те же файлы, по которым идёт урок
+(<code>panel.json</code> · <code>zakrep.json</code> · <code>drill.json</code> · <code>test.json</code>).
+Значит расхождение между обзором и уроком невозможно.</footer>
+</div>
+<div id=big><img id=bigImg alt=""></div>
+
+<script>
+const $=s=>document.querySelector(s)
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+// та же формула адреса картинки, что в уроке — иначе обзор показывал бы не то
+const artUrl=(id)=> String(id).startsWith('book:') ? '/book/hi-'+String(id).slice(5)+'.jpg' : '/art-'+id+'.jpg'
+const карта=(id)=>String(id).startsWith('map')
+
+// У «карты» показываем саму карту: в уроке она живая и наезжает на названное место,
+// но в обзоре важно, что ребёнок видит карту, а не заглушку с объяснением.
+const тайл=(art,cap,sub,re)=>'<div class=tile>'
+  +'<img loading=lazy decoding=async alt="'+esc(cap)+'" src="'
+    +(карта(art)?'/book/map-greece.svg':artUrl(art))+'">'
+  +'<div class=b><div class=cap>'+esc(cap)+(карта(art)?' · карта':'')+'</div>'
+  +(sub?'<div class=sub2>'+esc(sub)+'</div>':'')
+  +(re?'<div class=re>звучит на: «'+esc(re)+'»</div>':'')
+  +'</div></div>'
+
+const задание=(t,запас)=>{
+  const тип={vocab:'слово → значение',back:'значение → слово',match:'соединить пары',history:'событие'}[t.kind]||t.kind
+  let тело=''
+  if(t.pairs) тело=t.pairs.map(p=>'<div class=pair><b>'+esc(p.l)+'</b> — '+esc(p.r)+'</div>').join('')
+  else тело='<ol>'+(t.options||[]).map((o,i)=>'<li'+(i===t.ok?' class=ok':'')+'>'+esc(o)+(i===t.ok?' ✓':'')+'</li>').join('')+'</ol>'
+  return '<div class=task><span class="k'+(запас?' sp':'')+'">'+esc(тип)+(запас?' · запасное':'')+'</span>'
+    +'<div class=q>'+esc(t.q)+'</div>'+тело
+    +(t.src?'<div class=src>строка учебника: '+esc(t.src)+'</div>':'')+'</div>'
+}
+
+;(async()=>{
+  const дай=async(u,по)=>{ try{ return await fetch(u).then(r=>r.json()) }catch(e){ return по } }
+  const [PANEL,ZAK,DRILL,TEST]=await Promise.all([
+    дай('/book/panel.json',[]), дай('/book/zakrep.json',{pages:[]}),
+    дай('/book/drill.json',{pages:[]}), дай('/book/test.json',[])])
+
+  const страницы=[...new Set([...PANEL.map(p=>p.page),...(ZAK.pages||[]).map(p=>p.page)])].sort()
+  let показов=0, карточек=0, заданий=0, вопросов=0
+  let html=''
+  for(const page of страницы){
+    const demos=(PANEL.find(p=>p.page===page)||{}).demos||[]
+    const terms=((ZAK.pages||[]).find(p=>p.page===page)||{}).terms||[]
+    const dr=(DRILL.pages||[]).find(p=>p.page===page)||{}
+    const qs=((TEST||[]).find(p=>p.page===page)||{}).questions||[]
+    показов+=demos.length; карточек+=terms.length
+    заданий+=(dr.tasks||[]).length+(dr.spare||[]).length; вопросов+=qs.length
+
+    html+='<section id="p'+page+'"><div class=ph><h2>Страница '+page+'</h2>'
+      +'<span class=n>'+demos.length+' показов · '+terms.length+' карточек · '
+      +((dr.tasks||[]).length)+' заданий (+'+((dr.spare||[]).length)+' запасных) · '+qs.length+' вопросов учебника</span></div>'
+
+    if(demos.length){ html+='<h3 class=grp>Что появляется на экране, пока Аня читает</h3><div class=grid>'
+      +demos.map(d=>тайл(d.art,d.cap,d.sub,d.re)).join('')+'</div>' }
+
+    if(terms.length){ html+='<h3 class=grp>Карточки «запомни» и экран топиков</h3><div class=cards>'
+      +terms.map(t=>'<div class=card><b>'+esc(t.term)+'</b><div class=zn>'+esc(t.txt)+'</div>'
+        +(t.src?'<div class=src>'+esc(t.src)+'</div>':'')+'</div>').join('')+'</div>' }
+
+    if((dr.tasks||[]).length||(dr.spare||[]).length){
+      html+='<h3 class=grp>Тренажёр раздела</h3>'
+        +(dr.tasks||[]).map(t=>задание(t,false)).join('')
+        +(dr.spare||[]).map(t=>задание(t,true)).join('') }
+
+    if(qs.length){ html+='<h3 class=grp>Вопросы учебника</h3>'
+      +qs.map(q=>задание({kind:'history',q:q.q,options:q.options,ok:q.ok,src:null},false)).join('') }
+
+    html+='</section>'
+  }
+  $('#out').innerHTML=html||'<p>Материалов не нашлось — стенд не отдал данные урока.</p>'
+  $('#nav').innerHTML=страницы.map(p=>'<a href="#p'+p+'">стр. '+p+'</a>').join('')
+    +'<span class=sp></span><span class=cnt>всего: '+показов+' показов · '+карточек+' карточек · '
+    +заданий+' заданий · '+вопросов+' вопросов учебника</span>'
+})()
+
+// рассмотреть картинку
+document.addEventListener('click',(e)=>{
+  const im=e.target.closest('.tile img'); if(!im) return
+  $('#bigImg').src=im.src; $('#big').classList.add('on')
+})
+$('#big').onclick=()=>$('#big').classList.remove('on')
+addEventListener('keydown',(e)=>{ if(e.key==='Escape') $('#big').classList.remove('on') })
+</script>
+</html>

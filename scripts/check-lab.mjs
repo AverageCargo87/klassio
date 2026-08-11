@@ -18,6 +18,10 @@ const browser = await chromium.launch({ executablePath: fs.existsSync(CHROME) ? 
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 },
   httpCredentials: process.env.LAB_USER ? { username: process.env.LAB_USER, password: process.env.LAB_PASS || '' } : undefined })
+// 🔴 Записи приёмки помечаются служебными и в списке руководителя НЕ показываются.
+// Раньше их выпалывали из файла руками — и однажды вместе с ними стёрли живое
+// замечание. Правило: файл замечаний не чистят никогда, лишнее прячут.
+await page.addInitScript(() => { window.__приёмка = true })
 const errs = []
 page.on('pageerror', (e) => errs.push(String(e).slice(0, 140)))
 const ok = [], bad = []
@@ -70,13 +74,16 @@ say(await page.evaluate(() => !document.querySelector('#modal').classList.contai
 await page.screenshot({ path: OUT + '/40-lab.png', fullPage: true })
 
 // замечание доходит до сервера
-const было = (await (await page.request.get(BASE + '/api/feedback')).json()).length
+const было = (await (await page.request.get(BASE + '/api/feedback?all=1')).json()).length
 await page.selectOption('#fbVer', { index: 2 })
 await page.fill('#fbText', 'Приёмка витрины: проверка, что замечание доходит.')
 await page.click('#fbSend')
 await page.waitForTimeout(900)
-const стало = await (await page.request.get(BASE + '/api/feedback')).json()
+const стало = await (await page.request.get(BASE + '/api/feedback?all=1')).json()
 say(стало.length === было + 1, 'замечание записано на сервере (' + было + ' → ' + стало.length + ')')
+const живые = await (await page.request.get(BASE + '/api/feedback')).json()
+say(!живые.some((f) => /Приёмк/i.test(f.текст || '')),
+  'записи приёмки в список руководителя не попадают (живых там ' + живые.length + ')')
 say(стало[0] && /ГАММА/.test(стало[0].версия || ''), 'вместе с номером сборки: ' + (стало[0] || {}).версия)
 const наЭкране = await page.evaluate(() => document.querySelectorAll('#fbList .item').length)
 say(наЭкране >= 1, 'и сразу видно в списке под формой (' + наЭкране + ')')
@@ -103,7 +110,7 @@ say(превью.видно && /^data:image\/jpeg/.test(превью.данны�
 await page.fill('#fbText', 'Приёмка витрины: замечание с фото.')
 await page.click('#fbSend')
 await page.waitForTimeout(1200)
-const сФото = (await (await page.request.get(BASE + '/api/feedback')).json())[0] || {}
+const сФото = (await (await page.request.get(BASE + '/api/feedback?all=1')).json())[0] || {}
 say(!!сФото.фото, 'фото ушло вместе с замечанием (' + (сФото.фото || 'НЕТ') + ')')
 if (сФото.фото) {
   const r = await page.request.get(BASE + '/api/feedback-photo/' + сФото.фото)
@@ -137,7 +144,7 @@ say(wide <= 1, 'по горизонтали ничего не вылезает (
 //  иначе замечание звучит как «где-то в тесте мелкий шрифт».
 await page.goto(BASE + '/kniga', { waitUntil: 'domcontentloaded', timeout: 60000 })
 await page.waitForFunction(() => window.__kniga && window.__kniga.beats() > 10, null, { timeout: 60000 })
-const было2 = (await (await page.request.get(BASE + '/api/feedback')).json()).length
+const было2 = (await (await page.request.get(BASE + '/api/feedback?all=1')).json()).length
 say(await page.isVisible('#fbBtn'), 'в уроке есть кнопка «замечание»')
 await page.click('#fbBtn')
 await page.waitForTimeout(400)
@@ -148,7 +155,7 @@ await page.fill('#fbTx', 'Приёмка: замечание из урока.')
 await page.click('#fbOk')
 // окошко прячется через секунду после отправки — «спасибо» должно успеть прочитаться
 await page.waitForTimeout(1600)
-const стало2 = await (await page.request.get(BASE + '/api/feedback')).json()
+const стало2 = await (await page.request.get(BASE + '/api/feedback?all=1')).json()
 say(стало2.length === было2 + 1, 'замечание из урока дошло до сервера (' + было2 + ' → ' + стало2.length + ')')
 say(стало2[0] && (стало2[0].место || '').length > 8,
   'вместе с местом, а не просто текстом: «' + ((стало2[0] || {}).место || '') + '»')
@@ -161,6 +168,45 @@ for (let i = 0; i < 40; i++) {
   await page.waitForTimeout(200)
 }
 say(скрылось, 'после отправки окошко закрылось само')
+
+// ── ОБЗОР МАТЕРИАЛОВ: посмотреть всё, не проходя урок ──────────────────────
+await page.goto(BASE + '/lab', { waitUntil: 'domcontentloaded', timeout: 30000 })
+say(await page.isVisible('a[href="/kniga/obzor"]'), 'с витрины есть вход в обзор материалов')
+await page.goto(BASE + '/kniga/obzor', { waitUntil: 'networkidle', timeout: 45000 })
+const обзор = await page.evaluate(() => ({
+  разделов: document.querySelectorAll('section').length,
+  показов: document.querySelectorAll('.tile').length,
+  карточек: document.querySelectorAll('.card').length,
+  заданий: document.querySelectorAll('.task').length,
+  верных: document.querySelectorAll('.task li.ok').length,
+  лениво: [...document.querySelectorAll('.tile img')].every((i) => i.getAttribute('loading') === 'lazy'),
+  навигация: document.querySelectorAll('nav a').length }))
+say(обзор.разделов === 6, 'в обзоре все шесть разделов параграфа (' + обзор.разделов + ')')
+say(обзор.показов > 90, 'показаны все показы урока (' + обзор.показов + ')')
+say(обзор.карточек > 20, 'и все карточки «запомни» (' + обзор.карточек + ')')
+say(обзор.заданий > 50, 'и все задания тренажёра вместе с запасными (' + обзор.заданий + ')')
+say(обзор.верных >= обзор.заданий - 12, 'у заданий видно, какой ответ верный (' + обзор.верных + ')')
+say(обзор.навигация === 6, 'по страницам можно прыгать (' + обзор.навигация + ' ссылок)')
+// ⚠️ Картинок здесь под сотню: без ленивой загрузки обзор тянул бы десятки мегабайт разом
+say(обзор.лениво, 'картинки обзора грузятся лениво, а не все разом')
+await page.screenshot({ path: OUT + '/42-obzor.png' })
+
+// ── ЭКРАН ЗАГРУЗКИ УРОКА ───────────────────────────────────────────────────
+//  Данных много, и первые секунды урок выглядел полупустым — «вроде сломалось».
+// ⚠️ Ту же вкладку, а не новую: страница заведена через browser.newPage(), и просить
+// у её контекста ещё одну playwright не даёт.
+await page.goto(BASE + '/kniga', { waitUntil: 'commit', timeout: 60000 })
+const заставка = await page.evaluate(() => !!document.querySelector('#boot')).catch(() => false)
+say(заставка, 'при открытии урока показан экран загрузки')
+await page.waitForFunction(() => !document.querySelector('#boot'), null, { timeout: 60000 })
+say(true, 'и он уходит сам, когда урок готов')
+say(await page.isVisible('#fbBtn'), 'урок открылся: кнопка замечания на месте')
+await page.click('#fbBtn')
+await page.waitForTimeout(300)
+say(await page.isVisible('#fbCrop'), 'в замечании есть «выделить» — обвести место прямо на экране')
+const губы = await page.evaluate(() => +document.querySelector('#sLips').value)
+say(губы <= 1, 'сила губ по умолчанию не задрана (' + губы + ')')
+
 
 console.log('\n✅ ' + ok.join('\n✅ '))
 if (bad.length) console.log('\n❌ ' + bad.join('\n❌ '))
