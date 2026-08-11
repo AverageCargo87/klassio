@@ -272,11 +272,21 @@ const lensOpen = await page.evaluate(async () => {
 say(lensOpen.фон === 1 && lensOpen.готова && /opacity/.test(lensOpen.переходы),
   'картинка открывается переходом: ' + lensOpen.переходы + ' за ' + lensOpen.длительность
   + ' · фон ' + lensOpen.фон + ' · готова ' + lensOpen.готова)
-const lensClose = await page.evaluate(() => {
+// ⚠️ Переход снимаем НЕ мгновенно после закрытия: у картинки он стартует на следующем
+// кадре, и одиночный замер ловил только фон — проверка мигала красным на исправном
+// уроке. Ждём кадр и смотрим оба слоя.
+const lensClose = await page.evaluate(async () => {
   window.__kniga.closeLens()
   const L = document.querySelector('#lens'), I = document.querySelector('#lensImg')
   const names = (el) => el.getAnimations().map((a) => a.transitionProperty || a.animationName)
-  return { фон: names(L), кадр: names(I) } })
+  const собрать = () => ({ фон: names(L), кадр: names(I) })
+  let r = собрать()
+  for (let i = 0; i < 6 && !r.кадр.includes('opacity'); i++) {
+    await new Promise((res) => requestAnimationFrame(() => res()))
+    const n = собрать()
+    r = { фон: [...new Set([...r.фон, ...n.фон])], кадр: [...new Set([...r.кадр, ...n.кадр])] }
+  }
+  return r })
 say(lensClose.фон.includes('opacity') && lensClose.кадр.includes('opacity'),
   'и закрывается им же, а не пропадает рывком (фон: ' + lensClose.фон.join(',') + ' · картинка: ' + lensClose.кадр.join(',') + ')')
 await page.waitForTimeout(500)

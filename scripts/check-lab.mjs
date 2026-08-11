@@ -66,7 +66,12 @@ for (const c of cards) {
 // чейнджлог — отдельным окном поверх страницы (раньше разворачивался внутри карточки
 // шириной 300 px, и руководитель сказал, что читать невозможно)
 await page.click('.card.now [data-log]')
-await page.waitForTimeout(700)
+// ⚠️ Не «700 мс»: окно ждёт ДВА запроса (журнал версий и список релизов), и на боевом
+// адресе они дольше, чем на localhost. Ждём, пока «загружаю…» сменится содержимым.
+await page.waitForFunction(() => {
+  const b = document.querySelector('#mbody')
+  return b && b.textContent.length > 40 && !/загружаю/.test(b.textContent)
+}, null, { timeout: 20000 })
 const log = await page.evaluate(() => {
   const m = document.querySelector('#modal'), b = document.querySelector('#mbody')
   const r = b.getBoundingClientRect()
@@ -89,6 +94,13 @@ if (релизы.length) {
   const час = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(последний.когда))
   say(/\d{2}\.\d{2}\.\d{4}/.test(когда) && когда.includes(час) && /МСК/.test(когда),
     'в окне видно, когда обновление вышло: «' + когда.trim() + '»')
+  // 🔑 «Тут выглядит так, будто всё вышло в один момент» — поэтому правки разложены по
+  // выкладкам: время слева, что вышло справа. Источник — релизы, разойтись не может.
+  const лента = await page.evaluate(() => [...document.querySelectorAll('.tl .r')].map((r) => ({
+    время: (r.querySelector('time') || {}).textContent || '',
+    что: (r.querySelector('.w') || {}).textContent || '' })))
+  say(лента.length >= 2 && лента.every((x) => /\d{2}\.\d{2} в \d{2}:\d{2}/.test(x.время) && x.что.length > 15),
+    'правки разложены по выкладкам: ' + лента.length + ' записей, свежая — ' + (лента[0] || {}).время)
   const наКарточке = await page.evaluate(() => (document.querySelector('.card.now .when') || {}).textContent || '')
   say(наКарточке.includes(час), 'и на карточке текущей сборки та же дата: «' + наКарточке.trim() + '»')
 } else {
