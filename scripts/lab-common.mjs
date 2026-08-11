@@ -150,9 +150,10 @@ health() {
 // в каждый ссылкой — иначе откат стёр бы замечания, ради которых всё и затевалось.
 export const REMOTE_LINK_SHARED = `
 link_shared() {   # $1 — папка релиза
-  mkdir -p "$1/scripts" "$1/.tmp" ${ROOT}/shared
+  mkdir -p "$1/scripts" "$1/.tmp" ${ROOT}/shared ${ROOT}/shared/photos
   touch ${ROOT}/shared/feedback.jsonl
   ln -sfn ../../../shared/.yandex-secret.json "$1/scripts/.yandex-secret.json"
   ln -sfn ../../../shared/feedback.jsonl "$1/.tmp/feedback.jsonl"
+  ln -sfn ../../../shared/photos "$1/.tmp/feedback-photos"
 }
 `

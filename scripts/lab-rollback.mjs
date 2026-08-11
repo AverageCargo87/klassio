@@ -55,7 +55,15 @@ const список = raw.split('---релиз---').slice(1).map((кусок) => 
 }).filter((r) => r.папка)
 список.sort((a, b) => a.папка.localeCompare(b.папка))
 
-const датой = (r) => (r.инфо.когда || '').replace('T', ' ').slice(0, 16) || '—'
+// Время показываем МОСКОВСКОЕ: в RELEASE.json оно записано по UTC, и список релизов
+// расходился с часами на три часа — при откате это ровно та цифра, по которой выбирают.
+const датой = (r) => {
+  if (!r.инфо.когда) return '—'
+  try {
+    return new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit',
+      hour: '2-digit', minute: '2-digit' }).format(new Date(r.инфо.когда)) + ' МСК'
+  } catch { return String(r.инфо.когда).slice(0, 16) }
+}
 // Ключи читаем как есть: у релизов до 11.08 сборки звались АЛЬФА·БРАВО·ЧАРЛИ, и старый
 // список не должен превратиться в «undefined» из-за переименования в греческие буквы.
 const версией = (r) => r.инфо.версии

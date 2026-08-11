@@ -77,6 +77,23 @@ textarea{flex:1;min-width:280px;min-height:74px;resize:vertical}
 .item .m i{font-style:normal;color:var(--accent)}
 .item .t{margin-top:5px;font-size:14px;color:#DCE1EE;white-space:pre-wrap}
 .empty{color:var(--dim);font-size:13.5px}
+/* ── фото к замечанию ──
+   Скриншот объясняет за секунду то, на что уходит абзац. Картинка грузится ЛЕНИВО:
+   пока список замечаний не попал на экран, за ней никто не ходит. */
+.item img.ph{display:block;margin-top:8px;max-width:230px;max-height:150px;border-radius:8px;
+  border:1px solid var(--line);cursor:zoom-in;background:#14161E}
+.pick{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.pick .thumb{display:none;align-items:center;gap:8px;background:#14161E;border:1px solid var(--line);
+  border-radius:9px;padding:5px 9px 5px 5px;font-size:12.5px;color:var(--dim)}
+.pick .thumb.on{display:flex}
+.pick .thumb img{width:46px;height:32px;object-fit:cover;border-radius:5px}
+.pick .thumb b{color:var(--ink);font-weight:600}
+.pick .x{background:none;border:0;color:var(--dim);cursor:pointer;font:700 15px/1 Segoe UI;padding:2px 4px}
+.pick .x:hover{color:var(--ink)}
+#lightbox{display:none;position:fixed;inset:0;z-index:60;background:rgba(8,9,13,.86);
+  align-items:center;justify-content:center;padding:24px;cursor:zoom-out}
+#lightbox.on{display:flex}
+#lightbox img{max-width:100%;max-height:100%;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
 footer{margin-top:26px;color:var(--dim);font-size:12.5px;line-height:1.7}
 </style>
 
@@ -98,8 +115,11 @@ footer{margin-top:26px;color:var(--dim);font-size:12.5px;line-height:1.7}
     <select id=fbVer></select>
     <textarea id=fbText placeholder="Например: на экране топиков слишком мелкий текст цитаты; тренажёр слишком быстро уводит на следующее задание…"></textarea>
   </div>
-  <div class=row style="margin-top:10px">
+  <div class="row pick" style="margin-top:10px">
     <button class="btn go" id=fbSend>отправить замечание</button>
+    <input type=file id=fbFile accept="image/*" hidden>
+    <button class=btn id=fbPick title="скриншот объяснит быстрее, чем описание">📎 приложить фото</button>
+    <span class=thumb id=fbThumb><img id=fbThumbImg alt=""><b id=fbThumbName></b><button class=x id=fbDrop title="убрать фото">✕</button></span>
   </div>
   <div class=sent id=fbSent></div>
   <div class=list id=fbList></div>
@@ -111,6 +131,8 @@ footer{margin-top:26px;color:var(--dim);font-size:12.5px;line-height:1.7}
   Страницы — рендер настоящего учебника, доступ закрыт паролем.
 </footer>
 </div>
+
+<div id=lightbox><img id=lightboxImg alt="фото к замечанию"></div>
 
 <div class=modal id=modal>
   <div class=sheet>
@@ -215,19 +237,65 @@ document.addEventListener('click',async(e)=>{
 async function loadFb(){
   let list=[]
   try{ list=await fetch('/api/feedback').then(r=>r.json()) }catch(e){}
+  // ⚠️ loading=lazy — не украшение: фото грузятся, только когда список замечаний
+  // доехал до экрана. Иначе витрина тянула бы мегабайты картинок при открытии.
   $('#fbList').innerHTML=list.length
     ? list.map(f=>'<div class=item><div class=m><i>'+esc(f.версия||'')+'</i>'+esc(f.когда||'')
-        +(f.место?' · '+esc(f.место):'')+'</div><div class=t>'+esc(f.текст||'')+'</div></div>').join('')
+        +(f.место?' · '+esc(f.место):'')+'</div><div class=t>'+esc(f.текст||'')+'</div>'
+        +(f.фото?'<img class=ph loading=lazy decoding=async alt="фото к замечанию" title="нажмите, чтобы рассмотреть" src="/api/feedback-photo/'+encodeURIComponent(f.фото)+'">':'')
+        +'</div>').join('')
     : '<div class=empty>Замечаний пока нет.</div>'
 }
+
+// ── фото ──
+// Ужимаем ПРЯМО В СТРАНИЦЕ: с телефона прилетает 4–8 МБ, а для «посмотри, тут криво»
+// хватает 1600 px. Сервер тогда остаётся без разбора multipart и без обработки картинок.
+let ФОТО=null
+const ужать=(file)=>new Promise((готово,беда)=>{
+  const fr=new FileReader()
+  fr.onerror=()=>беда(new Error('файл не прочитался'))
+  fr.onload=()=>{ const im=new Image()
+    im.onerror=()=>беда(new Error('это не картинка'))
+    im.onload=()=>{
+      const к=Math.min(1,1600/Math.max(im.width,im.height))
+      const c=document.createElement('canvas')
+      c.width=Math.round(im.width*к); c.height=Math.round(im.height*к)
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height)
+      готово(c.toDataURL('image/jpeg',.82))
+    }
+    im.src=fr.result }
+  fr.readAsDataURL(file)
+})
+const снятьФото=()=>{ ФОТО=null; $('#fbFile').value=''; $('#fbThumb').classList.remove('on') }
+$('#fbPick').onclick=()=>$('#fbFile').click()
+$('#fbDrop').onclick=снятьФото
+$('#fbFile').onchange=async(e)=>{
+  const f=e.target.files[0]; if(!f) return
+  $('#fbSent').textContent='Готовлю фото…'
+  try{
+    ФОТО=await ужать(f)
+    $('#fbThumbImg').src=ФОТО
+    $('#fbThumbName').textContent=Math.round(ФОТО.length*3/4/1024)+' КБ'
+    $('#fbThumb').classList.add('on')
+    $('#fbSent').textContent='Фото приложено — оно уйдёт вместе с замечанием.'
+  }catch(err){ снятьФото(); $('#fbSent').textContent='Фото не вышло приложить: '+err.message }
+}
+// рассмотреть фото в списке
+document.addEventListener('click',(e)=>{
+  const im=e.target.closest('.item img.ph'); if(!im) return
+  $('#lightboxImg').src=im.src; $('#lightbox').classList.add('on')
+})
+$('#lightbox').onclick=()=>$('#lightbox').classList.remove('on')
+addEventListener('keydown',(e)=>{ if(e.key==='Escape') $('#lightbox').classList.remove('on') })
+
 $('#fbSend').onclick=async()=>{
   const текст=$('#fbText').value.trim()
   if(!текст){ $('#fbSent').textContent='Напишите, что поправить.'; return }
   $('#fbSend').disabled=true
   try{
     await fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({версия:$('#fbVer').value,текст})})
-    $('#fbText').value=''
+      body:JSON.stringify({версия:$('#fbVer').value,текст,фото:ФОТО||undefined})})
+    $('#fbText').value=''; снятьФото()
     $('#fbSent').textContent='Записал. Спасибо — поправлю и отмечу в «что изменилось».'
     await loadFb()
   }catch(e){ $('#fbSent').textContent='Не сохранилось: '+e.message }

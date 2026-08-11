@@ -859,6 +859,8 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
   <textarea id=fbTx placeholder="Например: тут слишком мелкий текст цитаты; задание уводит дальше слишком быстро…"></textarea>
   <div class=rw>
     <button class="btn go" id=fbOk>отправить</button>
+    <input type=file id=fbFile accept="image/*" hidden>
+    <button class=btn id=fbPic title="приложить фото — скриншот объяснит быстрее">📎 фото</button>
     <button class=btn id=fbNo>отмена</button>
     <span class=ok id=fbMsg></span>
   </div>
@@ -1990,8 +1992,14 @@ window.__drill={runDrill}
 //  ИТОГИ УРОКА (v2.5)
 // ═══════════════════════════════════════════════════════════════════════════
 const dt2=(d)=>String(d).padStart(2,'0')
-function stampRu(ms){ const d=new Date(ms)
-  return dt2(d.getDate())+'.'+dt2(d.getMonth()+1)+'.'+d.getFullYear()+' '+dt2(d.getHours())+':'+dt2(d.getMinutes()) }
+// ⚠️ Время в итогах и в замечаниях — МОСКОВСКОЕ, и не «как на этой машине». Часы
+// браузера ребёнка могут стоять по любому поясу, а сервер витрины и вовсе жил по UTC:
+// в замечаниях стояло на три часа раньше настоящего. Пояс задаём явно.
+function stampRu(ms){
+  const ч=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',day:'2-digit',month:'2-digit',
+    year:'numeric',hour:'2-digit',minute:'2-digit'}).formatToParts(new Date(ms))
+  const п={}; for(const x of ч) п[x.type]=x.value
+  return п.day+'.'+п.month+'.'+п.year+' '+п.hour+':'+п.minute }
 function reportData(){
   const rows=[...DR.pages.values()].sort((a,b)=>a.page-b.page)
   const sum=rows.reduce((s,r)=>({tasks:s.tasks+r.tasks,ok:s.ok+r.ok,no:s.no+r.no,
@@ -2073,6 +2081,31 @@ function fbWhere(){
   const b=BEATS[beat]
   return v+(b?' · стр. '+b.page+' · чтение, такт '+(beat+1):' · до начала урока')
 }
+// Фото к замечанию. Ужимаем прямо здесь: с телефона прилетает 4–8 МБ, а для «вот тут
+// криво» хватает 1600 px — сервер тогда обходится без разбора multipart и без картинок.
+let ФОТО=null
+const ужать=(file)=>new Promise((готово,беда)=>{
+  const fr=new FileReader()
+  fr.onerror=()=>беда(new Error('файл не прочитался'))
+  fr.onload=()=>{ const im=new Image()
+    im.onerror=()=>беда(new Error('это не картинка'))
+    im.onload=()=>{
+      const к=Math.min(1,1600/Math.max(im.width,im.height))
+      const c=document.createElement('canvas')
+      c.width=Math.round(im.width*к); c.height=Math.round(im.height*к)
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height)
+      готово(c.toDataURL('image/jpeg',.82))
+    }
+    im.src=fr.result }
+  fr.readAsDataURL(file)
+})
+const снятьФото=()=>{ ФОТО=null; $('#fbFile').value='' }
+$('#fbPic').onclick=()=>$('#fbFile').click()
+$('#fbFile').onchange=async(e)=>{
+  const f=e.target.files[0]; if(!f) return
+  try{ ФОТО=await ужать(f); $('#fbMsg').textContent='📷 фото приложено ('+Math.round(ФОТО.length*3/4/1024)+' КБ)' }
+  catch(err){ снятьФото(); $('#fbMsg').textContent='фото не вышло: '+err.message }
+}
 $('#fbBtn').onclick=()=>{
   const box=$('#fbBox')
   if(box.classList.contains('on')){ box.classList.remove('on'); return }
@@ -2086,8 +2119,8 @@ $('#fbOk').onclick=async()=>{
   $('#fbOk').disabled=true
   try{
     await fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({версия:$('#ver').textContent.trim(),место:$('#fbWhere').textContent,текст:t})})
-    $('#fbTx').value=''; $('#fbMsg').textContent='Записал, спасибо.'
+      body:JSON.stringify({версия:$('#ver').textContent.trim(),место:$('#fbWhere').textContent,текст:t,фото:ФОТО||undefined})})
+    $('#fbTx').value=''; снятьФото(); $('#fbMsg').textContent='Записал, спасибо.'
     setTimeout(()=>$('#fbBox').classList.remove('on'),1100)
   }catch(e){ $('#fbMsg').textContent='Не ушло: '+e.message }
   $('#fbOk').disabled=false
