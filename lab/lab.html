@@ -105,6 +105,9 @@ footer{margin-top:26px;color:var(--dim);font-size:12.5px;line-height:1.7}
 после первых правок и что получилось сейчас. <b>Откройте любую, пройдите и оставьте замечание
 внизу</b> — оно попадёт прямо ко мне вместе с номером сборки. Кнопка «что изменилось» показывает
 список правок по этой сборке.</p>
+<p class=sub style="margin-top:-12px">Смотреть материал целиком, не проходя урок и не слушая —
+<a href="/kniga/obzor" target=_blank><b>всё, что есть в уроке, одним экраном</b></a>:
+показы, карточки, задания тренажёра, вопросы учебника.</p>
 
 <div class=cards id=cards></div>
 
@@ -197,10 +200,15 @@ function md(t){
   for(const raw of lines){
     const s=raw.trim()
     if(!s){ flush(); continue }
-    if(/^#{2,4}\s/.test(s)){
+    // 🔑 Руководителю нужен КОРОТКИЙ список правок, а не разбор на две страницы:
+    // «чуть более сдержанный, меньше текста на изменение». Поэтому показываем только
+    // то, что стоит в журнале ДО первого подзаголовка — там и лежит сводка, — а всё
+    // после («Подробно», «Грабли», «Приёмка») остаётся нам.
+    if(/^#{3,4}\s/.test(s)){ flush(); if(list){ out+='</ul>'; list=false } skip=true; mode=''; continue }
+    if(/^##\s/.test(s)){
       flush(); if(list){ out+='</ul>'; list=false }
-      const h=s.replace(/^#{2,4}\s/,'')
-      skip=/грабл/i.test(h)                       // внутренняя кухня — не показываем
+      const h=s.replace(/^##\s/,'')
+      skip=/грабл/i.test(h)
       if(!skip) out+='<h3>'+inline(h)+'</h3>'
       mode=''; continue
     }
@@ -236,7 +244,8 @@ document.addEventListener('click',async(e)=>{
 // ── замечания ──
 async function loadFb(){
   let list=[]
-  try{ list=await fetch('/api/feedback').then(r=>r.json()) }catch(e){}
+  // Приёмка видит и свои служебные записи (?all=1), руководитель — только живые.
+  try{ list=await fetch('/api/feedback'+(window.__приёмка?'?all=1':'')).then(r=>r.json()) }catch(e){}
   // ⚠️ loading=lazy — не украшение: фото грузятся, только когда список замечаний
   // доехал до экрана. Иначе витрина тянула бы мегабайты картинок при открытии.
   $('#fbList').innerHTML=list.length
@@ -294,7 +303,7 @@ $('#fbSend').onclick=async()=>{
   $('#fbSend').disabled=true
   try{
     await fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({версия:$('#fbVer').value,текст,фото:ФОТО||undefined})})
+      body:JSON.stringify({версия:$('#fbVer').value,текст,фото:ФОТО||undefined,служебное:!!window.__приёмка})})
     $('#fbText').value=''; снятьФото()
     $('#fbSent').textContent='Записал. Спасибо — поправлю и отмечу в «что изменилось».'
     await loadFb()

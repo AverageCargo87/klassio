@@ -54,7 +54,7 @@ total += copy('.planning/KNIGA-VERSIONS.md', path.join(STAGE, '.planning/KNIGA-V
 console.log('  KNIGA-VERSIONS.md (чейнджлог витрины)')
 
 console.log('── страницы ──')
-for (const f of ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html']) {
+for (const f of ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html', 'obzor.html']) {
   console.log('  ' + f + ' — ' + human(add(f)))
 }
 

@@ -617,6 +617,30 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 }
 
 /* ═══ ЗАМЕЧАНИЕ ИЗ УРОКА ═══════════════════════════════════════════════════ */
+/* ── выделение области для замечания ──
+   Кадр экрана замирает, поверх него тянут рамку. Вырезанный кусок и уходит вместе с
+   замечанием: «вот тут криво» показать быстрее, чем описать. */
+#crop{position:fixed;inset:0;z-index:210;display:none;cursor:crosshair;background:#0E1016}
+#crop.on{display:block}
+#crop canvas{position:absolute;inset:0;width:100%;height:100%}
+#crop .dim{position:absolute;inset:0;background:rgba(10,12,18,.55)}
+#crop .sel{position:absolute;border:2px solid #F2A33C;box-shadow:0 0 0 9999px rgba(10,12,18,.55);
+  display:none}
+#crop .tip{position:absolute;left:50%;top:18px;transform:translateX(-50%);z-index:2;
+  background:rgba(18,20,28,.92);border:1px solid #2A2F3E;border-radius:10px;padding:9px 14px;
+  font:14px/1.3 Segoe UI;color:#E8EAF2}
+#crop .tip b{color:#F2A33C}
+/* ── экран загрузки ── */
+#boot{position:fixed;inset:0;z-index:200;background:#0E1016;display:flex;align-items:center;
+  justify-content:center;transition:opacity .38s ease}
+#boot.off{opacity:0;pointer-events:none}
+#boot .bk{width:min(420px,86vw);text-align:center}
+#boot .ttl{font:800 21px/1.3 Georgia,serif;color:#F2E9D8}
+#boot .sub{margin-top:6px;font:14px/1.5 Segoe UI;color:#8C93A6}
+#boot .bar{margin:20px 0 10px;height:4px;border-radius:4px;background:#1E2230;overflow:hidden}
+#boot .bar i{display:block;height:100%;width:6%;border-radius:4px;background:#E0A43C;
+  transition:width .35s ease}
+#boot .st{font:13px/1.4 Segoe UI;color:#6F7688}
 #fbBox{position:fixed;right:16px;bottom:74px;z-index:60;width:360px;max-width:calc(100vw - 32px);
   background:#1A1D27;border:1px solid var(--line);border-radius:12px;padding:13px 14px;
   box-shadow:0 18px 44px rgba(0,0,0,.5);display:none}
@@ -853,6 +877,23 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 </div>
 
 <!-- окошко замечания: открывается кнопкой в нижней панели -->
+<div id=crop>
+  <canvas id=cropCv></canvas>
+  <div class=sel id=cropSel></div>
+  <div class=tip id=cropTip>Обведите место, о котором замечание. <b>Esc</b> — отмена.</div>
+</div>
+
+<!-- ЭКРАН ЗАГРУЗКИ. Данных у урока много (страницы, привязки, задания, модель учителя),
+     и первые секунды он выглядел полупустым — как будто сломался. Теперь видно, что идёт. -->
+<div id=boot>
+  <div class=bk>
+    <div class=ttl>§20 · Начало греческой цивилизации</div>
+    <div class=sub>Урок истории, 5 класс — готовим материалы</div>
+    <div class=bar><i id=bootBar></i></div>
+    <div class=st id=bootTx>открываем учебник</div>
+  </div>
+</div>
+
 <div id=fbBox>
   <h4>Что здесь поправить?</h4>
   <div class=где id=fbWhere></div>
@@ -860,6 +901,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
   <div class=rw>
     <button class="btn go" id=fbOk>отправить</button>
     <input type=file id=fbFile accept="image/*" hidden>
+    <button class=btn id=fbCrop title="обвести место прямо на экране — оно приложится картинкой">⬚ выделить</button>
     <button class=btn id=fbPic title="приложить фото — скриншот объяснит быстрее">📎 фото</button>
     <button class=btn id=fbNo>отмена</button>
     <span class=ok id=fbMsg></span>
@@ -898,6 +940,8 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
   <div class=sl><span>голос Ани</span><select id=sVoice></select></div>
   <button class="btn sm" id=btnVoiceTry style="width:100%;margin:2px 0 6px">▶ послушать голос</button>
   <div class=sl><span>темп речи</span><input type=range id=sSpeed min=".80" max="1.15" step=".01" value=".95"></div>
+  <!-- Ползунок по-прежнему стоит на 1 — но сама единица теперь вдвое спокойнее (размах
+       уполовинен в коэффициентах). Кому надо как было, уводит ползунок на 2. -->
   <div class=sl><span>сила губ</span><input type=range id=sLips min="0" max="2" step=".05" value="1"></div>
   <div class=sl><span>пауза после</span><input type=range id=sHold min="0" max="6" step=".1" value="1.2"></div>
   <label><input type=checkbox id=cAsk checked> слушать ответ, когда спрашивает</label>
@@ -2100,6 +2144,68 @@ const ужать=(file)=>new Promise((готово,беда)=>{
   fr.readAsDataURL(file)
 })
 const снятьФото=()=>{ ФОТО=null; $('#fbFile').value='' }
+
+// ── «⬚ выделить»: обвести место прямо на экране ──────────────────────────────
+// Кадр вкладки берём через getDisplayMedia — это единственный способ снять экран без
+// сторонних библиотек (а стенд живёт с нулём зависимостей). Браузер один раз спросит,
+// чем поделиться: нужна ЭТА вкладка. Отказался — остаётся обычное «📎 фото».
+let КАДР=null
+async function снятьКадр(){
+  const s=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'browser'},
+    audio:false, preferCurrentTab:true})
+  const v=document.createElement('video')
+  v.srcObject=s; v.muted=true; await v.play()
+  await new Promise(r=>setTimeout(r,180))            // первый кадр бывает чёрным
+  const c=document.createElement('canvas')
+  c.width=v.videoWidth; c.height=v.videoHeight
+  c.getContext('2d').drawImage(v,0,0)
+  s.getTracks().forEach(t=>t.stop())
+  return c
+}
+function режимВыделения(cv){
+  const box=$('#crop'), sel=$('#cropSel'), cvEl=$('#cropCv')
+  cvEl.width=cv.width; cvEl.height=cv.height
+  cvEl.getContext('2d').drawImage(cv,0,0)
+  box.classList.add('on'); $('#fbBox').classList.remove('on')
+  let x0=0,y0=0,тянем=false
+  const рамка=(e)=>{ const x=Math.min(x0,e.clientX), y=Math.min(y0,e.clientY)
+    const w=Math.abs(e.clientX-x0), h=Math.abs(e.clientY-y0)
+    sel.style.cssText='display:block;left:'+x+'px;top:'+y+'px;width:'+w+'px;height:'+h+'px' }
+  const стоп=()=>{ box.classList.remove('on'); sel.style.display='none'
+    box.onmousedown=null; box.onmousemove=null; box.onmouseup=null }
+  box.onmousedown=(e)=>{ x0=e.clientX; y0=e.clientY; тянем=true; рамка(e) }
+  box.onmousemove=(e)=>{ if(тянем) рамка(e) }
+  box.onmouseup=(e)=>{
+    if(!тянем) return
+    тянем=false
+    // экран и кадр могут быть разного размера (масштаб браузера, HiDPI) — пересчитываем
+    const kx=cv.width/innerWidth, ky=cv.height/innerHeight
+    const x=Math.min(x0,e.clientX)*kx, y=Math.min(y0,e.clientY)*ky
+    const w=Math.abs(e.clientX-x0)*kx, h=Math.abs(e.clientY-y0)*ky
+    стоп(); $('#fbBox').classList.add('on')
+    if(w<12||h<12){ $('#fbMsg').textContent='область вышла слишком маленькой — попробуйте ещё раз'; return }
+    const c=document.createElement('canvas')
+    c.width=Math.round(w); c.height=Math.round(h)
+    c.getContext('2d').drawImage(cv,x,y,w,h,0,0,c.width,c.height)
+    ФОТО=c.toDataURL('image/jpeg',.85)
+    $('#fbMsg').textContent='📷 область приложена ('+Math.round(c.width)+'×'+Math.round(c.height)+')'
+  }
+  addEventListener('keydown',function отмена(e){
+    if(e.key!=='Escape') return
+    e.stopPropagation(); стоп(); $('#fbBox').classList.add('on')
+    removeEventListener('keydown',отмена,true)
+  },true)
+}
+$('#fbCrop').onclick=async()=>{
+  $('#fbMsg').textContent='выберите ЭТУ вкладку в окне браузера…'
+  try{
+    КАДР=await снятьКадр()
+    $('#fbMsg').textContent=''
+    режимВыделения(КАДР)
+  }catch(e){
+    $('#fbMsg').textContent='снимок экрана не разрешён — приложите файл кнопкой «фото»'
+  }
+}
 $('#fbPic').onclick=()=>$('#fbFile').click()
 $('#fbFile').onchange=async(e)=>{
   const f=e.target.files[0]; if(!f) return
@@ -2119,7 +2225,7 @@ $('#fbOk').onclick=async()=>{
   $('#fbOk').disabled=true
   try{
     await fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({версия:$('#ver').textContent.trim(),место:$('#fbWhere').textContent,текст:t,фото:ФОТО||undefined})})
+      body:JSON.stringify({версия:$('#ver').textContent.trim(),место:$('#fbWhere').textContent,текст:t,фото:ФОТО||undefined,служебное:!!window.__приёмка})})
     $('#fbTx').value=''; снятьФото(); $('#fbMsg').textContent='Записал, спасибо.'
     setTimeout(()=>$('#fbBox').classList.remove('on'),1100)
   }catch(e){ $('#fbMsg').textContent='Не ушло: '+e.message }
@@ -2999,8 +3105,10 @@ function tick(){
       const vol=Math.sqrt(s/wave.length); volMax=Math.max(volMax*.992,vol)
       g=Math.min(.7,(volMax>.004?vol/volMax:0)*1.1)
     }
+    // Размах губ уполовинен и в самих коэффициентах: даже если ползунок увести вправо,
+    // рот больше не распахивается на всё лицо.
     const lip=+$('#sLips').value
-    MORPH('jawOpen',g*.30*lip,.4); MORPH('mouthOpen',g*.26*lip,.4); MORPH('viseme_aa',g*.18*lip,.4)
+    MORPH('jawOpen',g*.15*lip,.4); MORPH('mouthOpen',g*.13*lip,.4); MORPH('viseme_aa',g*.09*lip,.4)
     MORPH('mouthSmileLeft',.07,.1); MORPH('mouthSmileRight',.07,.1)
   }
   readTick()                 // линия под читаемой строкой идёт за голосом
@@ -4018,13 +4126,24 @@ $('#micBtn').onclick=()=>{ if(MIC.rec) micStop(); else { dialogOn=true; micStart
 //  СТАРТ
 // ═══════════════════════════════════════════════════════════════════════════
 let BLOCKS=[]
+// Пока грузятся данные (страницы учебника, привязки, задания, модель учителя), урок
+// показывал пустую книгу и кнопку «начать» — выглядело как «сломалось, но что-то мигает».
+// Экран загрузки честно говорит, что идёт, и уходит, когда урок правда готов.
+const шагЗагрузки=(t,доля)=>{ const b=$('#bootTx'), p=$('#bootBar')
+  if(b) b.textContent=t
+  if(p) p.style.width=Math.round(доля*100)+'%' }
+const убратьЗагрузку=()=>{ const el=$('#boot'); if(!el) return
+  el.classList.add('off'); setTimeout(()=>el.remove(),420) }
 ;(async()=>{
+  шагЗагрузки('открываем учебник',.08)
   try{ MARKS=await fetch('/book/marks.json').then(r=>r.json()) }
   catch(e){ $('#runSt').textContent='не пришли метки: '+e.message }
   // иллюстрации и их апскейлы: без файла урок просто останется без кнопок «рассмотреть»
+  шагЗагрузки('иллюстрации параграфа',.2)
   try{ FIGS=await fetch('/book/figures.json').then(r=>r.json()) }
   catch(e){ FIGS=[]; console.warn('нет figures.json — картинки не кликаются:',e.message) }
   // показы и тизеры правой половины: без файла урок идёт как раньше, панель пустая
+  шагЗагрузки('что показывать на каждой фразе',.34)
   try{ loadPanel(await fetch('/book/panel.json').then(r=>r.json())) }
   catch(e){ console.warn('нет panel.json — правая половина будет пустой:',e.message) }
   // вопросы проверки по страницам: без файла урок просто читается без тестов
@@ -4032,13 +4151,16 @@ let BLOCKS=[]
   catch(e){ console.warn('нет test.json — проверки страниц не будет:',e.message) }
   // топики страницы: самари, миниатюры на карточках и экран разбора (v2.4).
   // Без файла все три шага молча выключаются, и урок идёт как в v2.3.
+  шагЗагрузки('карточки «запомни»',.5)
   try{ loadZak(await fetch('/book/zakrep.json').then(r=>r.json())) }
   catch(e){ console.warn('нет zakrep.json — самари и экран топиков выключены:',e.message) }
   // v2.5: тренажёр раздела. Файла нет → урок откатывается на прежний тест из test.json
+  шагЗагрузки('задания тренажёра',.62)
   try{ DRILL=await fetch('/book/drill.json').then(r=>r.json()) }
   catch(e){ console.warn('нет drill.json — тренажёр выключен, идёт прежний тест:',e.message) }
   // 🔑 Урок собирается ИЗ УЧЕБНИКА: абзацы со строками и координатами приходят
   // из текстового слоя PDF, а не пишутся руками (см. buildBeats).
+  шагЗагрузки('текст параграфа',.74)
   try{ BLOCKS=await fetch('/book/blocks.json').then(r=>r.json()); BEATS=buildBeats(BLOCKS) }
   catch(e){ $('#runSt').textContent='не пришёл текст учебника: '+e.message; BEATS=BEATS_OWN.map(b=>({page:b.p,kind:'own',say:b.say,ask:b.ask})) }
   paintSheet(); layout(); fit(); aim(); paintCost(); paintDots(); paintSteps()
@@ -4056,10 +4178,23 @@ let BLOCKS=[]
     if($('#tchWho').value==='clips'){ $('#tchWho').value='av-avaturn'
       try{ localStorage.kn_teacher='av-avaturn' }catch(e){} }
   }
+  шагЗагрузки('учитель',.88)
   applyTeacher()                       // учитель поднимается сам: 3D, запись или видео
   new ResizeObserver(()=>{ layout(); fit() }).observe($('#stage'))
   new ResizeObserver(fit).observe($('#tchWrap'))
   tick()
+  // ⚠️ Ждём КАРТИНКУ СТРАНИЦЫ, а не только json: без неё урок открывается на
+  // белом листе, и это ровно то, что выглядело как «грузится».
+  шагЗагрузки('страница учебника',.95)
+  await new Promise((готово)=>{
+    const im=document.querySelector('#leftImg')
+    if(!im||im.complete){ готово(); return }
+    let ушли=false; const раз=()=>{ if(!ушли){ ушли=true; готово() } }
+    im.addEventListener('load',раз,{once:true}); im.addEventListener('error',раз,{once:true})
+    setTimeout(раз,6000)          // сеть может залипнуть — урок всё равно должен открыться
+  })
+  шагЗагрузки('готово',1)
+  убратьЗагрузку()
 })()
 
 // наружу — для headless-приёмки
