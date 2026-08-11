@@ -4190,40 +4190,40 @@ const убратьЗагрузку=()=>{ const el=$('#boot'); if(!el) return
   el.classList.add('off'); setTimeout(()=>el.remove(),420) }
 ;(async()=>{
   шагЗагрузки('открываем учебник',.08)
-  // ⚠️ Модель учителя — 13 МБ, и раньше она начинала качаться ПОСЛЕДНЕЙ, уже после всех
-  //  данных: на боевом это давало 17 секунд заставки. Пускаем её в сеть первой строкой,
-  //  параллельно с json'ами; сам loadTeacher потом возьмёт файл из кеша браузера.
+  // ⚠️ Данные урока НЕЗАВИСИМЫ друг от друга, а грузились по очереди — семь запросов
+  //  подряд, и на боевом это давало пять секунд чистого ожидания на одной латентности.
+  //  Пускаем всё разом, включая 13-мегабайтную модель учителя, и разбираем по мере
+  //  прихода. Заставка при этом честно показывает, что уже приехало.
   try{
     const кто=(localStorage.kn_teacher||$('#tchWho').value||'av-avaturn')
     if(/^av-/.test(кто)) fetch('/'+кто+'.glb',{cache:'force-cache'}).catch(()=>{})
   }catch(e){}
-  try{ MARKS=await fetch('/book/marks.json').then(r=>r.json()) }
+  const джей=(u)=>fetch(u).then(r=>r.json())
+  const [pMarks,pFigs,pPanel,pTest,pZak,pDrill,pBlocks]=[
+    '/book/marks.json','/book/figures.json','/book/panel.json','/book/test.json',
+    '/book/zakrep.json','/book/drill.json','/book/blocks.json'].map(джей)
+  ;[pMarks,pFigs,pPanel,pTest,pZak,pDrill,pBlocks].forEach(x=>x.catch(()=>{}))
+
+  try{ MARKS=await pMarks }
   catch(e){ $('#runSt').textContent='не пришли метки: '+e.message }
-  // иллюстрации и их апскейлы: без файла урок просто останется без кнопок «рассмотреть»
-  шагЗагрузки('иллюстрации параграфа',.2)
-  try{ FIGS=await fetch('/book/figures.json').then(r=>r.json()) }
+  шагЗагрузки('иллюстрации параграфа',.3)
+  try{ FIGS=await pFigs }
   catch(e){ FIGS=[]; console.warn('нет figures.json — картинки не кликаются:',e.message) }
-  // показы и тизеры правой половины: без файла урок идёт как раньше, панель пустая
-  шагЗагрузки('что показывать на каждой фразе',.34)
-  try{ loadPanel(await fetch('/book/panel.json').then(r=>r.json())) }
-  catch(e){ console.warn('нет panel.json — правая половина будет пустой:',e.message) }
-  // вопросы проверки по страницам: без файла урок просто читается без тестов
-  try{ loadTests(await fetch('/book/test.json').then(r=>r.json())) }
-  catch(e){ console.warn('нет test.json — проверки страниц не будет:',e.message) }
-  // топики страницы: самари, миниатюры на карточках и экран разбора (v2.4).
-  // Без файла все три шага молча выключаются, и урок идёт как в v2.3.
-  шагЗагрузки('карточки «запомни»',.5)
-  try{ loadZak(await fetch('/book/zakrep.json').then(r=>r.json())) }
-  catch(e){ console.warn('нет zakrep.json — самари и экран топиков выключены:',e.message) }
-  // v2.5: тренажёр раздела. Файла нет → урок откатывается на прежний тест из test.json
-  шагЗагрузки('задания тренажёра',.62)
-  try{ DRILL=await fetch('/book/drill.json').then(r=>r.json()) }
-  catch(e){ console.warn('нет drill.json — тренажёр выключен, идёт прежний тест:',e.message) }
-  // 🔑 Урок собирается ИЗ УЧЕБНИКА: абзацы со строками и координатами приходят
-  // из текстового слоя PDF, а не пишутся руками (см. buildBeats).
-  шагЗагрузки('текст параграфа',.74)
-  try{ BLOCKS=await fetch('/book/blocks.json').then(r=>r.json()); BEATS=buildBeats(BLOCKS) }
-  catch(e){ $('#runSt').textContent='не пришёл текст учебника: '+e.message; BEATS=BEATS_OWN.map(b=>({page:b.p,kind:'own',say:b.say,ask:b.ask})) }
+  шагЗагрузки('что показывать на каждой фразе',.45)
+  try{ loadPanel(await pPanel) }
+  catch(e){ console.warn('нет panel.json — панель показа будет пустой:',e.message) }
+  try{ loadTests(await pTest) }
+  catch(e){ console.warn('нет test.json — проверка страницы без вопросов:',e.message) }
+  шагЗагрузки('карточки «запомни»',.6)
+  try{ loadZak(await pZak) }
+  catch(e){ console.warn('нет zakrep.json — не будет самари и топиков:',e.message) }
+  шагЗагрузки('задания тренажёра',.7)
+  try{ DRILL=await pDrill }
+  catch(e){ DRILL=null; console.warn('нет drill.json — тренажёр не соберётся:',e.message) }
+  шагЗагрузки('текст параграфа',.8)
+  try{ BLOCKS=await pBlocks; BEATS=buildBeats(BLOCKS) }
+  catch(e){ $('#runSt').textContent='не пришёл текст учебника: '+e.message
+    BEATS=BEATS_OWN.map(b=>({page:b.p,kind:'own',say:b.say,ask:b.ask})) }
   paintSheet(); layout(); fit(); aim(); paintCost(); paintDots(); paintSteps()
   fillVoices()
   $('#bhBase').value=localStorage.kn_bh_base||'http://localhost:8090'
@@ -4251,7 +4251,7 @@ const убратьЗагрузку=()=>{ const el=$('#boot'); if(!el) return
   шагЗагрузки('учитель',.9)
   //  Ждём учителя, но не бесконечно: на медленной сети лучше открыть урок с пустой
   //  панелью, чем держать человека на заставке. Модель доедет и появится сама.
-  await Promise.race([teacherReady, new Promise(r=>setTimeout(r,8000))])
+  await Promise.race([teacherReady, new Promise(r=>setTimeout(r,5000))])
   шагЗагрузки('страница учебника',.95)
   await new Promise((готово)=>{
     const im=document.querySelector('#leftImg')
