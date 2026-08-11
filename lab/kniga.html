@@ -830,6 +830,11 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
           </div>
         </div>
         <div id=repFoot>
+          <!-- 🔑 Постановка Кратова: экран закрепления — «возможный вариант закрепления
+               основного материала со ВСЕГО параграфа; откроется после прохождения урока,
+               можно будет потом из ЛК быстро глянуть, чтобы весь урок заново не слушать».
+               Поэтому вход в него стоит здесь, на итогах, и ведёт на тот же материал. -->
+          <button class=cbtn id=repZak>▶ повторить весь параграф</button>
           <button class=cbtn id=repSend>подготовить письмо родителю</button>
           <button class="cbtn sec" id=repClose>закрыть</button>
           <span id=repNote></span>
@@ -2212,6 +2217,10 @@ $('#fbFile').onchange=async(e)=>{
   try{ ФОТО=await ужать(f); $('#fbMsg').textContent='📷 фото приложено ('+Math.round(ФОТО.length*3/4/1024)+' КБ)' }
   catch(err){ снятьФото(); $('#fbMsg').textContent='фото не вышло: '+err.message }
 }
+// Повтор всего параграфа — отдельным экраном, той же подачей, что и БЕТА на витрине.
+// Материал берётся из тех же данных урока, поэтому картинки и тексты совпадают с тем,
+// что ребёнок только что видел.
+$('#repZak').onclick=()=>{ window.open('/zakrep','_blank','noopener') }
 $('#fbBtn').onclick=()=>{
   const box=$('#fbBox')
   if(box.classList.contains('on')){ box.classList.remove('on'); return }
