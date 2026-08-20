@@ -193,7 +193,7 @@ $('#cards').innerHTML=BUILDS.map((b)=>
   +'<div class=desc>'+esc(b.desc)+'</div>'
   +'<div class=row>'
   +'<a class="btn go" href="'+b.url+'" target=_blank>▶ '+(b.ver==='повтор'?'открыть повтор':'пройти урок')+'</a>'
-  +(b.log?'<button class=btn data-log="'+b.log+'" data-code="'+b.code+' · '+b.ver+'"'+(b.now?' data-now=1':'')+'>что изменилось</button>':'')
+  +(b.log?'<button class=btn data-log="'+b.log+'" data-branch="'+b.code+'" data-code="'+b.code+' · '+b.ver+'"'+(b.now?' data-now=1':'')+'>что изменилось</button>':'')
   +'</div>'
   // Прошлые состояния ветки не выбрасываем: по ним показывают «было и стало». Но и
   // за отдельные варианты они больше не выдаются — это одна и та же линия.
@@ -253,10 +253,13 @@ const мскПолно=(iso)=>{
     year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso)).replace(', ',' в ')+' МСК' }
   catch(e){ return '' }
 }
-const выложено=(ver)=>{
-  if(!РЕЛИЗЫ||!РЕЛИЗЫ.length) return ''
-  const свои=РЕЛИЗЫ.filter(r=>Object.values(r.версии||{}).some(v=>String(v).startsWith(ver)))
-  const посл=свои[свои.length-1]
+// 🔴 20.08. Искали по НОМЕРУ версии («все релизы, где стояла v2.7») — и на первой же
+//  смене номера история обнулялась: карточка это ВЕТКА, а не версия, и её выкладки не
+//  перестают быть её выкладками оттого, что номер вырос. Ищем по букве ветки.
+const свои=(код)=>(РЕЛИЗЫ||[]).filter(r=>Object.keys(r.версии||{}).some(k=>String(k).startsWith(код)))
+const выложено=(код)=>{
+  const c=свои(код)
+  const посл=c[c.length-1]
   return посл&&посл.когда ? мскПолно(посл.когда) : ''
 }
 // Дату на карточке текущей сборки тоже проставляет релиз: подпись руками через неделю
@@ -265,7 +268,7 @@ const выложено=(ver)=>{
   try{ РЕЛИЗЫ=await fetch('/api/releases').then(r=>r.json()) }catch(e){ РЕЛИЗЫ=[] }
   document.querySelectorAll('.card').forEach((c,i)=>{
     if(!BUILDS[i]||!BUILDS[i].now) return
-    const t=выложено(BUILDS[i].ver)
+    const t=выложено(BUILDS[i].code)
     if(t) c.querySelector('.when').textContent='обновлена '+t
   })
 })()
@@ -279,11 +282,11 @@ const мскКоротко=(iso)=>{
     return {день:п.day+'.'+п.month, время:п.hour+':'+п.minute}
   }catch(e){ return null }
 }
-const лента=(ver)=>{
+const лента=(код)=>{
   if(!РЕЛИЗЫ||!РЕЛИЗЫ.length) return ''
   // Выкладки, которые ничего не меняли для смотрящего (правка журнала, служебное),
   // в ленту не идут: это шум, а не событие.
-  const свои=РЕЛИЗЫ.filter(r=>Object.values(r.версии||{}).some(v=>String(v).startsWith(ver))
+  const свои=(РЕЛИЗЫ||[]).filter(r=>Object.keys(r.версии||{}).some(k=>String(k).startsWith(код))
     &&r.зачем&&!/^(журнал|служебн)/i.test(r.зачем))
   if(!свои.length) return ''
   const строки=свои.slice().reverse().map(r=>{
@@ -321,12 +324,12 @@ document.addEventListener('click',async(e)=>{
   const зап=(LOGS&&LOGS[b.dataset.log])||''
   const raw=typeof зап==='string'?зап:(зап.текст||'')      // старый формат ответа тоже понимаем
   const дата=(typeof зап==='object'&&зап.дата)||''
-  const когда=b.dataset.now?выложено(b.dataset.log):''
+  const когда=b.dataset.now?выложено(b.dataset.branch||b.dataset.log):''
   // Дата версии — из журнала (когда сборку сделали), время выкладки — из релиза
   // (когда руководитель смог это увидеть). Это разные вещи, и обе полезны.
   $('#mwhen').innerHTML=(когда?'последняя выкладка <b>'+esc(когда)+'</b>':'')
     +(дата?(когда?' · ':'')+'версия собрана '+esc(дата):'')
-  $('#mbody').innerHTML=лента(b.dataset.log)
+  $('#mbody').innerHTML=лента(b.dataset.branch||b.dataset.log)
     +(raw?'<h3>что в этой версии целиком</h3>'+md(raw):'<p class=empty>Для этой сборки записей пока нет.</p>')
   $('#mbody').scrollTop=0
 })
