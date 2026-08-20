@@ -203,6 +203,20 @@ body{margin:0;background:var(--shell);color:var(--ink);
 .opt.good .mark{border-color:var(--ok);color:var(--ok)}
 .opt.bad{border-color:rgba(180,86,74,.35)}
 .opt.bad .mark{border-color:#B4564A;color:#B4564A}
+/* 🔴 13.08: нулевой шаг разбора — ЧИСТЫЙ ВЫБОР. Варианты кликабельны, ни галочек,
+   ни крестиков: сначала попытка ребёнка, разбор потом. */
+.opt.pickable{opacity:1;transform:none;cursor:pointer;transition:border-color .16s,background .16s}
+.opt.pickable:hover{border-color:var(--ac);background:#FFFDF7}
+/* и его собственный выбор виден в разборе — разбирается ИМЕННО ОН, а не вообще */
+.opt.mine{box-shadow:0 0 0 2px rgba(196,138,58,.45)}
+.opt.mine .body i{color:#8A6520}
+/* открыл карточку — это ещё не знание: серая точка, а не зелёная галочка */
+.it .chk::after{content:''}
+.it.read .chk{opacity:.45;color:var(--dim)}
+.it.read .chk::before{content:'○'}
+.it.read .chk{font-size:0}
+.it.read .chk::before{font-size:13px}
+.it.seen .chk{opacity:1}
 .todo{border:1px dashed rgba(196,85,47,.5);border-radius:8px;padding:6px 9px;margin-top:6px;
   font:11.5px/1.4 Segoe UI;color:var(--accent2);background:rgba(196,85,47,.05)}
 #msrc{margin-top:14px;background:#fff;border-left:3px solid rgba(196,85,47,.45);
@@ -228,10 +242,16 @@ body{margin:0;background:var(--shell);color:var(--ink);
   <main id=stage>
     <div id=top>
       <div id=logo>Закрепление<i>✦</i><span id=logoSub>§20. Начало греческой цивилизации</span></div>
+      <!-- 🔴 13.08, второй разбор: «шапка: РАЗБОР ВОПРОСОВ, ТЕСТ, ПОВТОР §20 — выглядят
+           как вкладки, кликаются, ничего не происходит». Это не вкладки, а показ того,
+           где ты сейчас, и выглядеть они должны так же. Чипа «ТЕСТ» здесь больше нет:
+           теста на этом экране не существует ни строкой, и обещать его нечем. Кнопка
+           «Перейти к тесту», которая переключала режим в никуда и не давала вернуться,
+           убрана вместе с ним. Собирать ли тест из уже загруженных 24 вопросов —
+           отдельное решение, см. .planning/KNIGA-REVIEW-2026-08-13-AUDIT.md -->
       <div id=steps>
         <div class="stp on" id=st1>ЗАКРЕПЛЯЕМ</div>
         <div class=stp id=st2>РАЗБОР ВОПРОСОВ</div>
-        <div class=stp id=st3>ТЕСТ</div>
         <div id=pill>ПОВТОР §20</div>
       </div>
     </div>
@@ -301,6 +321,12 @@ const esc=(s)=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;
 const say=(t)=>{ $('#sayText').textContent=t }
 
 let DATA=null, TERMS=[], QS=[], cur=null, seen=new Set()
+// 🔴 13.08, второй разбор: «прогресс должен считать ЗНАНИЕ, а не просмотры. Пункт
+//  становится зелёным после верного ответа БЕЗ подсказки, а не после открытия
+//  карточки». Открытие карточки — это просмотр, и оно копится отдельно (seen).
+//  Зелёная галочка и счётчик теперь принадлежат знанию.
+const знаю=new Set()
+let мойОтвет=-1
 
 // ── карта: тот же приём, что в уроке ─────────────────────────────────────
 let mapSvg=null, mapLoad=null
@@ -374,9 +400,11 @@ function showVisual(art,cap,page){
 }
 function pick(i){
   cur=TERMS[i]; if(!cur) return
-  seen.add(cur.term)
+  seen.add(cur.term)                       // просмотр — это ещё не знание
   document.querySelectorAll('#lib .it').forEach((e,k)=>{
-    e.classList.toggle('on',k===i); if(seen.has(TERMS[k].term)) e.classList.add('seen') })
+    e.classList.toggle('on',k===i)
+    e.classList.toggle('seen',знаю.has(TERMS[k].term))
+    e.classList.toggle('read',seen.has(TERMS[k].term)&&!знаю.has(TERMS[k].term)) })
   showVisual(cur.art,cur.cap,cur.page)
   $('#cName').textContent=cur.term
   $('#cSub').textContent=cur.txt
@@ -392,39 +420,63 @@ function pick(i){
     ['❋','Что показываем',cur.cap||'—'],
   ].map(([i,b,v])=>'<div class=kf><s>'+i+'</s><b>'+b+'</b><span>'+esc(v)+'</span></div>').join('')
   say('Смотри: '+cur.term+'. '+cur.src)
-  $('#libCount').textContent=seen.size+' из '+TERMS.length
+  счётЗнания()
+}
+function счётЗнания(){
+  $('#libCount').textContent='знаю '+знаю.size+' из '+TERMS.length
+    +(seen.size>знаю.size?' · открыто '+seen.size:'')
 }
 
 // ── разбор вопроса ───────────────────────────────────────────────────────
 let mq=null, mstep=0
 function openQ(i){
-  mq=QS[i]; mstep=0; $('#modal').classList.add('on'); drawQ()
+  mq=QS[i]; mstep=0; мойОтвет=-1; $('#modal').classList.add('on'); drawQ()
+}
+// 🔴 13.08, Владимир: «доделать разбор вопроса: когда правильный ответ показывают ДО
+//  попытки дать ответ, дополнить вариантом, когда сначала попытка, потом повторное
+//  объяснение. Шаг 1 — ребёнок выбирает. Шаг 2 — разбор именно его ошибки.»
+//  Поэтому нулевой шаг — чистый выбор: ни галочек, ни крестиков, ни цитаты.
+function ответить(k){
+  if(mstep!==0) return
+  мойОтвет=k
+  const верно=k===mq.ok
+  if(верно) знаю.add(mq.term)              // знание засчитывается ровно здесь и только здесь
+  document.querySelectorAll('#lib .it').forEach((e,i)=>
+    e.classList.toggle('seen',знаю.has(TERMS[i].term)))
+  счётЗнания()
+  mstep=1; drawQ()
 }
 function drawQ(){
   const q=mq
   $('#mq').textContent=q.q
-  $('#mwhy').textContent=mstep===0?'Сначала прочитай вопрос. Подумай, о чём он.':
-    mstep===1?'Теперь посмотрим варианты — и почему каждый из них такой.':
-    mstep===2?'Выбери вместе со мной — ответ есть в учебнике.':'Разобрали. Дальше ответишь сам, без подсказок.'
+  const попал=мойОтвет===q.ok
+  $('#mwhy').textContent=mstep===0?'Выбери ответ сам. Ошибиться не страшно — потом разберём.':
+    mstep===1?(попал?'Верно. Смотри, почему остальные не подходят.'
+                    :'Не этот. Смотри, где верный — и чем твой отличается.'):
+    mstep===2?'Вот это место в учебнике — им ответ и проверяется.':'Разобрали. Дальше ответишь сам, без подсказок.'
   $('#mopts').innerHTML=q.options.map((o,k)=>{
-    const good=k===q.ok
-    const cls=mstep>=1?(good?'opt good show':'opt bad show'):'opt'
+    const good=k===q.ok, мой=k===мойОтвет
+    const cls=mstep>=1?(good?'opt good show':'opt bad show')+(мой?' mine':''):'opt pickable'
     const why=mstep>=1?(good
-      ? '<i>Так и написано в учебнике.</i>'
-      : '<div class=todo>🟡 здесь нужно объяснение «почему не подходит» — этого текста нет ни в учебнике, ни в наших данных</div>'):''
-    return '<div class="'+cls+'" style="transition-delay:'+(k*90)+'ms">'
+      ? '<i>Так и написано в учебнике.</i>'+(мой?'<i>Это твой ответ.</i>':'')
+      : (мой?'<i>Ты выбрал это. В учебнике сказано иначе — смотри верный вариант.</i>'
+           :'<div class=todo>🟡 здесь нужно объяснение «почему не подходит» — этого текста нет ни в учебнике, ни в наших данных</div>')):''
+    return '<div class="'+cls+'" style="transition-delay:'+(k*90)+'ms"'
+      +(mstep===0?' data-pick="'+k+'"':'')+'>'
       +'<div class=mark>'+(mstep>=1?(good?'✓':'✕'):String.fromCharCode(65+k))+'</div>'
       +'<div class=body><b>'+esc(o)+'</b>'+why+'</div></div>'
   }).join('')
   $('#msrc').classList.toggle('show',mstep>=2)
   $('#msrcText').textContent='«'+q.src+'»'
-  const acts=mstep<3
-    ? [['Дальше','next','pri'],['Закрыть','close','']]
-    : [['Перейти к тесту','test','pri'],['Закрыть','close','']]
+  // на нулевом шаге «дальше» нет: пока не выбрал — разбирать нечего
+  const acts=mstep===0
+    ? [['Не знаю — покажи разбор','next',''],['Закрыть','close','']]
+    : mstep<3 ? [['Дальше','next','pri'],['Закрыть','close','']]
+    : [['Закрыть','close','pri']]
   $('#mact').innerHTML=acts.map(([t,a,c])=>'<button class="btn '+c+'" data-a="'+a+'">'+t+'</button>').join('')
   $('#mstep').textContent='шаг '+(mstep+1)+' из 4'
-  say(mstep===0?'Вопрос: '+q.q
-    :mstep===1?'Смотри варианты. Верный — «'+q.options[q.ok]+'».'
+  say(mstep===0?'Вопрос: '+q.q+' Выбери сам.'
+    :mstep===1?(попал?'Верно, «'+q.options[q.ok]+'».':'Верный — «'+q.options[q.ok]+'».')
     :mstep===2?'Вот здесь про это написано: '+q.src
     :'Разобрали. Теперь то же самое, но сам и без страницы.')
 }
@@ -432,10 +484,14 @@ $('#mact').addEventListener('click',(e)=>{
   const b=e.target.closest('[data-a]'); if(!b) return
   if(b.dataset.a==='close'){ $('#modal').classList.remove('on'); return }
   if(b.dataset.a==='test'){ $('#modal').classList.remove('on')
-    $('#st2').className='stp done'; $('#st3').className='stp on'
+    $('#st2').className='stp done'
     say('Закрываю страницу — теперь ответь по памяти. Этот шаг в уроке уже есть.')
     return }
   mstep=Math.min(3,mstep+1); drawQ()
+})
+$('#mopts').addEventListener('click',(e)=>{
+  const o=e.target.closest('[data-pick]'); if(!o) return
+  ответить(+o.dataset.pick)
 })
 $('#modal').addEventListener('click',(e)=>{ if(e.target.id==='modal') $('#modal').classList.remove('on') })
 
@@ -458,7 +514,7 @@ fetch('/book/zakrep.json').then(r=>r.json()).then(d=>{
     }
     for(const q of p.questions) QS.push({...q,page:p.page})
   }
-  $('#libCount').textContent='0 из '+TERMS.length
+  счётЗнания()
   const rail=$('#rail')
   rail.innerHTML='<div class="qc quote">Сначала разберём вопросы вместе.<br>Потом — сам.</div>'
     +QS.map((q,i)=>'<div class=qc data-q="'+i+'"><div class=lab>ВОПРОС '+(i+1)+' · СТР. '+q.page+'</div>'
@@ -483,6 +539,11 @@ document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{
 window.__zakrep={ терминов:()=>TERMS.length, вопросов:()=>QS.length,
   выбрать:(i)=>{ pick(i); return TERMS[i].term },
   разобрать:(i,step)=>{ openQ(i); for(let k=0;k<(step||0);k++){ mstep++ } drawQ(); return mq.q },
+  выбор:()=>[...document.querySelectorAll('#mopts [data-pick]')].length,
+  ответить:(верно)=>{ if(!mq) return false
+    ответить(верно?mq.ok:(mq.ok+1)%mq.options.length); return true },
+  знание:()=>({знаю:знаю.size,открыто:seen.size,всего:TERMS.length,
+    счётчик:$('#libCount').textContent}),
   карта:()=>({ загружена:!!mapSvg, метка:(mapSvg&&(mapSvg.querySelector('.mk.on')||{}).id)||'',
     зона:(mapSvg&&(mapSvg.querySelector('.zone.on')||{}).id)||'' }) }
 </script>

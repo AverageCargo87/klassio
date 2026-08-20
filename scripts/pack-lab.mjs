@@ -57,7 +57,7 @@ console.log('── страницы ──')
 // zakrep.html — макет экрана закрепления по референсу Anatomy Atelier, который присылал
 // руководитель. Ему нужны только `book/zakrep.json` и карта, а они и так едут: значит
 // показать эту ветку стоит один файл.
-for (const f of ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html', 'obzor.html', 'zakrep.html']) {
+for (const f of ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html', 'kniga-v26.html', 'obzor.html', 'zakrep.html']) {
   console.log('  ' + f + ' — ' + human(add(f)))
 }
 
@@ -88,6 +88,20 @@ console.log('── учитель ──')
 // 3D-учительница: та, что стоит по умолчанию, плюс стилизованная как запасная.
 // Остальные аватары и всё 3D закрытых веток не едут.
 for (const f of ['av-avaturn.glb', 'av-brunette.glb']) console.log('  ' + f + ' — ' + human(add(f)))
+
+// Карточки выбора учителя (scripts/make-avatar-cards.mjs): портрет и петля простоя на лицо.
+// ⚠️ Берём ТОЛЬКО эти два расширения и только из lica/ — рядом в face/ лежат старые
+// исходники образа Ани на 25 МБ, которым на сервере делать нечего.
+if (fs.existsSync(path.join(SRC, 'lica'))) {
+  let n = 0, b = 0
+  for (const f of fs.readdirSync(path.join(SRC, 'lica')).sort()) {
+    if (!/\.(jpg|mp4)$/.test(f)) continue
+    b += add('lica/' + f); n++
+  }
+  console.log('  карточки лиц: ' + n + ' шт., ' + human(b))
+} else {
+  console.log('  ⚠ карточек лиц нет — прогони scripts/make-avatar-cards.mjs, иначе выбор учителя будет без картинок')
+}
 
 if (WITH_CLIPS && fs.existsSync(path.join(SRC, 'clips'))) {
   let n = 0, b = 0

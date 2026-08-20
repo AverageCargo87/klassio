@@ -3,6 +3,48 @@
 Пишется скриптом `lab-deploy.mjs`, руками не правится. Каждая запись — папка-релиз
 на сервере и метка `lab-000N` в git: по ним и откатываются. Новые записи сверху.
 
+## 0017-20260820-1612
+
+- **когда:** 20.08.2026 16:12
+- **зачем:** выбор учителя кнопкой на окне Ани: 5 лиц Anam, bitHuman, две 3D, выбор голоса рядом; плюс всё с 11.08 — v2.7…v2.10
+- **сборки:** АЛЬФА · учебник-листалка v2.10 · БЕТА · закрепление макет · архивы ветки v2.3 · v1.0
+- **было на боевом:** 0016-20260811-1428
+- **правится:** 9 · **добавляется:** 23 · **пропадает:** 0
+  - журнал версий — `.planning/KNIGA-VERSIONS.md`
+  - АЛЬФА учебник — `.tmp/sketches/tutor/book/drill.json`
+  - ОБЩЕЕ — `.tmp/sketches/tutor/book/map-greece.svg`
+  - АЛЬФА учебник — `.tmp/sketches/tutor/book/panel.json`
+  - обе ветки — `.tmp/sketches/tutor/book/zakrep.json`
+  - АЛЬФА учебник — `.tmp/sketches/tutor/kniga.html`
+  - витрина — `.tmp/sketches/tutor/lab.html`
+  - БЕТА закрепл. — `.tmp/sketches/tutor/zakrep.html`
+  - стенд — `scripts/yandex-test-server.mjs`
+  - ОБЩЕЕ — `.tmp/sketches/tutor/book/map-europe.svg`
+  - архив v2.6 — `.tmp/sketches/tutor/book/v26/blocks.json`
+  - архив v2.6 — `.tmp/sketches/tutor/book/v26/drill.json`
+  - архив v2.6 — `.tmp/sketches/tutor/book/v26/figures.json`
+  - архив v2.6 — `.tmp/sketches/tutor/book/v26/marks.json`
+  - архив v2.6 — `.tmp/sketches/tutor/book/v26/panel.json`
+  - архив v2.6 — `.tmp/sketches/tutor/book/v26/test.json`
+  - архив v2.6 — `.tmp/sketches/tutor/book/v26/zakrep.json`
+  - архив v2.6 — `.tmp/sketches/tutor/kniga-v26.html`
+  - файлы урока — `.tmp/sketches/tutor/lica/3d-avaturn.jpg`
+  - файлы урока — `.tmp/sketches/tutor/lica/3d-brunette.jpg`
+  - файлы урока — `.tmp/sketches/tutor/lica/anam-cara.jpg`
+  - файлы урока — `.tmp/sketches/tutor/lica/anam-cara.mp4`
+  - файлы урока — `.tmp/sketches/tutor/lica/anam-chloe.jpg`
+  - файлы урока — `.tmp/sketches/tutor/lica/anam-chloe.mp4`
+  - файлы урока — `.tmp/sketches/tutor/lica/anam-liv.jpg`
+  - файлы урока — `.tmp/sketches/tutor/lica/anam-liv.mp4`
+  - файлы урока — `.tmp/sketches/tutor/lica/anam-mia.jpg`
+  - файлы урока — `.tmp/sketches/tutor/lica/anam-mia.mp4`
+  - файлы урока — `.tmp/sketches/tutor/lica/anam-sophie.jpg`
+  - файлы урока — `.tmp/sketches/tutor/lica/anam-sophie.mp4`
+  - файлы урока — `.tmp/sketches/tutor/lica/bh-anya.jpg`
+  - файлы урока — `.tmp/sketches/tutor/lica/bh-anya.mp4`
+- ⚠️ затронуты ОБЩИЕ данные — меняется и в АЛЬФЕ, и в БЕТЕ
+- **откатиться сюда:** `node scripts/lab-rollback.mjs --to 0017`
+
 ## 0016-20260811-1428
 
 - **когда:** 11.08.2026 14:28

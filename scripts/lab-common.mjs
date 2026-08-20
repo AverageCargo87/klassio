@@ -53,7 +53,7 @@ export const scpUp = (local, remote) =>
 // ── что считаем исходником ─────────────────────────────────────────────────
 // Только ТЕКСТ: страницы сборок и данные урока. Рендеры страниц учебника,
 // иллюстрации и 3D-модели в git не едут — копирайт и вес (25 МБ + 1.2 ГБ рядом).
-export const PAGES = ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html', 'obzor.html', 'zakrep.html']
+export const PAGES = ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html', 'kniga-v26.html', 'obzor.html', 'zakrep.html']
 
 export const sources = () => {
   const out = PAGES.filter((f) => fs.existsSync(path.join(SRC, f)))
@@ -82,6 +82,9 @@ export const owner = (rel) => {
   if (rel === 'zakrep.html') return 'БЕТА закрепл.'
   if (rel === 'kniga-v1.html' || rel.startsWith('book/v1/')) return 'архив v1.0'
   if (rel === 'kniga-v23.html' || rel.startsWith('book/v23/')) return 'архив v2.3'
+  // v2.6 заморожена 13.08 ЦЕЛИКОМ (свой html + все семь json в book/v26/) — это точка
+  // отката перед правками по разбору Владимира; она НЕ зависит от общих данных.
+  if (rel === 'kniga-v26.html' || rel.startsWith('book/v26/')) return 'архив v2.6'
   if (rel === 'kniga.html') return 'АЛЬФА учебник'
   if (/^book\/(panel|test|drill)\.json$/.test(rel)) return 'АЛЬФА учебник'
   if (rel === 'book/zakrep.json') return 'обе ветки'
@@ -128,11 +131,12 @@ health() {
     sleep 1
   done
   bad=0
-  for pair in /lab:4000 /kniga:150000 /kniga/v1:100000 /kniga/v23:150000 \\
+  for pair in /lab:4000 /kniga:150000 /kniga/v1:100000 /kniga/v23:150000 /kniga/v26:150000 \\
               /book/panel.json:10000 /book/drill.json:10000 /book/zakrep.json:5000 \\
-              /book/v1/panel.json:5000 /book/v23/panel.json:5000 \\
+              /book/v1/panel.json:5000 /book/v23/panel.json:5000 /book/v26/blocks.json:10000 \\
               /book/blocks.json:10000 /book/map-greece.svg:50000 \\
-              /api/changelog:2000 /clips/index.json:10; do
+              /api/changelog:2000 /clips/index.json:10 \\
+              /lica/anam-liv.jpg:3000 /lica/anam-liv.mp4:8000 /lica/3d-avaturn.jpg:3000; do
     u=\${pair%:*}; min=\${pair##*:}
     c=$(curl -s -o /tmp/lab-hc.out -w '%{http_code}' "http://127.0.0.1:${PORT}$u" || true)
     sz=$(stat -c %s /tmp/lab-hc.out 2>/dev/null || echo 0)
@@ -155,9 +159,14 @@ health() {
 export const REMOTE_LINK_SHARED = `
 link_shared() {   # $1 — папка релиза
   mkdir -p "$1/scripts" "$1/.tmp" ${ROOT}/shared ${ROOT}/shared/photos
-  touch ${ROOT}/shared/feedback.jsonl
+  touch ${ROOT}/shared/feedback.jsonl ${ROOT}/shared/.env.local
+  chmod 600 ${ROOT}/shared/.env.local
   ln -sfn ../../../shared/.yandex-secret.json "$1/scripts/.yandex-secret.json"
   ln -sfn ../../../shared/feedback.jsonl "$1/.tmp/feedback.jsonl"
   ln -sfn ../../../shared/photos "$1/.tmp/feedback-photos"
+  # 🔑 20.08. Ключ Anam (видео-аватар) сервер читает из .env.local рядом с собой. В пакет
+  # выкладки ключам хода нет, поэтому файл живёт в shared/ и вшивается ссылкой — как секрет
+  # Яндекса. Откат тогда не уносит ключ вместе с релизом.
+  ln -sfn ../../shared/.env.local "$1/.env.local"
 }
 `
