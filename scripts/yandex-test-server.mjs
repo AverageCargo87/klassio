@@ -8,6 +8,7 @@ import http from 'node:http'
 import fs from 'node:fs'
 import crypto from 'node:crypto'
 import { Readable } from 'node:stream'
+import { spawn } from 'node:child_process'   // ffmpeg: перегон MP3 от v3-голосов в PCM для аватара
 import { handleMock } from './bhmock-core.mjs'   // лицо-заглушка bitHuman прямо в стенде, без ключа и без второго процесса
 
 const PORT = process.env.PORT || 8781
@@ -142,14 +143,35 @@ async function ttsSynth({ voice, role, speed, text, key, pcm }) {
   return Buffer.from(await res.arrayBuffer())
 }
 
+// 🔴 19.08. У v3 ЖЁСТКИЙ предел длины запроса — около 250 знаков, дальше приходит
+//  400 «Too long text». У v1 такого нет, поэтому беда была невидимой: голоса alena и
+//  marina работали, а masha/julia/lera/dasha молча падали на КАЖДОМ такте урока —
+//  такты по 4–7 строк заведомо длиннее. Режем текст по концам предложений (шов
+//  приходится на естественную паузу), при нужде по запятым, в крайнем случае жёстко.
+const V3_ПРЕДЕЛ = 230
+function разбейДляV3(текст, предел = V3_ПРЕДЕЛ) {
+  const собрать = (части) => {
+    const out = []; let буф = ''
+    for (const ч of части) {
+      if ((буф + ' ' + ч).trim().length > предел && буф) { out.push(буф.trim()); буф = ч }
+      else буф = (буф + ' ' + ч).trim()
+    }
+    if (буф) out.push(буф.trim())
+    return out
+  }
+  return собрать(String(текст).split(/(?<=[.!?…])\s+/))
+    .flatMap((к) => (к.length <= предел ? [к] : собрать(к.split(/(?<=,)\s+/))))
+    .flatMap((к) => (к.length <= предел ? [к] : (к.match(new RegExp(`.{1,${предел}}`, 'gs')) || [])))
+}
+
 // v3 (новые нейросетевые голоса: masha, dasha, julia, lera…). Стрим JSON-чанков.
-async function ttsV3({ voice, role, speed, text, key }) {
+async function ttsV3Один({ voice, role, speed, text, key }) {
   const hints = [{ voice }]
   if (role) hints.push({ role })
   if (speed) hints.push({ speed: Number(speed) })
   const res = await fetch('https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis', {
     method: 'POST', headers: { Authorization: `Api-Key ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: text || LINES, hints, outputAudioSpec: { containerAudio: { containerAudioType: 'MP3' } }, loudnessNormalizationType: 'LUFS' }),
+    body: JSON.stringify({ text, hints, outputAudioSpec: { containerAudio: { containerAudioType: 'MP3' } }, loudnessNormalizationType: 'LUFS' }),
   })
   const raw = await res.text()
   if (!res.ok) throw new Error(`${res.status} ${raw.slice(0, 220)}`)
@@ -159,6 +181,33 @@ async function ttsV3({ voice, role, speed, text, key }) {
   const chunks = objs.map((j) => j.result?.audioChunk?.data).filter(Boolean).map((d) => Buffer.from(d, 'base64'))
   if (!chunks.length) throw new Error('v3: пустой ответ ' + raw.slice(0, 150))
   return Buffer.concat(chunks)
+}
+// MP3 → сырой PCM16 16 кГц моно (то, что ест видео-аватар и что отдаёт v1 в lpcm).
+// Через stdin/stdout, без временных файлов: на реплику урока это единицы миллисекунд.
+function mp3вPcm16(mp3) {
+  return new Promise((resolve, reject) => {
+    const ff = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-i', 'pipe:0',
+      '-f', 's16le', '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', 'pipe:1'],
+      { stdio: ['pipe', 'pipe', 'pipe'] })
+    const куски = []; let ошибка = ''
+    ff.stdout.on('data', (d) => куски.push(d))
+    ff.stderr.on('data', (d) => { ошибка += d.toString() })
+    ff.on('error', reject)
+    ff.on('close', (код) => {
+      if (код !== 0 || !куски.length) return reject(new Error('ffmpeg: ' + (ошибка.slice(0, 200) || 'код ' + код)))
+      resolve(Buffer.concat(куски))
+    })
+    ff.stdin.on('error', () => {})
+    ff.stdin.end(mp3)
+  })
+}
+
+async function ttsV3(p) {
+  const части = разбейДляV3(p.text || LINES)
+  if (части.length === 1) return ttsV3Один({ ...p, text: части[0] })
+  const собрано = []
+  for (const часть of части) собрано.push(await ttsV3Один({ ...p, text: часть }))
+  return Buffer.concat(собрано)
 }
 
 async function llmCall({ key, folder, model, messages, extra }) {
@@ -248,12 +297,21 @@ code{background:#1a1f26;padding:1px 5px;border-radius:4px}
     <div><label>Авто-стоп по простою, сек</label><input id=avIdle type=number value=120></div>
   </div>
   <div id=billMeter style="display:none;margin-top:10px;padding:10px 12px;border-radius:10px;background:#10241d;border:1px solid #1f7a5f"></div>
-  <p class=muted style="margin-bottom:0">Идёт только ОДИН аватар за раз (подключение второго отключит первый). Для теста ставь потолок 60–120 сек.</p>
+  <p class=muted style="margin-bottom:0">Идёт только ОДИН аватар за раз (подключение второго отключит первый). Для теста ставь потолок 60–120 сек; для проверки «доживёт ли до конца урока» — 2400.</p>
+  <p class=muted style="margin-bottom:0">⚠️ Потолок сессии ограничен ещё и ТАРИФОМ Anam: Free 3 мин · Starter 5 · Explorer 10 · Growth и выше 2 часа. На бесплатном 40-минутный прогон не получится в принципе — оборвётся на третьей минуте, и это не наш баг.</p>
 </div>
 <div class=row>
  <div class=card style="flex:1;min-width:300px">
   <b>Anam</b> <span class=muted>биллит ВСЮ сессию, включая простой</span>
   <div style="margin-top:6px"><label>Anam API-ключ</label><input id=anamKey type=password placeholder="ключ Anam (локально)"></div>
+  <div style="margin-top:8px"><label>Лицо (avatarId)</label>
+    <div class=row style="gap:6px">
+      <select id=anamFace style="flex:1"><option value="">Cara — сток по умолчанию</option></select>
+      <button id=anamLoadFaces type=button>Загрузить лица</button>
+    </div>
+    <span id=anamFaceMsg class=muted></span>
+  </div>
+  <p class=muted>Лицо задаёт <code>avatarId</code>, а <code>avatarModel</code> (cara-4/cara-3) — это модель рендера. Для своей Ани модель НЕ шлём: у кастомного лица своя. Своё лицо заводится в панели Anam, сюда прилетает списком.</p>
   <p class=muted>⚠️ Облако US/EU → для РФ-юзера иностранный хоп (задержка). Простой оплачивается — спасает только потолок сессии.</p>
   <button id=anamConnect>Подключить</button> <button id=anamDisconnect>Отключить (стоп)</button> <span id=anamStatus class=muted></span>
   <div style="margin-top:12px"><video id=anam-video autoplay playsinline style="width:100%;border-radius:12px;background:#000;aspect-ratio:1/1"></video></div>
@@ -346,10 +404,27 @@ function simliDisconnect(reason){ try{simliClient&&simliClient.close&&simliClien
   simliClient=null; const v=$('#simli-video'); if(v)v.srcObject=null
   stopBillGuard(); $('#simliStatus').textContent=' отключён — биллинг остановлен'+(reason?(' ('+reason+')'):'') }
 
+// Список лиц аккаунта → дропдаун. Выбранный id уходит в personaConfig.avatarId.
+const anamFaceEl=$('#anamFace'); anamFaceEl.value=localStorage.yt_anamFace||''
+anamFaceEl.onchange=()=>localStorage.yt_anamFace=anamFaceEl.value
+$('#anamLoadFaces').onclick=async()=>{ const ak=anamKeyEl.value.trim(); const m=$('#anamFaceMsg')
+  if(!ak){m.textContent=' сначала вставь ключ Anam';return}
+  m.textContent=' гружу…'
+  try{ const r=await fetch('/api/anam-avatars',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:ak})})
+    const j=await r.json(); if(j.error){m.textContent=' ошибка: '+j.error;return}
+    const list=j.avatars||[]; const was=anamFaceEl.value
+    anamFaceEl.innerHTML='<option value="">Cara — сток по умолчанию</option>'
+    for(const a of list){ const o=document.createElement('option'); o.value=a.id
+      o.textContent=a.name+(a.avatarModel?(' · '+a.avatarModel):'')+' — '+a.id.slice(0,8); anamFaceEl.appendChild(o) }
+    if(was&&list.some(a=>a.id===was))anamFaceEl.value=was
+    m.textContent=' лиц найдено: '+list.length+(list.length?'':' — заведи своё в панели Anam')
+  }catch(e){m.textContent=' ошибка: '+e.message} }
+
 $('#anamConnect').onclick=async()=>{ const ak=anamKeyEl.value.trim(); if(!ak){alert('Вставь ключ Anam');return}
   if(simliClient)simliDisconnect('переключение'); const st=$('#anamStatus'); st.textContent=' подключаю…'
   try{ const cap=Number($('#avCap').value)||600
-    const tr=await fetch('/api/anam-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:ak,maxSessionLengthSeconds:cap})})
+    const face=anamFaceEl.value.trim()
+    const tr=await fetch('/api/anam-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:ak,maxSessionLengthSeconds:cap,avatarId:face||undefined})})
     const tj=await tr.json(); if(tj.error){st.textContent=' ошибка токена: '+tj.error;return}
     const mod=await import('https://esm.sh/@anam-ai/js-sdk')
     const createClient=mod.createClient||(mod.default&&mod.default.createClient)
@@ -484,20 +559,24 @@ http.createServer(async (req, res) => {
     }
     // ФОРМА ВТОРАЯ (02.08): урок ПО УЧЕБНИКУ — разворот листается, ИИ-учитель слева
     // сама листает, подчёркивает и выделяет то, о чём говорит. Референс — fliphtml5.
-    if (req.method === 'GET' && (req.url === '/kniga' || req.url === '/uchebnik' || req.url === '/book')) {
+    // ⚠️ 14.08: страницы урока сравнивались с req.url ЦЕЛИКОМ, вместе с query-строкой,
+    // поэтому /kniga?teacher=bh отдавал «not found». А настройка аватара ссылкой — это
+    // именно query. Сравниваем путь без параметров.
+    const путь = req.url.split('?')[0]
+    if (req.method === 'GET' && (путь === '/kniga' || путь === '/uchebnik' || путь === '/book')) {
       try { const html = fs.readFileSync('.tmp/sketches/tutor/kniga.html', 'utf8'); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(html) }
       catch (e) { res.writeHead(500); return res.end('kniga not found: ' + e.message) }
     }
     // ОБЗОР МАТЕРИАЛОВ (11.08): всё, что урок показывает по одному шагу за полчаса —
     // разом и молча. Тому, кто пришёл ПРОВЕРИТЬ материал, слушать урок целиком незачем.
-    if (req.method === 'GET' && (req.url === '/kniga/obzor' || req.url === '/obzor')) {
+    if (req.method === 'GET' && (путь === '/kniga/obzor' || путь === '/obzor')) {
       try { const html = fs.readFileSync('.tmp/sketches/tutor/obzor.html', 'utf8'); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(html) }
       catch (e) { res.writeHead(500); return res.end('obzor not found: ' + e.message) }
     }
     // МАКЕТ ЭКРАНА ЗАКРЕПЛЕНИЯ (05.08): после чтения страница учебника уходит, и её
     // место занимает экран разбора — по мотивам Anatomy Atelier, который прислал
     // руководитель. Отдельная страница: боевой урок /kniga не тронут.
-    if (req.method === 'GET' && (req.url === '/zakrep' || req.url === '/zakreplenie')) {
+    if (req.method === 'GET' && (путь === '/zakrep' || путь === '/zakreplenie')) {
       try { const html = fs.readFileSync('.tmp/sketches/tutor/zakrep.html', 'utf8'); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(html) }
       catch (e) { res.writeHead(500); return res.end('zakrep not found: ' + e.message) }
     }
@@ -649,12 +728,21 @@ http.createServer(async (req, res) => {
       try { const buf = fs.readFileSync('.tmp/sketches/tutor/clips/' + clm[1]); res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': 'max-age=600' }); return res.end(buf) }
       catch (e) { res.writeHead(404); return res.end('нет ролика — прогони scripts/make-teacher-clips.mjs') }
     }
+    // Карточки выбора учителя: портрет 3:4 и шестисекундная петля простоя на каждое лицо
+    // (scripts/make-avatar-cards.mjs). Открываются из кнопки на окне Ани, а не из шестерёнки.
+    // Шаблон имени узкий намеренно: это отдача файлов с диска по адресу из браузера.
+    const lcm = req.method === 'GET' && req.url.match(/^\/lica\/((?:anam|bh|3d)-[a-z0-9-]{2,20}\.(?:jpg|mp4))$/)
+    if (lcm) {
+      const ct = lcm[1].endsWith('.mp4') ? 'video/mp4' : 'image/jpeg'
+      try { const buf = fs.readFileSync('.tmp/sketches/tutor/lica/' + lcm[1]); res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': 'max-age=3600' }); return res.end(buf) }
+      catch (e) { res.writeHead(404); return res.end('нет карточки лица — прогони scripts/make-avatar-cards.mjs') }
+    }
     // страницы учебника, координаты подсветок и ИЛЛЮСТРАЦИИ:
     // fig-* — растр, как он лежит в PDF; hi-* — он же после апскейла, его и открывают по клику
     // panel.json — привязки правой половины урока: что показать под реплику и какие
     // карточки «запомни» копить на этой странице
     // v\d+/ впереди — замороженные привязки прошлых версий урока (см. /kniga/vN выше)
-    const bkm = req.method === 'GET' && req.url.match(/^\/book\/((?:v\d+\/)?(?:(?:p|fig-p|hi-p)[\w-]*\.(?:jpg|png)|marks\.json|pages\.json|blocks\.json|figures\.json|panel\.json|test\.json|zakrep\.json|drill\.json|map-greece\.svg))$/)
+    const bkm = req.method === 'GET' && req.url.match(/^\/book\/((?:v\d+\/)?(?:(?:p|fig-p|hi-p)[\w-]*\.(?:jpg|png)|marks\.json|pages\.json|blocks\.json|figures\.json|panel\.json|test\.json|zakrep\.json|drill\.json|map-[\w-]+\.svg))$/)
     if (bkm) {
       const ct = bkm[1].endsWith('.png') ? 'image/png'
         : bkm[1].endsWith('.jpg') ? 'image/jpeg'
@@ -777,7 +865,14 @@ http.createServer(async (req, res) => {
       if (!p.key) p.key = SRV.key // фолбэк на серверный ключ
       if (!p.key) return json(res, 400, { error: 'no key' })
       try {
-        const buf = p.v3 ? await ttsV3(p) : await ttsSynth(p)
+        let buf = p.v3 ? await ttsV3(p) : await ttsSynth(p)
+        if (p.pcm && p.v3) {
+          // 🔴 19.08. v3 умеет только MP3 (lpcm у него нет), а видео-аватару нужен
+          //  сырой PCM16 16 кГц. Из-за этого в уроке стоял МОЛЧАЛИВЫЙ ОТКАТ на alena:
+          //  выбираешь Машу — слышишь Алёну, и понять это по интерфейсу нельзя.
+          //  Перегоняем сами: ffmpeg у нас есть, стоит это миллисекунды.
+          buf = await mp3вPcm16(buf)
+        }
         if (p.pcm) return json(res, 200, { b64: buf.toString('base64') }) // для Anam
         res.writeHead(200, { 'Content-Type': 'audio/mpeg' }); return res.end(buf)
       } catch (e) { res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end(e.message) }
@@ -939,18 +1034,36 @@ http.createServer(async (req, res) => {
     // Сессия-токен Anam (ключ Anam отдельный, идёт в запросе; не хранится).
     if (req.method === 'POST' && req.url === '/api/anam-token') {
       const p = JSON.parse(await readBody(req))
-      if (!p.key) return json(res, 200, { error: 'нет ключа Anam' })
+      // Ключ берём с СЕРВЕРА (.env.local → ANAM_API_KEY). В браузер он не уходит и в
+      // localStorage не оседает; поле в шестерёнке осталось только как перекрытие.
+      p.key = p.key || process.env.ANAM_API_KEY || ''
+      if (!p.key) return json(res, 200, { error: 'нет ключа Anam ни в запросе, ни в .env.local' })
       const CARA = '30fa96d0-26c4-4e55-94a0-517025942e18'
       const avatarId = p.avatarId || CARA // Cara (сток) — по умолчанию
       const maxLen = Number(p.maxSessionLengthSeconds) || 600 // ЖЁСТКИЙ ПОТОЛОК в токене: Anam сам убьёт сессию через N сек, даже если вкладку/ноут вырубили. Это и есть «гарантия».
-      // avatarModel = модель рендера (cara-4/cara-3/…); ЛИЦО задаёт avatarId. Поле опционально:
-      // Cara → 'cara-4' (проверено, не регрессим корневую страницу), иное лицо → дефолт аватара (не шлём).
-      const avatarModel = p.avatarModel || (avatarId === CARA ? 'cara-4' : null)
+      // avatarModel = модель рендера (cara-4/cara-3/…); ЛИЦО задаёт avatarId.
+      // 🔴 19.08. Раньше для НЕ-Cara поле не слали вовсе — и Anam отдавала 720×480, то есть
+      //  cara-3: старая модель, ниже разрешение, хуже липсинк, и только ландшафт. Документация
+      //  обещает «latest available», но по факту приезжает cara-3. Пиним явно.
+      //  Все 120 их лиц поддерживают cara-4 (проверено по availableVersions).
+      //  'cara-4-latest' НЕ брать: у них помечена экспериментальной и не для прода.
+      const avatarModel = p.avatarModel || 'cara-4'
       const persona = { avatarId, enableAudioPassthrough: true, maxSessionLengthSeconds: maxLen }
       if (avatarModel) persona.avatarModel = String(avatarModel)
+      // 🔴 ОБЯЗАТЕЛЬНО в режиме passthrough. Микрофон отключён (disableInputAudio), поэтому Anam
+      // НЕ СЛЫШИТ НИЧЕГО ПО УСТРОЙСТВУ РЕЖИМА — и её сторож тишины считает молчанием весь урок.
+      // Дефолты: silenceBeforeSessionEndSeconds=60, silenceBeforeSkipTurnSeconds=15 ⇒ без обнуления
+      // сессия умирает сама через минуту. Обнуление поддерживается с 27.05.2026.
+      persona.voiceDetectionOptions = { silenceBeforeSessionEndSeconds: 0, silenceBeforeSkipTurnSeconds: 0 }
       const r = await fetch('https://api.anam.ai/v1/auth/session-token', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${p.key}` },
-        body: JSON.stringify({ personaConfig: persona }),
+        // Окно учителя в уроке ВЕРТИКАЛЬНОЕ (3:4) — просим портретную раскладку cara-4,
+        // иначе ландшафтный кадр обрезается по бокам и лицо не влезает. Ровно на этом
+        // мы уже обжигались с bitHuman («а ещё не влезает в кадр»).
+        body: JSON.stringify({
+          personaConfig: persona,
+          sessionOptions: { videoQuality: 'high', videoWidth: 768, videoHeight: 1152 },
+        }),
       })
       const t = await r.text()
       if (!r.ok) return json(res, 200, { error: `${r.status} ${t.slice(0, 200)}` })
@@ -959,14 +1072,46 @@ http.createServer(async (req, res) => {
     // Список аватаров аккаунта Anam (для дропдауна «другие лица»). Ключ в теле, не хранится.
     if (req.method === 'POST' && req.url === '/api/anam-avatars') {
       const p = JSON.parse(await readBody(req))
-      if (!p.key) return json(res, 200, { error: 'нет ключа Anam' })
+      p.key = p.key || process.env.ANAM_API_KEY || ''
+      if (!p.key) return json(res, 200, { error: 'нет ключа Anam ни в запросе, ни в .env.local' })
       try {
-        const r = await fetch('https://api.anam.ai/v1/avatars?perPage=100', { headers: { Authorization: `Bearer ${p.key}` } })
-        const t = await r.text()
-        if (!r.ok) return json(res, 200, { error: `${r.status} ${t.slice(0, 200)}` })
-        let j; try { j = JSON.parse(t) } catch { return json(res, 200, { error: 'непарсибельный ответ' }) }
-        const list = Array.isArray(j) ? j : (j.data || j.avatars || [])
-        const avatars = list.map((a) => ({ id: a.id || a.avatarId, name: a.name || a.label || a.displayName || a.id, avatarModel: a.avatarModel || a.model || null })).filter((a) => a.id)
+        // ⚠️ Лиц у них 120, а perPage максимум 100 — на одной странице ВСЕ НЕ ПОМЕЩАЮТСЯ.
+        // Первая версия тянула только страницу 1, и двадцати лиц не существовало для нас.
+        const list = []
+        for (let page = 1; page <= 10; page++) {
+          const r = await fetch(`https://api.anam.ai/v1/avatars?perPage=100&page=${page}`, { headers: { Authorization: `Bearer ${p.key}` } })
+          const t = await r.text()
+          if (!r.ok) return json(res, 200, { error: `${r.status} ${t.slice(0, 200)}` })
+          let j; try { j = JSON.parse(t) } catch { return json(res, 200, { error: 'непарсибельный ответ' }) }
+          const кусок = Array.isArray(j) ? j : (j.data || j.avatars || [])
+          list.push(...кусок)
+          const мета = (j && j.meta) || {}
+          if (!мета.next || page >= (мета.lastPage || 1)) break
+        }
+        // Превью ОБЯЗАТЕЛЬНО тянем дальше: лицо выбирают глазами, а не по имени.
+        // imageUrl — стоп-кадр, videoUrl — 30 с холостого дыхания (ссылки подписанные, живут час).
+        // createdByOrganizationId === null ⇒ это их сток; у наших собственных там наш идентификатор.
+        const avatars = list.map((a) => {
+          const теги = (a.displayTags || []).map((t) => String(t).toLowerCase())
+          // Пол размечен тегами непоследовательно: где-то `woman`, где-то `female`,
+          // где-то только «woman in suit». Поэтому ищем вхождением, а не равенством.
+          const текст = теги.join(' ')
+          const пол = /\bwoman|female\b/.test(текст) ? 'ж' : /\bman|male\b/.test(текст) ? 'м' : '?'
+          return {
+            id: a.id || a.avatarId,
+            name: a.displayName || a.name || a.id,
+            вариант: a.variantName || '',
+            стиль: a.renderStyle || '',
+            пол,
+            теги,
+            avatarModel: a.activeVersion || a.avatarModel || null,
+            versions: a.availableVersions || null,
+            image: a.imageUrl || a.previewImageUrl || a.landscapeImageUrl || null,
+            portrait: a.portraitImageUrl || null,
+            video: a.videoUrl || a.idleVideoUrl || null,
+            сток: (a.createdByOrganizationId ?? null) === null,
+          }
+        }).filter((a) => a.id)
         return json(res, 200, { avatars })
       } catch (e) { return json(res, 200, { error: e.message }) }
     }
@@ -1066,6 +1211,16 @@ http.createServer(async (req, res) => {
       if (!base) return json(res, 400, { error: 'нужен base' })
       try { const r = await fetch(base + '/health' + avatarQ(q)); const t = await r.text(); try { return json(res, 200, JSON.parse(t)) } catch { return json(res, 200, { ok: r.ok }) } }
       catch (e) { return json(res, 200, { ok: false, error: e.message }) }
+    }
+    // Прогрев БЕЗ ЗВУКА: держит генератор кадров живым, не трогая аудио-тракт.
+    // ⚠️ Греть тишиной через /push нельзя — замер 17.08: следующая за тишиной речь
+    // перестаёт открывать рот (размах 1.01 и 0.00 против 12.85). Подробности в раннере.
+    if (req.method === 'GET' && req.url.startsWith('/api/bithuman-keepalive')) {
+      const base = cleanBase(new URL(req.url, 'http://x').searchParams.get('base'))
+      if (!base) return json(res, 400, { error: 'нужен base' })
+      try { const r = await fetch(base + '/keepalive'); const t = await r.text()
+        try { return json(res, 200, JSON.parse(t)) } catch { return json(res, 200, { ok: r.ok }) }
+      } catch (e) { return json(res, 200, { ok: false, error: e.message }) }
     }
     // Список лиц раннера — для выпадашки «кто в кадре». Раннер постарше метода не знает:
     // это не ошибка стенда, просто выбора у него нет.
