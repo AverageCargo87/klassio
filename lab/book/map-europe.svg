@@ -61,4 +61,5 @@
 <g class="mk area" id="mk-balkans" data-x="1049" data-y="877"><circle class="halo" cx="1049" cy="877" r="52"/><path class="lead" d="M886 675L1049 877"/><circle class="dot" cx="1049" cy="877" r="7"/><text x="886" y="681">Балканский полуостров</text></g>
 <g class="mk sea" id="mk-medsea" data-x="834" data-y="1208"><circle class="halo" cx="834" cy="1208" r="52"/><text x="834" y="1213">Средиземное море</text></g>
 <g class="mk area" id="mk-greece" data-x="1102" data-y="1050"><circle class="halo" cx="1102" cy="1050" r="52"/><path class="lead" d="M1376 919L1102 1050"/><circle class="dot" cx="1102" cy="1050" r="7"/><text x="1376" y="925">Древняя Греция</text></g>
+<g class="mk area" id="mk-nbalkans" data-x="1030" data-y="791"><circle class="halo" cx="1030" cy="791" r="52"/><path class="lead" d="M1226 622L1030 791"/><circle class="dot" cx="1030" cy="791" r="7"/><text x="1226" y="628">Север Балканского полуострова</text></g>
 </svg>

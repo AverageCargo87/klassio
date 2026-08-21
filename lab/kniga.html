@@ -1,6 +1,6 @@
 <!doctype html><html lang=ru><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>v2.10.1 · УЧЕБНИК · §20 · урок с ИИ-учителем</title>
+<title>v2.10.2 · УЧЕБНИК · §20 · урок с ИИ-учителем</title>
 <!-- ВЕРСИЯ СБОРКИ. Стоит и в заголовке вкладки, и плашкой в нижней панели: по скриншоту
      должно быть видно, о какой версии речь. Журнал версий — .planning/KNIGA-VERSIONS.md,
      прошлые сборки открываются по /kniga/v1. Меняя версию — правь оба места и журнал. -->
@@ -1015,7 +1015,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
         <span class="hi t" id=drTaskWrap title="осталось на это задание">⏳ <b id=drTask>3:00</b></span>
       </span>
       <span id=cost></span>
-      <span id=ver title="версия сборки урока · журнал в .planning/KNIGA-VERSIONS.md">v2.10.1</span>
+      <span id=ver title="версия сборки урока · журнал в .planning/KNIGA-VERSIONS.md">v2.10.2</span>
       <div id=steps></div>
     </div>
   </div>
@@ -1590,7 +1590,14 @@ function showMapDemo(d){
     if(европа){
       const цель=d.art.includes(':')?d.art.split(':')[1]:'balkans'
       mapAim(MAPS.demo,'')                        // без наезда: обзор и должен быть обзором
-      const g=svg.querySelector('#mk-'+цель); if(g) g.classList.add('on')
+      const g=svg.querySelector('#mk-'+цель)
+      // 🔴 21.08. Здесь ставилось только `.on`, а остальные подписи оставались на своих
+      //  0.5 — названное место шло на 1.0, и разница вдвое читается как «ничего не
+      //  подсвечено». Ровно этот дефект чинили 13.08 по разбору Владимира, но только на
+      //  карте ГРЕЦИИ (mapLight); карта Европы осталась со старым поведением, и заметно
+      //  это стало, когда показов на ней стало два.
+      for(const m of svg.querySelectorAll('.mk')) m.classList.toggle('dim', !!g&&m!==g)
+      if(g) g.classList.add('on')
       const w=svg.querySelector('#win-greece'); if(w) w.classList.add('on')
     } else {
       mapPoint(MAPS.demo, d.art.startsWith('map:')?d.art.slice(4):'', d.page||demoPageNow)
@@ -5989,6 +5996,21 @@ window.__kniga={
       приглушено:svg.querySelectorAll('.mk.dim').length,
       меток:svg.querySelectorAll('.mk').length,
       наезд:$('#demoMapIn').style.transform||'нет' } },
+  // ── приёмка карты (check-kniga-karta.mjs) ────────────────────────────────
+  // Показать ОДНУ привязку, не гоняя такт целиком: иначе проверить тридцать семь
+  // показов карты можно только пройдя весь урок, и каждый раз заново.
+  mapDemo:(art,page)=>{ showMapDemo({art,page,cap:'',sub:''}); return true },
+  // Видна ли подпись зажжённого места ЦЕЛИКОМ в окне показа. Само место в кадр
+  // ставит `картаКадр`, а подпись у метки отъезжает на выноске — и при наезде 2.4×
+  // уезжает за край первой. Тогда ребёнок видит горящую точку без названия.
+  mapLabel:()=>{ const svg=MAPS.demo.svg; if(!svg) return null
+    const g=svg.querySelector('.mk.on')||svg.querySelector('.zone.on'); if(!g) return null
+    const t=g.querySelector('text')||g
+    const b=t.getBoundingClientRect(), box=$('#demoMap').getBoundingClientRect()
+    return { место:g.id, подпись:(t.textContent||'').trim(),
+      внутри:b.left>=box.left-1&&b.right<=box.right+1&&b.top>=box.top-1&&b.bottom<=box.bottom+1,
+      вылезло:{слева:Math.round(box.left-b.left),справа:Math.round(b.right-box.right),
+               сверху:Math.round(box.top-b.top),снизу:Math.round(b.bottom-box.bottom)} } },
   // 🔴 13.08 (второй разбор). Кадр страницы ставится один раз и стоит до конца — значит
   //  ВСЕ места, которые на этой странице будут названы, обязаны попасть в него сразу.
   //  Первая редакция правила «один наезд» ставила кадр по первому месту, и двенадцать
