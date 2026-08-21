@@ -30,6 +30,38 @@ const TEST = JSON.parse(fs.readFileSync(ROOT + '/book/test.json', 'utf8'))
 const OUT = ROOT + '/book/drill.json'
 const say = []
 
+// ── ПОЗИЦИЯ ВЕРНОГО ОТВЕТА ──────────────────────────────────────────────────
+//  🔴 13.08, второй разбор руководителя: «правильный ответ стоит первым в 21 из 30
+//  заданий (70 %), и варианты не перемешиваются при показе. Ребёнок за вечер выучит
+//  „жми первое“ и получит высокий балл». Проверил — цифра сходится до единицы.
+//  Обиднее всего, что требование было записано в методичке 08.08 с самого начала
+//  («позиция правильного — случайная») и просто не выполнено: варианты складывались
+//  «сначала верный, потом дистракторы», и так и уезжали в файл.
+//  ⚠️ Тасуем ДЕТЕРМИНИРОВАННО, от идентификатора задания: порядок должен быть разным
+//  у разных заданий, но ОДИНАКОВЫМ от прогона к прогону. Иначе каждая перегенерация
+//  переписывала бы весь файл, и в правках было бы не разобрать содержательное.
+const семя = (s) => { let h = 2166136261
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) }
+  return h >>> 0 }
+const бросок = (s) => { let a = семя(s)
+  return () => { a |= 0; a = (a + 0x6D2B79F5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296 } }
+function разложить(t) {
+  if (!t.options || t.kind === 'match') return t
+  const r = бросок(t.id)
+  const idx = t.options.map((_, i) => i)
+  for (let i = idx.length - 1; i > 0; i--) {
+    const j = Math.floor(r() * (i + 1)); const x = idx[i]; idx[i] = idx[j]; idx[j] = x
+  }
+  const было = t.ok
+  t.options = idx.map((i) => t.options[i])
+  if (t.optTerm) t.optTerm = idx.map((i) => t.optTerm[i])
+  t.ok = idx.indexOf(было)
+  return t
+}
+
 // ── ТИПЫ ЗАДАНИЙ ────────────────────────────────────────────────────────────
 //  «По каждому разделу коротко показывается, как решать типовые тесты в количестве
 //  не менее разных 3 типов». Это объяснение ПОРЯДКА ДЕЙСТВИЙ, а не материала.
@@ -119,6 +151,17 @@ for (const pg of ZAK.pages) {
   const пропущено = все.filter(служебная).map((t) => t.term)
   if (пропущено.length) say.push('  стр. ' + pg.page + ': в задания не взяты анонсы и парные карточки — ' + пропущено.join(', '))
   const hist = (TEST.find((x) => x.page === pg.page) || { questions: [] }).questions
+  // 🔴 21.08, вычитка материалов. Строку учебника для разбора искали ТОЛЬКО среди карточек
+  //  страницы (`terms`), по совпадению термина. У девяти вопросов из двадцати четырёх термин
+  //  карточкой не был — и на третьей попытке ребёнок слышал голое «Правильный ответ: X»
+  //  без «в учебнике сказано так». А сама строка всё это время лежала рядом: у тех же
+  //  вопросов в zakrep.json поле `src` заполнено. Берём оттуда, когда карточки нет.
+  const зн = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase()
+  const закВоп = (pg.questions || [])
+  const строкаВопроса = (q) => {
+    const свой = (закВоп.find((z) => зн(z.q) === зн(q.q)) || {}).src
+    return свой || null
+  }
   // сначала соседние темы той же страницы, потом чужие — так вариант труднее отбросить
   const nearTxt = terms.map((t) => t.txt), nearTerm = terms.map((t) => t.term)
   const alienTxt = allTerms.filter((t) => t.page !== pg.page).map((t) => t.txt)
@@ -176,7 +219,7 @@ for (const pg of ZAK.pages) {
       id: pg.page + '-h' + q.n, kind: 'history', тип: 'history',
       q: clean(q.q), options: q.options.slice(), ok: q.ok,
       optTerm: q.options.map(() => null),
-      term: q.term, src: own ? clean(own.src) : null, re: q.re, beat: own ? own.beat : null,
+      term: q.term, src: clean((own && own.src) || строкаВопроса(q)) || null, re: q.re, beat: own ? own.beat : null,
       hint: 'Ответ есть в тексте раздела — вспомни, о чём читал на странице ' + pg.page + '.',
     })
   }
@@ -200,10 +243,17 @@ for (const pg of ZAK.pages) {
       id: pg.page + '-sh' + q.n, kind: 'history', тип: 'history',
       q: clean(q.q), options: q.options.slice(), ok: q.ok,
       optTerm: q.options.map(() => null),
-      term: q.term, src: own ? clean(own.src) : null, re: q.re, beat: own ? own.beat : null,
+      term: q.term, src: clean((own && own.src) || строкаВопроса(q)) || null, re: q.re, beat: own ? own.beat : null,
       hint: 'Ответ есть в тексте раздела.',
     })
   }
+
+  // ⚠️ Идентификатор обязан быть уникальным: на стр. 125 два разных вопроса несли один
+  //  id «125-h57» (номер такта у них совпал). Пока id нигде не ключ — безобидно, но по
+  //  нему будет храниться состояние повторений, и два пункта склеились бы в один.
+  for (const [i, t] of tasks.entries()) if (t.kind === 'history') t.id = pg.page + '-h' + (i + 1)
+  for (const [i, t] of spare.entries()) if (t.kind === 'history') t.id = pg.page + '-sh' + (i + 1)
+  tasks.forEach(разложить); spare.forEach(разложить)
 
   pages.push({
     page: pg.page,
@@ -242,9 +292,23 @@ for (const p of pages) {
   const key = p.tasks.filter((t) => t.term).map((t) => t.kind + '|' + t.term)
   if (new Set(key).size !== key.length) bad.push('стр. ' + p.page + ': задание повторяется')
 }
+// 🔴 РАСКЛАДКА ВЕРНОГО ОТВЕТА. Проверка ровно на то замечание, из-за которого она и
+// появилась: если верный ответ слишком часто стоит на одном месте, тренажёр измеряет
+// не знание, а привычку жать первое.
+const все = pages.flatMap((p) => [...p.tasks, ...p.spare]).filter((t) => t.options)
+const поМестам = {}
+for (const t of все) поМестам[t.ok] = (поМестам[t.ok] || 0) + 1
+const макс = Math.max(...Object.values(поМестам))
+if (макс / все.length > 0.5) bad.push('верный ответ стоит на одном месте у '
+  + Math.round((100 * макс) / все.length) + '% заданий — раскладка не сработала')
+const ids = pages.flatMap((p) => [...p.tasks, ...p.spare]).map((t) => t.id)
+if (new Set(ids).size !== ids.length) bad.push('идентификаторы заданий повторяются: '
+  + ids.filter((x, i) => ids.indexOf(x) !== i).join(', '))
 
 fs.writeFileSync(OUT, JSON.stringify({ types: TYPES, pages }, null, 1))
 console.log('→ ' + OUT)
+console.log('позиция верного ответа: ' + Object.keys(поМестам).sort()
+  .map((k) => (+k + 1) + '-я — ' + поМестам[k]).join(' · ') + ' (всего ' + все.length + ')')
 console.log('разделов ' + pages.length
   + ' · заданий ' + pages.reduce((a, p) => a + p.tasks.length, 0)
   + ' · запасных ' + pages.reduce((a, p) => a + p.spare.length, 0)
