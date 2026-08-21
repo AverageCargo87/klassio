@@ -64,7 +64,18 @@ body[data-mode=find] .task{display:flex}
 .zone.found{background:rgba(242,163,60,.16);box-shadow:inset 0 0 0 3px var(--acc)}
 .zone.found .pin{background:var(--ok)}
 .zone.miss{box-shadow:inset 0 0 0 3px var(--no)}
+/* 🔴 21.08, Кратов: «надо, чтобы я не в рандомные точки тыкал, а мог выбрать из
+   вариантов, куда нажать». В режиме «найди сам» показываем ТРИ обведённых места —
+   верное и два чужих; остальная картинка на клики не отвечает. */
 body[data-mode=find] .zone .pin{display:none}
+body[data-mode=find] .zone{pointer-events:none}
+body[data-mode=find] .zone.cand{pointer-events:auto;background:rgba(242,163,60,.10);
+  box-shadow:inset 0 0 0 3px var(--acc)}
+body[data-mode=find] .zone.cand::after{content:attr(data-letter);position:absolute;left:7px;top:7px;
+  width:30px;height:30px;border-radius:50%;background:var(--acc);color:#20160a;
+  font:800 15px/30px Segoe UI;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+body[data-mode=find] .zone.cand:hover{background:rgba(242,163,60,.22)}
+body[data-mode=find] .zone.found{box-shadow:inset 0 0 0 3px var(--ok)}
 body[data-mode=find] .zone.found .pin{display:block}
 @media (prefers-reduced-motion:reduce){.zone .pin{transition:none}}
 
@@ -107,7 +118,8 @@ footer{color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);paddin
   <div class=desc>Картинка нарисована по описанию из учебника: кладовые, архив, мастерские,
   святилище, ванная с глиняными трубами. Тыкаешь в комнату — появляется подпись, и это
   <b>дословная строка учебника</b>, ничего своего. Два режима: просто разглядывать или отвечать
-  на вопросы. Голос Ани можно включить — тогда она читает подписи и объясняет подробнее.</div>
+  на вопросы — тогда Аня обводит три места и спрашивает, какое из них нужное.
+  Голос Ани можно включить — тогда она читает подписи и объясняет подробнее.</div>
 
   <div class=ctl>
     <div class=seg role=group aria-label="Что делаем">
@@ -176,6 +188,23 @@ const TASKS=[
  {ask:'Где работали ремесленники царя?',id:5},
 ]
 const found=new Set(); let card=null, task=0, голос=false, audio=new Audio()
+const БУКВЫ=['А','Б','В']
+
+// Три места на выбор: верное и два чужих. Без этого ребёнок тыкал по всей картинке
+// наугад — задание превращалось в перебор восьми комнат, а не в вопрос.
+function расставьВарианты(){
+  document.querySelectorAll('.zone').forEach(z=>{ z.classList.remove('cand','found','miss'); z.removeAttribute('data-letter') })
+  const верный=TASKS[task].id
+  const чужие=ZONES.filter(z=>z.id!==верный).map(z=>z.id)
+  for(let i=чужие.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [чужие[i],чужие[j]]=[чужие[j],чужие[i]] }
+  const набор=[верный,чужие[0],чужие[1]]
+  for(let i=набор.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [набор[i],набор[j]]=[набор[j],набор[i]] }
+  набор.forEach((id,i)=>{
+    const el=document.querySelector('.zone[data-id="'+id+'"]')
+    if(!el) return
+    el.classList.add('cand'); el.dataset.letter=БУКВЫ[i]
+  })
+}
 
 // ── ГОЛОС. Тот же синтез, что в уроке. Включается кнопкой: без неё страница
 //    не тратит ни копейки, а ребёнок всё равно всё видит текстом.
@@ -270,6 +299,7 @@ function след(){
   $('#taskQ').textContent=TASKS[task].ask
   $('#verdict').textContent=''
   if(card){ card.remove(); card=null }
+  расставьВарианты()
   скажи(TASKS[task].ask)
 }
 function режим(m){
@@ -278,7 +308,8 @@ function режим(m){
   $('#mFind').setAttribute('aria-pressed',m==='find')
   if(card){ card.remove(); card=null }
   $('#verdict').textContent=''
-  if(m==='find'){ $('#taskQ').textContent=TASKS[task].ask; скажи(TASKS[task].ask) }
+  if(m==='find'){ $('#taskQ').textContent=TASKS[task].ask; расставьВарианты(); скажи(TASKS[task].ask) }
+  else document.querySelectorAll('.zone').forEach(z=>{ z.classList.remove('cand','miss'); z.removeAttribute('data-letter') })
 }
 $('#skip').addEventListener('click',след)
 $('#mLook').addEventListener('click',()=>режим('look'))
