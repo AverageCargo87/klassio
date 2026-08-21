@@ -57,8 +57,21 @@ console.log('── страницы ──')
 // zakrep.html — макет экрана закрепления по референсу Anatomy Atelier, который присылал
 // руководитель. Ему нужны только `book/zakrep.json` и карта, а они и так едут: значит
 // показать эту ветку стоит один файл.
-for (const f of ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html', 'kniga-v26.html', 'obzor.html', 'zakrep.html']) {
+// proba.html — песочница пробных функций (21.08), вход с витрины ДО урока. Своих данных
+// у неё нет: картинки лежат в proba/ и едут ниже, синтез и модель общие с уроком.
+for (const f of ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html', 'kniga-v26.html', 'obzor.html', 'zakrep.html', 'proba.html']) {
   console.log('  ' + f + ' — ' + human(add(f)))
+}
+
+// Картинки пробных функций. Отдельная папка, а не art-*: это НЕ материал урока, и
+// путать их нельзя — пробы могут в любой момент уехать целиком.
+if (fs.existsSync(path.join(SRC, 'proba'))) {
+  let n = 0, b = 0
+  for (const f of fs.readdirSync(path.join(SRC, 'proba')).sort()) {
+    if (!/\.(jpg|png)$/.test(f)) continue
+    b += add('proba/' + f); n++
+  }
+  console.log('  картинки пробных функций: ' + n + ' шт., ' + human(b))
 }
 
 console.log('── данные урока ──')

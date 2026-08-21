@@ -1,0 +1,297 @@
+<!doctype html><html lang=ru><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Пробные функции — §20</title>
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     ПРОБНЫЕ ФУНКЦИИ — песочница ДО урока.
+     Постановка Кратова 21.08: «на стартовой странице перед уроком пусть будет ещё
+     кнопка с тест-функциями: там можно посмотреть картинки и что-то понажимать —
+     самостоятельно либо с голосовой поддержкой и разбором от учителя».
+     🔑 Урок /kniga этой страницей НЕ ЗАТРАГИВАЕТСЯ: отдельный файл, отдельный роут,
+     общий с уроком только синтез (/api/tts) и модель (/api/chat).
+     ⚠️ Подписи здесь — ДОСЛОВНЫЕ строки учебника со стр. 122. Своих формулировок в
+     материале нет: врать про учебник нельзя (21.08 генератор подписей уже выдал
+     «шахтовые гробницы» и «элладскую культуру», которых в параграфе нет).
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<style>
+:root{--bg:#12141C;--card:#1A1D27;--line:#2A2F3E;--ink:#E8EAF2;--dim:#9AA3B8;
+  --acc:#F2A33C;--ok:#63C08A;--no:#E2775F;--paper:#F2E9D8;--paper-ink:#26211A;--paper-dim:#6D5F48}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.55 -apple-system,'Segoe UI',system-ui,sans-serif}
+.wrap{max-width:1120px;margin:0 auto;padding:22px 18px 60px;display:flex;flex-direction:column;gap:16px}
+a{color:var(--acc)}
+header h1{margin:0;font:800 26px/1.2 Georgia,serif}
+header .sub{color:var(--dim);font-size:14px;margin-top:7px;max-width:70ch}
+.back{display:inline-block;color:var(--dim);text-decoration:none;font-size:13.5px;margin-bottom:2px}
+.back:hover{color:var(--ink)}
+
+.fn{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 17px;
+  display:flex;flex-direction:column;gap:13px}
+.fn .tag{display:inline-flex;align-items:center;gap:8px;font:700 11.5px/1 Segoe UI;letter-spacing:1.4px;
+  color:var(--acc);text-transform:uppercase}
+.fn .tag i{font-style:normal;background:rgba(242,163,60,.16);border-radius:5px;padding:4px 7px}
+.fn h2{margin:0;font:800 19px/1.25 Georgia,serif}
+.fn .desc{color:var(--dim);font-size:14px;max-width:76ch}
+
+.ctl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:flex;background:#14161E;border:1px solid var(--line);border-radius:10px;padding:4px;gap:4px}
+.seg button{font:700 14px/1 Segoe UI;border:0;border-radius:7px;padding:9px 14px;background:transparent;
+  color:var(--dim);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--acc);color:#20160a}
+.seg button:focus-visible,.btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.btn{font:700 14px/1 Segoe UI;border:1px solid var(--line);background:#14161E;color:var(--ink);
+  border-radius:9px;padding:10px 15px;cursor:pointer}
+.btn:hover{border-color:var(--acc)}
+.btn.on{background:var(--acc);color:#20160a;border-color:var(--acc)}
+.count{margin-left:auto;color:var(--dim);font-size:13.5px}
+.count b{color:var(--ink);font-variant-numeric:tabular-nums}
+
+.task{background:#14161E;border:1px solid var(--line);border-radius:11px;padding:13px 15px;
+  display:none;gap:12px;align-items:center;flex-wrap:wrap}
+body[data-mode=find] .task{display:flex}
+.task .who{font:700 11.5px/1 Segoe UI;letter-spacing:1.4px;color:var(--acc)}
+.task .q{font:700 17px/1.3 Georgia,serif;flex:1;min-width:240px}
+.task .v{font-weight:700;font-size:14px}
+.task .v.ok{color:var(--ok)}.task .v.no{color:var(--no)}
+
+.stage{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#0e1016;line-height:0}
+.stage img{width:100%;height:auto;display:block}
+.zone{position:absolute;border:0;padding:0;background:transparent;cursor:pointer;border-radius:10px}
+.zone:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.zone .pin{position:absolute;left:50%;top:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;
+  background:var(--acc);border:4px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.45);transition:transform .18s}
+.zone:hover .pin{transform:scale(1.2)}
+.zone.found{background:rgba(242,163,60,.16);box-shadow:inset 0 0 0 3px var(--acc)}
+.zone.found .pin{background:var(--ok)}
+.zone.miss{box-shadow:inset 0 0 0 3px var(--no)}
+body[data-mode=find] .zone .pin{display:none}
+body[data-mode=find] .zone.found .pin{display:block}
+@media (prefers-reduced-motion:reduce){.zone .pin{transition:none}}
+
+.card{position:absolute;z-index:5;max-width:min(330px,70vw);background:var(--paper);color:var(--paper-ink);
+  border-left:8px solid var(--acc);border-radius:11px;padding:14px 16px;line-height:1.35;
+  box-shadow:0 14px 40px rgba(0,0,0,.5);display:none}
+.card.on{display:block}
+.card .t{margin:0 0 7px;font:700 19px/1.2 Georgia,serif}
+.card .q{margin:0;font-size:14.5px;font-style:italic;color:var(--paper-dim)}
+.card .src{display:block;margin-top:8px;font-size:12px;font-style:normal;color:#A9601B;letter-spacing:.4px}
+.card .more{margin-top:11px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.card .more button{font:700 13px/1 Segoe UI;border:1px solid #D8C4A0;background:#FFFCF5;color:var(--paper-ink);
+  border-radius:8px;padding:8px 12px;cursor:pointer}
+.card .more button:hover{border-color:var(--acc)}
+.card .ans{margin-top:10px;font-size:14px;color:var(--paper-ink);border-top:1px solid #D8C4A0;padding-top:9px}
+
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:9px}
+body[data-mode=find] .list{display:none}
+.list div{background:#14161E;border:1px solid var(--line);border-radius:9px;padding:10px 12px;
+  font-size:13.5px;color:var(--dim)}
+.list div.on{color:var(--ink);border-color:var(--acc)}
+.list b{display:block;font-size:14.5px}
+.note{color:var(--dim);font-size:13px}
+.soon{opacity:.55}
+.soon .btn{cursor:default}
+footer{color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);padding-top:14px;line-height:1.7}
+</style>
+
+<div class=wrap>
+<a class=back href="/lab">← к витрине</a>
+<header>
+  <h1>Пробные функции</h1>
+  <div class=sub>Здесь лежит то, чего в уроке ещё нет: заготовки, которые можно потрогать и сказать,
+  стоит ли доводить. Урок это никак не меняет — открывается отдельно.</div>
+</header>
+
+<div class=fn>
+  <div class=tag><i>ПРОБА 1</i> дополнительный материал</div>
+  <h2>Разрез Кносского дворца — тыкай и узнавай</h2>
+  <div class=desc>Картинка нарисована по описанию из учебника: кладовые, архив, мастерские,
+  святилище, ванная с глиняными трубами. Тыкаешь в комнату — появляется подпись, и это
+  <b>дословная строка учебника</b>, ничего своего. Два режима: просто разглядывать или отвечать
+  на вопросы. Голос Ани можно включить — тогда она читает подписи и объясняет подробнее.</div>
+
+  <div class=ctl>
+    <div class=seg role=group aria-label="Что делаем">
+      <button id=mLook aria-pressed=true>Разглядывать</button>
+      <button id=mFind aria-pressed=false>Найди сам</button>
+    </div>
+    <button class=btn id=voice aria-pressed=false>🔇 голос Ани выключен</button>
+    <div class=count>Открыто: <b id=cnt>0</b> из 8</div>
+  </div>
+
+  <div class=task>
+    <span class=who>АНЯ СПРАШИВАЕТ</span>
+    <p class=q id=taskQ>—</p>
+    <span class=v id=verdict></span>
+    <button class=btn id=skip>другой вопрос</button>
+  </div>
+
+  <div class=stage id=stage><img src="/proba/dvorec.jpg"
+    alt="Разрез Кносского дворца: кладовые, архив, мастерские, святилище, ванная с водопроводом"></div>
+
+  <div class=list id=list></div>
+  <div class=note id=note></div>
+</div>
+
+<div class="fn soon">
+  <div class=tag><i>ПРОБА 2</i> задумка</div>
+  <h2>Сравнение: Крит и Микены на одной картинке</h2>
+  <div class=desc>То же самое, но под главный вопрос параграфа — что у Крита и Микен общее,
+  а чем они различались. Пока не нарисована.</div>
+  <div class=ctl><button class=btn disabled>скоро</button></div>
+</div>
+
+<footer>
+  Песочница витрины. Синтез голоса и разбор — те же, что в уроке.
+  Замечание можно оставить на <a href="/lab">витрине</a>, внизу страницы.
+</footer>
+</div>
+
+<script>
+const $=s=>document.querySelector(s)
+// ── ЗОНЫ. Проценты от размеров картинки — она тянется по ширине экрана.
+//    Подписи (q) — дословные строки учебника со стр. 122.
+const ZONES=[
+ {id:1,x:20.0,y:33.5,w:15,h:17,t:'Три и четыре этажа',
+  q:'«Некоторые части дворца были трёх- и даже четырёхэтажные»'},
+ {id:2,x:60.0,y:26.5,w:13,h:9,t:'Фрески на стенах',
+  q:'«Стены украшали фрески»'},
+ {id:3,x:23.8,y:57.9,w:23,h:17,t:'Многочисленные кладовые',
+  q:'«Изготовленные ими изделия, как и часть урожая земледельцев, поступали в дворцовые кладовые»'},
+ {id:4,x:49.3,y:64.8,w:15,h:12,t:'Помещения для архивов',
+  q:'«Для учёта была изобретена письменность»'},
+ {id:5,x:53.2,y:71.5,w:10,h:9,t:'Ремесленные мастерские',
+  q:'«Большинство ремесленников находились на службе у царя»'},
+ {id:6,x:65.5,y:67.7,w:9,h:8,t:'Святилища богов',
+  q:'«Это были жилые комнаты, святилища богов, ремесленные мастерские, многочисленные кладовые…»'},
+ {id:7,x:74.2,y:67.0,w:10,h:9,t:'Ванные и водопровод',
+  q:'«Вода во дворец поступала по глиняным трубам»'},
+ {id:8,x:12.0,y:67.7,w:14,h:16,t:'Дома простых людей',
+  q:'«Простые люди жили за пределами дворца в небольших домах. Они платили правителю налоги в виде части урожая»'},
+]
+const TASKS=[
+ {ask:'Где во дворце хранили зерно и масло?',id:3},
+ {ask:'Откуда во дворец поступала вода?',id:7},
+ {ask:'Где записывали всё, что поступало во дворец?',id:4},
+ {ask:'Где жили простые люди?',id:8},
+ {ask:'Где работали ремесленники царя?',id:5},
+]
+const found=new Set(); let card=null, task=0, голос=false, audio=new Audio()
+
+// ── ГОЛОС. Тот же синтез, что в уроке. Включается кнопкой: без неё страница
+//    не тратит ни копейки, а ребёнок всё равно всё видит текстом.
+async function скажи(text){
+  if(!голос||!text) return
+  try{
+    audio.pause()
+    const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({voice:'alena',role:'good',speed:'1.0',text})})
+    if(!r.ok){ note('голос не ответил: '+r.status); return }
+    const b=await r.blob()
+    audio.src=URL.createObjectURL(b); audio.play().catch(()=>{})
+  }catch(e){ note('голос не ответил: '+e.message) }
+}
+const note=t=>{ $('#note').textContent=t||'' }
+
+// ── РАЗБОР ОТ УЧИТЕЛЯ. Модель получает и вопрос, и строку учебника — отвечает
+//    коротко и не уходит за пределы параграфа.
+async function разбор(z,box){
+  box.textContent='Аня думает…'
+  const sys='Ты Аня, учительница истории, ведёшь урок по учебнику для 5 класса, параграф 20 '+
+    '«Начало греческой цивилизации». Ребёнку 11 лет. Он рассматривает разрез Кносского дворца и '+
+    'ткнул в место «'+z.t+'». В учебнике про это сказано: '+z.q+'. Объясни это МАКСИМУМ тремя '+
+    'предложениями, простыми словами, без списков. Не выдумывай фактов сверх школьного курса.'
+  try{
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'deepseek-v4-flash/latest',system:sys,
+        messages:[{role:'user',content:'Расскажи про «'+z.t+'» во дворце.'}]})})
+    const j=await r.json()
+    const t=(j.text||j.reply||'').trim()
+    if(!t){ box.textContent='Учитель не ответил: '+(j.error||'пусто'); return }
+    box.textContent=t; скажи(t)
+  }catch(e){ box.textContent='Учитель не ответил: '+e.message }
+}
+
+for(const z of ZONES){
+  const b=document.createElement('button')
+  b.className='zone'; b.dataset.id=z.id
+  b.style.left=(z.x-z.w/2)+'%'; b.style.top=(z.y-z.h/2)+'%'
+  b.style.width=z.w+'%'; b.style.height=z.h+'%'
+  b.setAttribute('aria-label',z.t)
+  b.innerHTML='<span class=pin></span>'
+  b.addEventListener('click',()=>pick(z,b))
+  $('#stage').appendChild(b)
+  const d=document.createElement('div'); d.dataset.id=z.id
+  d.innerHTML='<b>'+z.t+'</b>'
+  $('#list').appendChild(d)
+}
+
+function карточка(z){
+  if(card) card.remove()
+  card=document.createElement('div'); card.className='card on'
+  card.innerHTML='<p class=t>'+z.t+'</p><p class=q>'+z.q+
+    '<span class=src>дословная строка учебника</span></p>'+
+    '<div class=more><button data-more>объясни подробнее</button></div><div class=ans hidden></div>'
+  $('#stage').appendChild(card)
+  const справа=z.x>55
+  card.style.left=справа?'auto':Math.min(z.x+z.w/2+1,60)+'%'
+  card.style.right=справа?Math.min(100-z.x+z.w/2+1,60)+'%':'auto'
+  card.style.top=Math.max(2,Math.min(z.y-6,70))+'%'
+  card.querySelector('[data-more]').addEventListener('click',(e)=>{
+    const box=card.querySelector('.ans'); box.hidden=false; e.target.disabled=true; разбор(z,box)
+  })
+  скажи(z.t+'. '+z.q.replace(/[«»]/g,''))
+}
+
+function pick(z,btn){
+  if(document.body.dataset.mode==='find'){
+    const v=$('#verdict')
+    if(z.id===TASKS[task].id){
+      btn.classList.add('found'); btn.classList.remove('miss')
+      found.add(z.id); $('#cnt').textContent=found.size
+      $('#list').querySelector('[data-id="'+z.id+'"]').classList.add('on')
+      v.textContent='Верно.'; v.className='v ok'
+      карточка(z); setTimeout(след,1600)
+    }else{
+      btn.classList.add('miss')
+      v.textContent='Не там — попробуй ещё.'; v.className='v no'
+      скажи('Не там. Попробуй ещё раз.')
+      setTimeout(()=>btn.classList.remove('miss'),700)
+    }
+    return
+  }
+  btn.classList.add('found')
+  found.add(z.id); $('#cnt').textContent=found.size
+  $('#list').querySelector('[data-id="'+z.id+'"]').classList.add('on')
+  карточка(z)
+}
+
+function след(){
+  task=(task+1)%TASKS.length
+  $('#taskQ').textContent=TASKS[task].ask
+  $('#verdict').textContent=''
+  if(card){ card.remove(); card=null }
+  скажи(TASKS[task].ask)
+}
+function режим(m){
+  document.body.dataset.mode=m
+  $('#mLook').setAttribute('aria-pressed',m==='look')
+  $('#mFind').setAttribute('aria-pressed',m==='find')
+  if(card){ card.remove(); card=null }
+  $('#verdict').textContent=''
+  if(m==='find'){ $('#taskQ').textContent=TASKS[task].ask; скажи(TASKS[task].ask) }
+}
+$('#skip').addEventListener('click',след)
+$('#mLook').addEventListener('click',()=>режим('look'))
+$('#mFind').addEventListener('click',()=>режим('find'))
+$('#voice').addEventListener('click',()=>{
+  голос=!голос
+  $('#voice').classList.toggle('on',голос)
+  $('#voice').setAttribute('aria-pressed',голос)
+  $('#voice').textContent=голос?'🔊 голос Ани включён':'🔇 голос Ани выключен'
+  note(голос?'Аня читает подписи вслух и может объяснить подробнее.':'')
+  if(голос) скажи('Голос включён. Тыкай в комнаты дворца — я расскажу, что там было.')
+  else audio.pause()
+})
+document.body.dataset.mode='look'
+$('#taskQ').textContent=TASKS[0].ask
+</script>

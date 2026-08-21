@@ -20,6 +20,17 @@ header{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:6
 h1{margin:0;font:800 25px/1.15 Georgia,serif;letter-spacing:.2px}
 .sub{color:var(--dim);font-size:14px;margin:6px 0 22px;max-width:760px}
 .sub b{color:var(--ink);font-weight:600}
+/* Вход в песочницу: отличается от карточек сборок намеренно — это не ветка урока,
+   а полка с заготовками, и путать их нельзя. */
+.probe{display:flex;align-items:center;gap:14px;margin:0 0 20px;padding:14px 16px;text-decoration:none;
+  background:linear-gradient(180deg,rgba(242,163,60,.10),rgba(242,163,60,.04));
+  border:1px dashed rgba(242,163,60,.55);border-radius:14px;color:var(--ink)}
+.probe:hover{border-style:solid;background:rgba(242,163,60,.14)}
+.probe .ic{font-size:26px;line-height:1}
+.probe .tx{display:block;flex:1}
+.probe .tx b{display:block;font:800 17px/1.25 Georgia,serif}
+.probe .tx i{display:block;margin-top:4px;font-style:normal;color:var(--dim);font-size:13.5px;max-width:74ch}
+.probe .go{color:var(--acc,#F2A33C);font-weight:700;font-size:13.5px;white-space:nowrap}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(316px,1fr));gap:14px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 17px 15px;
   display:flex;flex-direction:column;gap:9px}
@@ -125,6 +136,16 @@ footer{margin-top:26px;color:var(--dim);font-size:12.5px;line-height:1.7}
 <p class=sub style="margin-top:-12px">Смотреть материал целиком, не проходя урок и не слушая —
 <a href="/kniga/obzor" target=_blank><b>всё, что есть в уроке, одним экраном</b></a>:
 показы, карточки, задания тренажёра, вопросы учебника.</p>
+
+<!-- ПРОБНЫЕ ФУНКЦИИ (21.08). Отдельный вход ДО урока: заготовки, которых в уроке ещё
+     нет, — чтобы можно было потрогать и сказать, доводить ли. Урок не затрагивают. -->
+<a class=probe href="/proba" target=_blank>
+  <span class=ic>🧪</span>
+  <span class=tx><b>Пробные функции</b>
+    <i>Того, что здесь лежит, в уроке ещё нет. Разрез Кносского дворца, который можно
+    потыкать: ткни в комнату — появится строка учебника. Самому или с голосом Ани и её разбором.</i></span>
+  <span class=go>открыть →</span>
+</a>
 
 <div class=cards id=cards></div>
 

@@ -53,7 +53,7 @@ export const scpUp = (local, remote) =>
 // ── что считаем исходником ─────────────────────────────────────────────────
 // Только ТЕКСТ: страницы сборок и данные урока. Рендеры страниц учебника,
 // иллюстрации и 3D-модели в git не едут — копирайт и вес (25 МБ + 1.2 ГБ рядом).
-export const PAGES = ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html', 'kniga-v26.html', 'obzor.html', 'zakrep.html']
+export const PAGES = ['lab.html', 'kniga.html', 'kniga-v1.html', 'kniga-v23.html', 'kniga-v26.html', 'obzor.html', 'zakrep.html', 'proba.html']
 
 export const sources = () => {
   const out = PAGES.filter((f) => fs.existsSync(path.join(SRC, f)))
@@ -80,6 +80,7 @@ export const owner = (rel) => {
   if (rel === 'lab.html') return 'витрина'
   if (rel === 'obzor.html') return 'обзор'
   if (rel === 'zakrep.html') return 'БЕТА закрепл.'
+  if (rel === 'proba.html') return 'пробы'
   if (rel === 'kniga-v1.html' || rel.startsWith('book/v1/')) return 'архив v1.0'
   if (rel === 'kniga-v23.html' || rel.startsWith('book/v23/')) return 'архив v2.3'
   // v2.6 заморожена 13.08 ЦЕЛИКОМ (свой html + все семь json в book/v26/) — это точка
