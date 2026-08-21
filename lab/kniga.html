@@ -1522,21 +1522,47 @@ function markFit(g){
 //  (opacity .14) — но `.dim` не вешался НИ РАЗУ. Из-за этого названное место шло на
 //  opacity 1.0, а остальные тринадцать подписей на 0.5: разница вдвое читается как
 //  «ничего не подсвечено». Гасим по-настоящему.
+// 🔴 21.08, Кратов на прогоне: «карта странная — не подсвечиваются надписи, когда она
+//  говорит названия, все бледные». Две причины, обе здесь.
+//  1) Подсветка ЗОНЫ гасила ВСЕ метки, включая лежащие ВНУТРИ неё: Аня произносит
+//     «в Северной Греции находились области Фессалия и Эпир», зажигается zone-north —
+//     и подписи «Фессалия», «Эпир» уходят на 0.14, то есть исчезают ровно в тот момент,
+//     когда их называют. Теперь метки внутри зажжённой зоны горят вместе с ней.
+//  2) Цель была ровно одна, а называют часто несколько мест сразу («делилась на три
+//     части»). Теперь id — список через запятую: 'zone-north,zone-middle,zone-south'.
+function mapТочки(id){ return String(id||'').split(',').map(s=>s.trim()).filter(Boolean) }
 function mapLight(svg,id){
-  const цель=id?svg.querySelector(id.startsWith('zone-')?'#'+id:'#mk-'+id):null
-  for(const g of svg.querySelectorAll('.mk')){
-    g.classList.toggle('on',  g===цель)
-    g.classList.toggle('dim', !!цель&&g!==цель)
+  const цели=mapТочки(id)
+    .map(x=>svg.querySelector(x.startsWith('zone-')?'#'+x:'#mk-'+x)).filter(Boolean)
+  const рамки=цели.filter(c=>c.classList.contains('zone')).map(z=>{ try{ return z.getBBox() }catch(e){ return null } }).filter(Boolean)
+  const внутриЗоны=(g)=>{
+    const x=+g.dataset.x, y=+g.dataset.y
+    if(!isFinite(x)||!isFinite(y)) return false
+    return рамки.some(b=>x>=b.x&&x<=b.x+b.width&&y>=b.y&&y<=b.y+b.height)
   }
-  for(const z of svg.querySelectorAll('.zone')) z.classList.toggle('on',z===цель)
-  return цель
+  for(const g of svg.querySelectorAll('.mk')){
+    const горит=цели.includes(g)||внутриЗоны(g)
+    g.classList.toggle('on', горит)
+    g.classList.toggle('dim', цели.length>0&&!горит)
+  }
+  for(const z of svg.querySelectorAll('.zone')) z.classList.toggle('on', цели.includes(z))
+  return цели[0]||null
 }
 // Рамка одной цели: у зоны это её габарит, у метки — точка вместе с подписью и выноской.
 function aimFit(svg,id){
-  const el=svg.querySelector(id.startsWith('zone-')?'#'+id:'#mk-'+id)
-  if(!el) return null
-  if(id.startsWith('zone-')){ const b=el.getBBox(); return {x:b.x,y:b.y,w:b.width,h:b.height} }
-  return markFit(el)
+  // целей может быть несколько — рамка тогда общая на все, иначе наезд встанет на первую
+  // и остальные названные места окажутся за кадром.
+  const рамки=mapТочки(id).map(x=>{
+    const el=svg.querySelector(x.startsWith('zone-')?'#'+x:'#mk-'+x)
+    if(!el) return null
+    if(x.startsWith('zone-')){ const b=el.getBBox(); return {x:b.x,y:b.y,w:b.width,h:b.height} }
+    return markFit(el)
+  }).filter(Boolean)
+  if(!рамки.length) return null
+  if(рамки.length===1) return рамки[0]
+  const x1=Math.min(...рамки.map(r=>r.x)), y1=Math.min(...рамки.map(r=>r.y))
+  const x2=Math.max(...рамки.map(r=>r.x+r.w)), y2=Math.max(...рамки.map(r=>r.y+r.h))
+  return {x:x1,y:y1,w:x2-x1,h:y2-y1}
 }
 function mapAim(m,id){
   const svg=m.svg; if(!svg) return
@@ -2904,7 +2930,9 @@ async function controlPage(page,alive){
     sumBody='<div class=sumbox id=sumBox>'+sumHtml(SUM)+'</div>'
     // читает он выжимку СПРАВА — значит и подсветка живёт только справа (см. выше)
     clearMarks(); shownBeat=null
-    sumMark(-1)
+    // 🔴 21.08: «что читать непонятно, не подсвечено». Пока ребёнок не заговорил,
+    //  подсветки не было вообще — показываем, с какой фразы начинать.
+    sumMark(0)
     ctrlBody('<div class=cq>Теперь прочитай это вслух</div>'
       +'<div class=chint>'+(nTiles
         ? 'Читай — и справа будут открываться спрятанные картинки, одна за другой.'
@@ -3040,8 +3068,10 @@ async function controlPage(page,alive){
       // при склейке выходило «Пелопоннес В учебнике сказано так» — без паузы и с
       // заглавной посреди фразы. Ставим точку сами, если её нет.
       const dot=(s)=>{ const t2=String(s||'').trim(); return t2&&!/[.!?…»]$/.test(t2)?t2+'.':t2 }
-      await ann([t.term+'.',dot(t.txt),t.src?'В учебнике сказано так. '+dot(t.src):'']
-        .filter(Boolean).join(' '))
+      // 🔴 21.08, Кратов: «фразу „в учебнике сказано так“ вообще убери». Она звучала
+      //  перед каждой из 28 цитат — то есть 28 раз за урок. Цитата и так подписана на
+      //  экране плашкой, произносить это вслух незачем.
+      await ann([t.term+'.',dot(t.txt),t.src?dot(t.src):''].filter(Boolean).join(' '))
       if(!alive()){ topicsHide(); return false }
       // 🔴 «Пусть сама переключает: даёт время посмотреть, потом включает следующий».
       //  Досказала — держим картинку пару секунд и идём дальше сами.
@@ -4942,9 +4972,19 @@ function buildBeats(blocks){
       //  предполагает, что тебе нужно ответить… далее говорит, что отвечать не надо —
       //  это нелогично». Предупреждаем ДО вопроса, тогда паузы-ожидания не возникает.
       if(framing) B.push({page:b.page,kind:'own',
-        say:'Сейчас прозвучит главный вопрос параграфа. Отвечать на него не надо — просто запомни, мы вернёмся к нему в самом конце.'})
+        // 🔴 21.08, Кратов на прогоне: «когда она задаёт главный вопрос параграфа — это
+        //  звучит странно». И правда: Аня объявляла вопрос, тут же говорила «отвечать не
+        //  надо» и ехала дальше — вопрос повисал в воздухе у ребёнка, который об этом
+        //  параграфе ещё ничего не знает. Теперь вопрос подаётся как ЗАДАЧА НА УРОК:
+        //  сказано, зачем он звучит сейчас и что с ним будет в конце.
+        say:'На полях страницы напечатан главный вопрос параграфа. Ответ на него мы будем собирать весь урок — по кусочку с каждой страницы, а в конце ты ответишь сам. Сейчас просто послушай, о чём он.'})
       B.push({page:b.page,kind:'ask',lines:b.lines,box:b.box,say,
               ask:!framing&&!isInstruction(raw)})
+      // Вопрос учебника написан взрослым языком («государства, сложившиеся на Крите и в
+      // Микенах»). Своими словами — одной короткой фразой сразу после, чтобы одиннадцати-
+      // летний понял, что именно ему предстоит искать. Текст учебника при этом не тронут.
+      if(framing) B.push({page:b.page,kind:'own',
+        say:'Проще говоря: чем были похожи два древних царства — то, что на острове Крит, и то, что в Микенах на материке. Держи этот вопрос в голове.'})
       continue
     }
     for(const c of chunkBlock(b.lines)){
@@ -5194,6 +5234,12 @@ function stop(why){
 //  Поэтому живость отмечается и из ctrlDone (нажал), и из микрофона (говорит).
 // ═══════════════════════════════════════════════════════════════════════════
 const ЗАСТРЯЛ=45000
+// 🔴 21.08, Кратов на прогоне боевого: «Урок застрял. Шаг 14 из 73 не двигается уже 51
+//  секунду. Это сбой, а не задумка» — а урок в этот момент ЖДАЛ ЕГО: на экране висела
+//  выжимка и кнопка «дальше — прочитаю сам», он её читал. Ровно эта находка стояла первой
+//  в разборе механик 21.08. Пока мы ждём ребёнка (нажатие, микрофон, чтение вслух), это
+//  не затык, а работа: срок больше срока задания (3 минуты по методичке), и слова другие.
+const ЖДЁМ_РЕБЁНКА=240000
 let тактAt=0, стражT=0, сбоевГолоса=0
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5258,11 +5304,15 @@ function скажиСтатус(t,сбой){
 function скрытьЗастрял(){ $('#stuck').classList.remove('on') }
 function показатьЗастрял(){
   const b=BEATS[Math.min(beat,BEATS.length-1)]||{}
-  $('#stuckWhat').textContent='Шаг '+(beat+1)+' из '+BEATS.length
-    +(b.page?' (стр. '+b.page+')':'')+' не двигается уже '
-    +Math.round((Date.now()-тактAt)/1000)+' секунд. Это сбой, а не задумка.'
+  const сек=Math.round((Date.now()-тактAt)/1000)
+  // Формулировка зависит от того, кого мы ждём. «Это сбой, а не задумка» уместно, когда
+  // встал УРОК; когда ждём ребёнка — это неправда и выглядит как поломка на ровном месте.
+  $('#stuckWhat').textContent=ждёмРебёнка()
+    ? 'Я жду тебя уже '+сек+' секунд. Если не знаешь, что делать, — пропусти этот шаг.'
+    : 'Шаг '+(beat+1)+' из '+BEATS.length+(b.page?' (стр. '+b.page+')':'')
+      +' не двигается уже '+сек+' секунд. Это сбой, а не задумка.'
   $('#stuck').classList.add('on')
-  скажиСтатус('урок застрял на шаге '+(beat+1),true)
+  скажиСтатус(ждёмРебёнка()?'жду ответа':'урок застрял на шаге '+(beat+1),!ждёмРебёнка())
 }
 // «пропустить шаг» отпускает ВСЕ ожидания разом: реплику, нажатие и микрофон —
 // заранее знать, на котором из них встали, нельзя.
@@ -5271,12 +5321,22 @@ function пропуститьШаг(){
   gen++; cutVoice(); micAbort(); ctrlDone({act:'skip'})
   живПрогон()
 }
+// Ждём ли мы сейчас самого ребёнка. Три случая: висит ожидание нажатия в цепочке
+// проверки, открыт микрофон, идёт чтение вслух. Во всех трёх урок жив.
+function ждёмРебёнка(){
+  try{
+    if(ctrlRes) return true
+    if(typeof MIC!=='undefined'&&MIC&&MIC.rec) return true
+    if(CTRL.on&&(CTRL.stage==='read'||CTRL.stage==='tell'||CTRL.stage==='own')) return true
+  }catch(e){}
+  return false
+}
 function стражСтарт(){
   clearInterval(стражT)
   стражT=setInterval(()=>{
     if(!running||paused){ скрытьЗастрял(); return }
     if(!тактAt) return
-    if(Date.now()-тактAt>ЗАСТРЯЛ) показатьЗастрял()
+    if(Date.now()-тактAt>(ждёмРебёнка()?ЖДЁМ_РЕБЁНКА:ЗАСТРЯЛ)) показатьЗастрял()
   },1000)
 }
 document.addEventListener('click',(e)=>{
@@ -5572,8 +5632,13 @@ async function readAloud(refText,alive,opts){
     // Микрофона нет (запрещён, или headless-приёмка). Живому ребёнку честно показываем
     // выход «читать про себя», но продолжаем слушать шов: приёмка отдаёт расшифровку
     // уже после того, как сняла начальное состояние экрана.
+    // 🔴 21.08, Кратов на прогоне: «и что читать непонятно, не подсвечено». Сообщение
+    //  перерисовывало ВСЁ тело панели — вместе с выжимкой, которую и просили прочитать.
+    //  Текст забираем узлом и возвращаем под сообщение: он никуда не девается.
+    const коробка=$('#ctrlBody').querySelector('.sumbox')
     ctrlBody('<div class=cq>Микрофон не поднялся</div><div class=chint>'+esc(e.message)+'</div>'
       +'<div class=crow><button class=cbtn data-act=go>читать про себя</button></div>')
+    if(коробка) $('#ctrlBody').appendChild(коробка)
     let нажал=false
     ctrlWait().then(()=>{ нажал=true })
     for(let i=0;i<600;i++){                       // до минуты: шов приёмки или живое нажатие
@@ -5677,7 +5742,14 @@ async function listen(){
   if(!MIC.rec){ dialogOn=false; return }
   while(dialogOn&&running) await new Promise(r=>setTimeout(r,140))
 }
-$('#micBtn').onclick=()=>{ if(MIC.rec) micStop(); else { dialogOn=true; micStart(false) } }
+$('#micBtn').onclick=()=>{
+  // 🔴 21.08, Кратов: «тут две кнопки, которые позволяют мне читать. Если снизу слева
+  //  нажму и буду читать — мне не засчитает задание». Так и было: на шаге «прочитай
+  //  вслух» микрофон УЖЕ слушает чтение, а эта кнопка открывала второй — в режиме
+  //  свободного разговора, мимо задания. Теперь на этом шаге она только подсказывает.
+  if(CTRL.on&&CTRL.stage==='read'){ paintMic('rec','читай вслух — я уже слушаю'); return }
+  if(MIC.rec) micStop(); else { dialogOn=true; micStart(false) }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  СТАРТ
@@ -5993,6 +6065,9 @@ window.__kniga={
     return { загружена:true, видна:$('#demoMap').classList.contains('on'),
       метка:(svg.querySelector('.mk.on')||{}).id||'',
       зона:(svg.querySelector('.zone.on')||{}).id||'',
+      // 21.08: гореть может НЕСКОЛЬКО мест разом (список целей + метки внутри зоны),
+      // и приёмке нужен весь набор, а не первое попавшееся
+      горят:[...svg.querySelectorAll('.mk.on,.zone.on')].map(e=>e.id),
       приглушено:svg.querySelectorAll('.mk.dim').length,
       меток:svg.querySelectorAll('.mk').length,
       наезд:$('#demoMapIn').style.transform||'нет' } },

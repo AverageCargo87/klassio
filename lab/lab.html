@@ -86,6 +86,18 @@ h1{margin:0;font:800 25px/1.15 Georgia,serif;letter-spacing:.2px}
 .tl .r+.r{border-top:1px dashed rgba(42,47,62,.7)}
 .tl time{flex:none;width:118px;font:700 12.5px/1.5 Segoe UI;color:#C6CCDC}
 .tl .w{font-size:14px;color:#AEB6C8}
+/* 🔴 21.08. Лента показывала только ДАТЫ ВЫКЛАДОК, и круг 13.08 вместе с заменой аватара
+   19.08 читались как «всё появилось 20-го»: выложены они были одной кнопкой. Теперь слева
+   день РАБОТЫ (из хроники), а «выложено …» — отдельной строкой из журнала релизов. */
+.tl .r.day{padding:11px 0 12px;align-items:flex-start}
+.tl .r.day time{width:66px;color:var(--accent);font-size:14px}
+.tl .th{font:800 15px/1.35 Georgia,serif;color:var(--ink);margin-bottom:3px}
+.tl .out{display:inline-block;font-size:12px;color:#8892A6;margin-bottom:7px}
+.tl .out.no{color:#B08A4A}
+.tl .p{font-size:13.5px;line-height:1.55;color:#AEB6C8;margin:3px 0}
+.tl .p i{font-style:normal;font-weight:700;color:#C6CCDC}
+.tl .ver{display:inline-block;margin-left:7px;font:700 11px/1 Segoe UI;letter-spacing:.6px;
+  color:var(--accent);background:rgba(242,163,60,.14);border-radius:5px;padding:3px 6px;vertical-align:2px}
 .tl .r:first-of-type time{color:var(--accent)}
 @media (max-width:560px){ .tl .r{flex-direction:column;gap:2px} .tl time{width:auto} }
 @media (max-width:560px){ .mbody{padding:14px 16px 18px;font-size:14.5px} }
@@ -265,7 +277,7 @@ function md(t){
   flush(); if(list) out+='</ul>'
   return out
 }
-let LOGS=null, РЕЛИЗЫ=null
+let LOGS=null, РЕЛИЗЫ=null, ХРОНИКА=null
 // «Когда это вышло» берём из релизов, а не из подписи руками: у каждой выкладки на сервере
 // лежит RELEASE.json с точным временем и списком версий, которые она везла. Последняя
 // выкладка, в которой была ЭТА версия, и есть дата обновления сборки.
@@ -287,6 +299,7 @@ const выложено=(код)=>{
 // начнёт врать, а тут она всегда совпадает с тем, что на сервере.
 ;(async()=>{
   try{ РЕЛИЗЫ=await fetch('/api/releases').then(r=>r.json()) }catch(e){ РЕЛИЗЫ=[] }
+  try{ ХРОНИКА=await fetch('/api/hronika').then(r=>r.json()) }catch(e){ ХРОНИКА=[] }
   document.querySelectorAll('.card').forEach((c,i)=>{
     if(!BUILDS[i]||!BUILDS[i].now) return
     const t=выложено(BUILDS[i].code)
@@ -303,10 +316,31 @@ const мскКоротко=(iso)=>{
     return {день:п.day+'.'+п.month, время:п.hour+':'+п.minute}
   }catch(e){ return null }
 }
+// Время выкладки по номеру релиза из хроники: «релиз 0017» → когда 0017 реально уехал.
+// Номер, а не дата руками: подпись руками через неделю начнёт врать, а это тот же
+// RELEASE.json, что лежит на боевом.
+const когдаРелиз=(ном)=>{
+  if(!ном) return null
+  const r=(РЕЛИЗЫ||[]).find(x=>String(x.id).startsWith(ном+'-'))
+  return r&&r.когда ? мскКоротко(r.когда) : null
+}
 const лента=(код)=>{
+  // Основной путь — хроника по дням РАБОТЫ. Витрина рисует её, а время выкладки берёт
+  // из релизов: обе даты настоящие и разойтись не могут.
+  if(ХРОНИКА&&ХРОНИКА.length){
+    const строки=ХРОНИКА.slice().reverse().map(д=>{
+      const t=когдаРелиз(д.релиз)
+      const вышло=t?'<span class=out>выложено '+t.день+' в '+t.время+'</span>'
+        :'<span class="out no">ещё не выкладывалось</span>'
+      const пункты=(д.пункты||[]).map(п=>'<div class=p><i>'+esc(п.к)+':</i> '+esc(п.т)+'</div>').join('')
+      return '<div class="r day"><time>'+esc(д.дата)+'</time><div class=w>'
+        +'<div class=th>'+esc(д.тема)+(д.версия?'<span class=ver>'+esc(д.версия)+'</span>':'')+'</div>'
+        +вышло+пункты+'</div></div>'
+    }).join('')
+    return '<div class=tl><div class=h>что делалось по дням — и когда это уехало на сервер</div>'+строки+'</div>'
+  }
+  // Запасной путь: хроники нет — показываем как раньше, по датам выкладок.
   if(!РЕЛИЗЫ||!РЕЛИЗЫ.length) return ''
-  // Выкладки, которые ничего не меняли для смотрящего (правка журнала, служебное),
-  // в ленту не идут: это шум, а не событие.
   const свои=(РЕЛИЗЫ||[]).filter(r=>Object.keys(r.версии||{}).some(k=>String(k).startsWith(код))
     &&r.зачем&&!/^(журнал|служебн)/i.test(r.зачем))
   if(!свои.length) return ''
@@ -332,6 +366,7 @@ document.addEventListener('click',async(e)=>{
     catch(err){ LOGS={} }
   }
   if(!РЕЛИЗЫ){
+    try{ ХРОНИКА=ХРОНИКА||await fetch('/api/hronika').then(r=>r.json()) }catch(e){}
     try{ РЕЛИЗЫ=await fetch('/api/releases').then(r=>r.json()) }
     catch(err){ РЕЛИЗЫ=[] }
   }

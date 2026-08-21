@@ -52,6 +52,9 @@ for (const f of ['yandex-test-server.mjs', 'bhmock-core.mjs']) {
 // журнал версий — из него витрина режет «что изменилось»
 total += copy('.planning/KNIGA-VERSIONS.md', path.join(STAGE, '.planning/KNIGA-VERSIONS.md'))
 console.log('  KNIGA-VERSIONS.md (чейнджлог витрины)')
+// хроника работ по дням — из неё лента берёт даты РАБОТЫ (выкладка часто позже)
+total += copy('.planning/KNIGA-HRONIKA.md', path.join(STAGE, '.planning/KNIGA-HRONIKA.md'))
+console.log('  KNIGA-HRONIKA.md (даты работ для ленты)')
 
 console.log('── страницы ──')
 // zakrep.html — макет экрана закрепления по референсу Anatomy Atelier, который присылал
