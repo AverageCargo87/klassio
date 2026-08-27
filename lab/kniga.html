@@ -232,6 +232,16 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    по бокам видно поле — пусть это будет тень книги, а не пустая дыра. */
 #read.pol #left{background:#171A22}
 
+/* Три вида экрана — переключатель в нижней панели. Не выпадающий список и не круг:
+   каждый вид виден и берётся одним нажатием, прямо посреди урока. */
+#modeSw{display:flex;gap:0;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.msw{border:0;background:#232838;color:#9AA3B8;font:600 11.5px/1 Segoe UI;padding:7px 9px;
+  cursor:pointer;white-space:nowrap;transition:background .18s ease,color .18s ease}
+.msw+.msw{border-left:1px solid var(--line)}
+.msw:hover{background:#2B3145;color:#D7DDEA}
+.msw.on{background:var(--accent);color:#2A1F0A}
+@media (max-width:1180px){ .msw{padding:7px 7px;font-size:11px} }
+
 /* ── РЕЖИМ «СРАВНЕНИЕ» (v2.11, 27.08) ─────────────────────────────────────
    Слева только страница — во всю высоту колонки. Справа вертикаль внимания: сверху
    показ (о чём говорят сейчас), под ним доска (что уже собрали). Экран перестаёт
@@ -1199,9 +1209,13 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
       <button class="btn sm" id=btnPrev>‹</button>
       <span id=pgLabel>120–121</span>
       <button class="btn sm" id=btnNext>›</button>
-      <!-- Два способа показывать страницу: сплошной лентой или пополам с переездом
-           окон местами. Кнопка помнит выбор между запусками. -->
-      <button class="btn sm" id=modeBtn>▥ лента</button>
+      <!-- ТРИ вида одного и того же урока. Не разные сборки — переключается прямо
+           посреди чтения, одним нажатием, и выбор помнится между запусками. -->
+      <div id=modeSw role=group aria-label="вид экрана">
+        <button class="msw on" data-m=lenta title="Страница едет сплошной лентой, показ под ней">▥ лента</button>
+        <button class=msw data-m=pol title="Страница пополам: дошли до низа — текст и показ меняются местами">▤ половины</button>
+        <button class=msw data-m=sravn title="Слева страница целиком, справа показ и доска: Крит и Микены по колонкам">⇄ сравнение</button>
+      </div>
       <!-- ЗАМЕЧАНИЕ ПРЯМО ИЗ УРОКА. На витрине форма тоже есть, но там руководителю
            придётся вспоминать, где именно ему что-то не понравилось. Отсюда замечание
            уходит вместе со страницей и шагом — правится ровно то место.
@@ -1599,15 +1613,23 @@ function режимПрименить(){
   панельНаМесто()
   подогнатьЛист()
   paintZebra()
-  const b=$('#modeBtn')
-  if(b){ const п=ПОДПИСЬ[РЕЖИМ]||ПОДПИСЬ.lenta; b.textContent=п[0]; b.title=п[1] }
+  for(const b of document.querySelectorAll('#modeSw .msw'))
+    b.classList.toggle('on',b.dataset.m===РЕЖИМ)
   // перестроились — вернуть лист туда, где читают
   if(половинкиСейчас()&&shownBeat) поставитьПоловину(половина,false)
   else везтиК(сдвиг,false)
   if(shownBeat&&onSheet(shownBeat.page)===0) везтиКСтроке(shownBeat,false)
 }
-// кнопка ходит по кругу: лента → половины → сравнение → лента
 const КРУГ=['lenta','pol','sravn']
+// вид ставится прямо, одним нажатием — посреди урока это должно быть мгновенно
+function режимСтавить(м){
+  if(!КРУГ.includes(м)||м===РЕЖИМ) return
+  РЕЖИМ=м
+  try{ localStorage.kn_read_mode=РЕЖИМ }catch(e){}
+  ручнойДо=0
+  режимПрименить()
+}
+// на всякий случай оставлен и обход по кругу — им пользуется приёмка
 function режимПереключить(){
   РЕЖИМ=КРУГ[(КРУГ.indexOf(РЕЖИМ)+1)%КРУГ.length]
   try{ localStorage.kn_read_mode=РЕЖИМ }catch(e){}
@@ -1633,7 +1655,8 @@ $('#book').addEventListener('wheel',(e)=>{
   везтиК(сдвиг+e.deltaY,false)
 },{passive:false})
 $('#pgBack').onclick=вернутьсяКЧтению
-$('#modeBtn').onclick=режимПереключить
+for(const b of document.querySelectorAll('#modeSw .msw'))
+  b.onclick=()=>режимСтавить(b.dataset.m)
 
 function paintSheet(){
   const p=PAGES[sheet]
