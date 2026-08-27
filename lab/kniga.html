@@ -1,6 +1,6 @@
 <!doctype html><html lang=ru><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>v2.10.2 · УЧЕБНИК · §20 · урок с ИИ-учителем</title>
+<title>v2.11 · УЧЕБНИК · §20 · урок с ИИ-учителем</title>
 <!-- ВЕРСИЯ СБОРКИ. Стоит и в заголовке вкладки, и плашкой в нижней панели: по скриншоту
      должно быть видно, о какой версии речь. Журнал версий — .planning/KNIGA-VERSIONS.md,
      прошлые сборки открываются по /kniga/v1. Меняя версию — правь оба места и журнал. -->
@@ -156,28 +156,100 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 @keyframes pulse{50%{filter:brightness(1.35)}}
 #micSt{margin-top:6px;font-size:12px;color:var(--dim);min-height:16px}
 
-/* ── ЦЕНТР: книга ──────────────────────────────────────────────────────── */
+/* ── ЦЕНТР: три работы рядом (v2.11) ───────────────────────────────────────
+   Слева колонка чтения: ОКНО в страницу учебника, под ним показ. Справа зебра.
+   Размеры считает CSS, а не JS: раньше страница и панель были одинаковыми
+   прямоугольниками и мерились в layout(), теперь окно тянется по месту, а лист
+   внутри него живёт своей высотой — считать в JS остаётся только доезд. */
 #center{flex:1;display:flex;flex-direction:column;min-width:0}
-#stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;padding:18px 20px 6px;min-height:0}
-#book{position:relative;display:flex;perspective:2600px;filter:drop-shadow(0 24px 44px rgba(0,0,0,.5))}
-.pg{position:relative;background:var(--paper);overflow:hidden;flex:none}
-.pg img{display:block;width:100%;height:100%;object-fit:fill;user-select:none;-webkit-user-drag:none}
-#left{border-radius:6px 0 0 6px;box-shadow:inset -22px 0 26px -22px rgba(0,0,0,.55)}
+#stage{flex:1;position:relative;display:grid;gap:14px;min-height:0;padding:16px 18px 6px;
+  grid-template-columns:minmax(0,1.16fr) minmax(0,1fr)}
+#read{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;gap:12px}
+/* ОКНО. Высота — сколько дадут: лист внутри длиннее и едет за голосом. */
+#book{position:relative;flex:1.24;min-height:0;border-radius:8px;overflow:hidden;
+  filter:drop-shadow(0 18px 34px rgba(0,0,0,.45))}
+.pg{position:relative;background:var(--paper);overflow:hidden}
+#left{position:absolute;inset:0;border-radius:8px}
+/* Лист: колонка страниц встык. Едет трансформом — доезд обязан быть плавным и
+   прерываемым, а scrollTop на середине анимации дёргается от каждого нового такта. */
+#sheet{position:absolute;left:0;top:0;width:100%;
+  transition:transform .85s cubic-bezier(.32,.72,.28,1);will-change:transform}
+#sheet.snap{transition:none}
+.pgw{position:relative;width:100%}
+.pgw img{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none}
+/* Шов между страницами: тонкая тень и просвет — видно, что кончилась одна и
+   началась другая, а не что текст поехал сам по себе. */
+#pgB{margin-top:10px;box-shadow:0 -8px 16px -10px rgba(0,0,0,.55)}
+#pgB:before{content:'';position:absolute;left:0;right:0;top:-10px;height:10px;background:#171A22}
+/* ── СВОЯ ПРОКРУТКА (v2.11) ───────────────────────────────────────────────
+   Кратов 27.08: «хочу, чтобы её можно было скролить самому — навёл мышку и крутишь;
+   и чтобы было видно, куда улистал, чтобы понимать, что надо вернуться».
+   Полоса нарочно тонкая и живёт ВНУТРИ окна: это не элемент управления страницей,
+   а подсказка «где я». Риска показывает место, которое сейчас читают. */
+#pgScroll{position:absolute;right:5px;top:7px;bottom:7px;width:6px;z-index:7;
+  border-radius:9px;background:rgba(40,34,22,.13);opacity:.6;transition:opacity .3s ease}
+#book:hover #pgScroll,#pgScroll.on{opacity:1}
+#pgThumb{position:absolute;left:0;right:0;border-radius:9px;background:rgba(52,42,24,.5);
+  transition:top .25s ease,height .25s ease}
+/* деления по страницам: видно не только «сколько прокрутил», но и «какая страница» */
+.pgTick{position:absolute;left:0;right:0;height:1px;background:rgba(40,34,22,.3)}
+#pgMark{position:absolute;left:-4px;right:-4px;height:4px;border-radius:2px;
+  background:var(--accent);box-shadow:0 0 0 1px rgba(120,80,10,.35),0 1px 3px rgba(60,40,10,.3);
+  transition:top .3s ease}
+/* Ушёл далеко от того места, где читают, — дверь обратно. Появляется только тогда,
+   когда читаемое действительно вне окна: висеть постоянно ей незачем. */
+#pgBack{position:absolute;left:50%;bottom:10px;z-index:8;transform:translateX(-50%) translateY(8px);
+  padding:6px 13px;border-radius:99px;border:1px solid rgba(150,132,92,.5);
+  background:rgba(255,251,242,.96);color:#4A4230;font:700 12px/1 Segoe UI;cursor:pointer;
+  box-shadow:0 4px 14px rgba(40,30,10,.28);opacity:0;pointer-events:none;
+  transition:opacity .28s ease,transform .28s ease}
+#pgBack.on{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+#pgBack:hover{background:#FFF;border-color:var(--accent)}
+/* Низ окна: бумага уходит в тень, а не обрывается по линейке. */
+#pgFade{position:absolute;left:0;right:0;bottom:0;height:38px;pointer-events:none;z-index:6;
+  background:linear-gradient(transparent,rgba(28,24,18,.28))}
+#pgNum{position:absolute;right:9px;top:8px;z-index:7;background:rgba(20,22,30,.62);
+  color:#EFD9AC;border-radius:99px;padding:3px 9px;font:700 10.5px/1 Segoe UI;letter-spacing:.6px;
+  pointer-events:none;opacity:.85}
 
-/* ── ПРАВАЯ ПОЛОВИНА: рабочая панель ─────────────────────────────────────
-   Стоит на месте второй страницы и сделана из той же бумаги — иначе рядом с
-   учебником она читается как чужое окно поверх книги. Сверху показ, снизу
-   тизеры; пропорция 1.5 : 1, потому что картинка должна быть крупной. */
-#panel{border-radius:0 6px 6px 0;box-shadow:inset 22px 0 26px -22px rgba(0,0,0,.55);
+/* ── РЕЖИМ «ПОЛОВИНЫ» (v2.11, заказ Кратова 27.08) ────────────────────────
+   Окно и показ делят колонку 50/50 и стоят абсолютно — только так они могут
+   ПЕРЕЕХАТЬ местами: читаем низ страницы — текст съезжает вниз, показ поднимается
+   наверх. Едут оба одновременно и одним движением, иначе на полпути они
+   накладываются друг на друга. */
+#read.pol{position:relative}
+#read.pol>#book,#read.pol>#panel{position:absolute;left:0;right:0;height:calc(50% - 6px);
+  transition:top .62s cubic-bezier(.32,.72,.28,1)}
+#read.pol>#book{top:0}
+#read.pol>#panel{top:calc(50% + 6px)}
+#read.pol.niz>#book{top:calc(50% + 6px)}
+#read.pol.niz>#panel{top:0}
+/* На проверке страницы половинки уступают: там панели нужна вся высота, а окно и
+   вовсе уходит — делить пополам нечего. */
+#read.pol:has(#panel.ctrl)>#book,#read.pol:has(#panel.ctrl)>#panel{position:relative;
+  height:auto;top:auto;transition:none}
+/* Лист в половинках уже окна (подобран так, чтобы половина легла точно), поэтому
+   по бокам видно поле — пусть это будет тень книги, а не пустая дыра. */
+#read.pol #left{background:#171A22}
+
+/* ── НИЖНЯЯ ЯЧЕЙКА: показ («карта») ──────────────────────────────────────
+   То, о чём говорят прямо сейчас. Та же бумага, что у страницы: показ — часть
+   учебника, а не всплывшее поверх него окно. Здесь же живёт проверка. */
+#panel{flex:1.16;min-height:0;border-radius:8px;box-shadow:0 14px 28px rgba(0,0,0,.34);
   background:linear-gradient(180deg,#FCFAF5,#F4F0E6);display:flex;flex-direction:column;
-  padding:3.4% 3.8%;gap:2.6%;color:#2A2B31}
+  padding:12px 14px;gap:8px;color:#2A2B31}
 #panel .zh{flex:none;display:flex;align-items:center;gap:7px;font:700 11.5px/1 Segoe UI;
   letter-spacing:1.4px;color:#7C8496;margin-bottom:7px}
 #panel .zh b{font-weight:800;color:#3E465A;margin-left:2px}
 #panel .dot{width:7px;height:7px;border-radius:50%;background:#4A90E2;flex:none}
 #panel .dot.k{background:var(--accent)}
-#demo{flex:1.18;min-height:0;display:flex;flex-direction:column}
-#demoBox{flex:1;min-height:0;border-radius:9px;overflow:hidden;background:#E9E4D8;
+/* Ячейка широкая и невысокая, поэтому показ лежит НАБОК: картинка слева,
+   подпись справа. Столбиком (как было в высокой панели) картинка ужалась бы
+   до полоски — а именно её и надо рассматривать. */
+#demo{flex:1;min-height:0;position:relative;display:flex;flex-direction:column}
+#demo>.zh{display:none}
+#demoBox{flex:1}
+#demoBox{min-height:0;border-radius:9px;overflow:hidden;background:#E9E4D8;
   display:flex;align-items:center;justify-content:center;position:relative;
   box-shadow:0 2px 10px rgba(60,50,30,.13),0 0 0 1px rgba(120,105,75,.16)}
 .dimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
@@ -210,9 +282,15 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #demoBox:not(:has(.dimg.on)) .lupa{display:none}
 #demoEmpty{font:13px/1.5 Segoe UI;color:#9A9384;text-align:center;padding:0 18px;
   transition:opacity .4s ease}
-#demoCap{flex:none;margin-top:8px;font:800 14.5px/1.2 Segoe UI;letter-spacing:.4px;color:#233047;
-  min-height:17px;opacity:0;transition:opacity .3s ease}
-#demoSub{flex:none;margin-top:2px;font:13px/1.35 Segoe UI;color:#6B7183;min-height:18px;
+/* подпись — поверх нижнего края коробки, на градиенте: читается на любой картинке */
+#demoBox:after{content:'';position:absolute;left:0;right:0;bottom:0;height:96px;z-index:2;
+  pointer-events:none;background:linear-gradient(transparent,rgba(22,18,12,.82))}
+#demoCap{position:absolute;left:0;right:0;bottom:26px;z-index:3;padding:0 14px;
+  font:800 15px/1.25 Segoe UI;letter-spacing:.5px;color:#FFF3DC;pointer-events:none;
+  opacity:0;transition:opacity .3s ease}
+#demoSub{position:absolute;left:0;right:0;bottom:7px;z-index:3;padding:0 14px;
+  font:13.5px/1.3 Segoe UI;color:#E4D9C2;pointer-events:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   opacity:0;transition:opacity .3s ease}
 #demoCap.on,#demoSub.on{opacity:1}
 
@@ -221,25 +299,48 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    поверх него окно. На тесте забирает панель целиком (тизеры прячем — это
    готовые ответы), на чтении и пересказе делит её с ними. */
 #ctrl{display:none;flex-direction:column;min-height:0}
+#read:has(#panel.ctrl) #book{flex:.95}
+#read:has(#panel.ctrl) #panel{flex:1.7}
+#read:has(#panel.st-tell) #book,#read:has(#panel.st-test) #book,
+#read:has(#panel.st-drill) #book,#read:has(#panel.st-done) #book{display:none}
+#read:has(#panel.st-tell) #panel,#read:has(#panel.st-test) #panel,
+#read:has(#panel.st-drill) #panel,#read:has(#panel.st-done) #panel{flex:3.4}
 #panel.ctrl #demo{display:none}
 #panel.ctrl #ctrl{display:flex;flex:1.5}
-/* ⚠️ Карточки «запомни» — это и есть активный словарь раздела. На пересказе, тесте и
-   тренажёре (v2.5) их обязательно убирать: половина заданий спрашивает ровно то, что
-   на них написано, и с ними на экране задание решается списыванием. */
-#panel.ctrl.st-tell #keep,#panel.ctrl.st-test #keep,#panel.ctrl.st-drill #keep{display:none}
+/* ⚠️ Зебра — это и есть активный словарь раздела. На пересказе, тесте и тренажёре
+   (v2.5) её обязательно закрывать: половина заданий спрашивает ровно то, что на ней
+   написано, и с ней на экране задание решается списыванием.
+   Не display:none, а ширма: доска никуда не делась, просто закрыта — иначе экран
+   на каждой проверке перекраивается, и ребёнок теряет, где что было. */
+#stage:has(#panel.st-tell) #zBoard,#stage:has(#panel.st-test) #zBoard,
+#stage:has(#panel.st-drill) #zBoard{filter:blur(7px) grayscale(.6) brightness(.82);
+  pointer-events:none;user-select:none}
+#zShut{position:absolute;inset:0;z-index:5;display:none;align-items:center;justify-content:center;
+  text-align:center;padding:22px;border-radius:12px;background:rgba(24,26,34,.42);
+  font:600 13.5px/1.5 Segoe UI;color:#F2E4C6;letter-spacing:.2px}
+#stage:has(#panel.st-tell) #zShut,#stage:has(#panel.st-test) #zShut,
+#stage:has(#panel.st-drill) #zShut{display:flex}
 /* ── ШАГИ v2.4: САМАРИ и ЧТЕНИЕ САМАРИ ──────────────────────────────────
    На этих двух шагах коробка показа обязана остаться на экране: на самари в ней
    идёт картинка того топика, который сейчас звучит, а на чтении вслух — мозаика
    (правка руководителя: «в процессе прочтения открывались закрытые блоки»).
    Карточки на это время уходят: место нужно тексту, и они всё равно вернутся. */
-#panel.ctrl.st-sum #demo,#panel.ctrl.st-read #demo{display:flex}
-#panel.ctrl.st-sum #keep,#panel.ctrl.st-read #keep,#panel.ctrl.st-topics #keep{display:none}
-#panel.ctrl.st-sum #ctrl,#panel.ctrl.st-read #ctrl{flex:1}
+#panel.ctrl.st-sum,#panel.ctrl.st-read{flex-direction:row;gap:14px}
+#read:has(#panel.st-sum) #panel,#read:has(#panel.st-read) #panel{flex:2}
+#read:has(#panel.st-sum) #book,#read:has(#panel.st-read) #book{flex:.8}
+#panel.ctrl.st-sum #demo,#panel.ctrl.st-read #demo{display:flex;flex:1;flex-direction:column}
+#panel.ctrl.st-sum #demoBox:after,#panel.ctrl.st-read #demoBox:after{display:none}
+#panel.ctrl.st-sum #demoCap,#panel.ctrl.st-read #demoCap{position:static;padding:7px 0 0;
+  color:#233047;font-size:14px}
+#panel.ctrl.st-sum #demoSub,#panel.ctrl.st-read #demoSub{position:static;padding:2px 0 0;
+  color:#6B7183;white-space:normal}
+#panel.ctrl.st-sum #ctrl,#panel.ctrl.st-read #ctrl{flex:1.55}
 #panel .dot.c{background:#6FA8DC}
 #ctrlStep{margin-left:auto;color:#9A9384;letter-spacing:.2px}
 #ctrlBody{flex:1;min-height:0;display:flex;flex-direction:column;gap:9px;overflow:auto}
 /* на тесте панель занята одним вопросом — ставим его по центру листа, иначе низ пустует */
 #panel.st-test #ctrlBody,#panel.st-done #ctrlBody{justify-content:center}
+#ctrlBody{width:100%;max-width:860px;margin:0 auto}
 .cq{font:800 15px/1.35 Segoe UI;color:#233047}
 .chint{font:13px/1.4 Segoe UI;color:#6B7183}
 .copt{text-align:left;padding:9px 12px;border-radius:9px;border:1px solid rgba(150,132,92,.32);
@@ -293,54 +394,25 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    как текст на странице: ребёнок должен видеть, что это по-прежнему учебник.
    Предложение, которое сейчас звучит (или которое сейчас читают), подсвечено —
    ровно так же, как оно подсвечено на самой странице. */
-.sumbox{font:15px/1.62 Georgia,serif;color:#33302A;background:rgba(255,255,255,.55);
+.sumbox{font:16px/1.62 Georgia,serif;color:#33302A;background:rgba(255,255,255,.55);
   border:1px solid rgba(150,132,92,.28);border-left:3px solid rgba(180,150,80,.55);
-  border-radius:0 9px 9px 0;padding:10px 12px;max-height:none;overflow:auto;flex:1;min-height:0}
+  border-radius:0 9px 9px 0;padding:10px 12px;overflow:auto;flex:0 1 auto;min-height:0;
+  max-height:100%}
 .sumbox .ss{transition:background .3s ease,color .3s ease;border-radius:3px}
 .sumbox .ss.on{background:rgba(255,214,84,.42);color:#241F14}
 .sumbox .ss.done{color:#6E685C}
-@media (max-height:800px){ .sumbox{font-size:13.5px;line-height:1.55;padding:8px 10px} }
+@media (max-height:800px){ .sumbox{font-size:15px;line-height:1.6;padding:8px 10px} }
 
-/* ── МОЗАИКА ЧТЕНИЯ (v2.4) ────────────────────────────────────────────────
-   🔴 Правка руководителя 06.08: «где читать вслух, я бы сделал интерактив, чтобы
-   в процессе прочтения появлялись визуальные компоненты как в мозаике того, что он
-   читает, или открывались закрытые невидимые блоки — чтобы был интерес выполнить
-   задание». Раньше на этом шаге коробка показа стояла пустой (он это и обвёл).
-   Плитки закрыты, пока читают; каждая открывается на своей доле прочитанного и
-   показывает картинку того топика, о котором в этом месте текста и говорится.
-   Ничего нового не добавляется: под плитками лежат те же показы урока. */
-#mosaic{position:absolute;inset:0;z-index:4;display:none;gap:5px;padding:5px;
-  background:#E9E4D8;grid-auto-rows:1fr}
-#mosaic.on{display:grid}
-.mt{position:relative;border-radius:7px;overflow:hidden;background:#DCD5C4;
-  border:1px solid rgba(150,132,92,.30);cursor:default;
-  transition:transform .45s cubic-bezier(.3,.7,.3,1),box-shadow .3s ease}
-.mt .cover{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(150deg,#CFC7B3,#B9B09A);color:#7A705A;
-  font:800 17px/1 Georgia,serif;
-  transition:opacity .5s ease,transform .55s cubic-bezier(.3,.7,.3,1)}
-.mt .cover::after{content:'';position:absolute;inset:0;
-  background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.35) 50%,transparent 65%);
-  transform:translateX(-120%);animation:mtshine 2.8s ease-in-out infinite}
-@keyframes mtshine{0%,60%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
-.mt img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
-  transform:scale(1.06);transition:transform 4s ease-out}
-.mt .mp{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  background:#BBD5E4;color:#3A5C74;font:700 20px/1 Georgia,serif}
-.mt .cap{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:12px 7px 4px;
-  background:linear-gradient(transparent,rgba(28,24,16,.72));color:#FFF3DC;
-  font:700 10.5px/1.15 Segoe UI;letter-spacing:.2px;opacity:0;transition:opacity .5s ease .15s}
-.mt.open{cursor:pointer}
-.mt.open .cover{opacity:0;transform:rotateY(74deg) scale(.9)}
-.mt.open img{transform:scale(1)}
-.mt.open .cap{opacity:1}
-.mt.open:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(80,66,40,.22)}
-/* последняя открытая слегка выделяется — видно, что именно сейчас открылось */
-.mt.just{box-shadow:0 0 0 3px rgba(242,163,60,.55),0 6px 16px rgba(80,66,40,.22)}
-#mosDone{position:absolute;left:0;right:0;bottom:0;z-index:5;padding:6px 8px;text-align:center;
-  background:linear-gradient(transparent,rgba(46,74,56,.90));color:#DDF3DA;
-  font:700 11.5px/1.2 Segoe UI;opacity:0;transition:opacity .45s ease;pointer-events:none}
-#mosDone.on{opacity:1}
+/* ── ЧТЕНИЕ ВСЛУХ НА ДОСКЕ (v2.11) ─────────────────────────────────────
+   Мозаика убрана: она открывала ровно те картинки, что уже стоят на доске справа.
+   Теперь пока ребёнок читает вслух, факты его раздела гаснут и возвращаются в цвет
+   по мере прочитанного — оживает то, что он собрал сам. */
+.kc.wait{filter:grayscale(.85) opacity(.5)}
+.kc.read{transition:filter .55s ease,opacity .55s ease,box-shadow .3s ease}
+.kc.just{box-shadow:0 0 0 3px rgba(242,163,60,.5),0 6px 16px rgba(80,66,40,.22)}
+#zRead{display:none;margin-top:5px;font:700 11px/1.3 Segoe UI;letter-spacing:.3px;color:#8A6A2F}
+#zRead.on{display:block}
+#zRead.done{color:#4A7C4E}
 
 /* закрытая страница */
 #veil{position:absolute;left:0;top:0;bottom:0;z-index:6;border-radius:6px 0 0 6px;
@@ -351,70 +423,107 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #veil.on{opacity:1}
 #veil b{display:block;font-size:17px;color:#E8E4DC;margin-bottom:2px}
 
-/* ── тизеры «что запомнить» ──────────────────────────────────────────────
-   Карточка — не абзац конспекта, а короткая зарубка: слово и одна строка.
-   Появляется ровно в тот момент, когда факт прозвучал. */
-#keep{flex:1;min-height:0;display:flex;flex-direction:column}
-#keepAll{margin-left:auto;font-weight:600;letter-spacing:.2px;color:#9A9384}
-#keepList{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:5px;
-  padding-right:3px;scrollbar-width:thin}
-#keepEmpty{font:13px/1.5 Segoe UI;color:#A9A292;padding:8px 2px}
-.kc{flex:none;background:#FFFDF7;border:1px solid rgba(150,132,92,.24);border-left:3px solid var(--accent);
-  border-radius:7px;padding:5px 9px;box-shadow:0 1px 4px rgba(80,66,40,.10);
-  display:flex;gap:9px;align-items:center;
-  opacity:0;transform:translateY(8px);transition:opacity .32s ease,transform .32s cubic-bezier(.32,.72,.35,1)}
+/* ── ЗЕБРА: доска раздела (v2.11) ────────────────────────────────────────
+   Заказ Кратова 26.08: «постепенно появляется новая информация — и не исчезает;
+   на одну-две страницы своя, потом собирается следующая».
+   Поэтому это не список, а ДОСКА: сверху крупный визуал раздела, под ним плитка
+   фактов в два столбца. Каждый факт встаёт ровно тогда, когда прозвучал, и стоит
+   до конца раздела. Ничего своего на доске нет: слово и строка — из учебника,
+   картинка — тот самый показ, что был на экране в эту секунду. */
+#zebra{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;
+  border-radius:12px;overflow:hidden;color:#2A2B31;
+  background:linear-gradient(180deg,#FCFAF5,#F1ECE0);box-shadow:0 16px 34px rgba(0,0,0,.34)}
+#zHead{flex:none;display:flex;gap:12px;align-items:stretch;
+  padding:11px 14px 10px;border-bottom:1px solid rgba(150,132,92,.22);
+  background:linear-gradient(180deg,#FFFDF8,#F7F2E7)}
+#zHeadTx{min-width:0;flex:1}
+#zTabs{display:flex;gap:5px;margin-bottom:7px}
+.ztab{width:22px;height:22px;border-radius:50%;border:1px solid rgba(150,132,92,.4);
+  background:#F3EDE0;color:#8D8574;font:700 11px/1 Segoe UI;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .2s ease}
+.ztab.on{background:var(--accent);border-color:var(--accent);color:#2A1F0A}
+.ztab.done{color:#4A7C4E;border-color:rgba(74,124,78,.5)}
+.ztab:disabled{opacity:.38;cursor:default}
+#zTitle{font:400 22px/1.15 Georgia,serif;color:#22262F}
+#zMeta{margin-top:4px;display:flex;align-items:baseline;gap:8px;
+  font:700 10.5px/1 Segoe UI;letter-spacing:1.1px;color:#8D8574}
+#zMeta b{margin-left:auto;color:var(--accent);font-size:11px;letter-spacing:.4px}
+#zBoard{position:relative;flex:1;min-height:0;overflow:auto;padding:12px 14px 26px;
+  scrollbar-width:thin;transition:filter .4s ease;scroll-padding:14px 14px 26px}
+#zebra:after{content:'';position:absolute;left:0;right:0;bottom:0;height:26px;z-index:4;
+  pointer-events:none;background:linear-gradient(transparent,rgba(120,104,74,.20))}
+/* Крупный визуал раздела — якорь доски: по нему видно, ПРО ЧТО собранное. */
+#zHero{flex:none;width:118px;opacity:0;transform:translateY(6px);
+  transition:opacity .5s ease,transform .5s cubic-bezier(.32,.72,.35,1)}
+#zHero.on{opacity:1;transform:none}
+#zHero.off{display:none}
+#zHeroBox{position:relative;width:100%;height:100%;min-height:74px;border-radius:9px;overflow:hidden;background:#E9E4D8;
+  box-shadow:0 3px 12px rgba(60,50,30,.16),0 0 0 1px rgba(120,105,75,.16)}
+#zHeroImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;
+  transition:opacity .6s ease}
+#zHeroImg.on{opacity:1}
+#zHeroMap{position:absolute;inset:0;opacity:0;transition:opacity .6s ease;background:#BBD5E4}
+#zHeroMap.on{opacity:1}
+#zHeroMapIn{position:absolute;inset:0}
+#zHeroMapIn svg{width:100%;height:100%;display:block}
+#zHeroCap{margin-top:5px;font:700 9.5px/1.3 Segoe UI;letter-spacing:.8px;color:#9A9384;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Плитка фактов: два столбца. Первый факт раздела — во всю ширину: он задаёт тему,
+   и по нему глаз находит, где доска началась. */
+#keep{min-height:0}
+#keepList{display:block;column-count:2;column-gap:8px;orphans:1;widows:1}
+#keepEmpty{column-span:all;font:13px/1.5 Segoe UI;color:#A9A292;padding:10px 2px}
+.kc{background:#FFFDF7;border:1px solid rgba(150,132,92,.24);border-top:3px solid var(--accent);
+  border-radius:9px;padding:8px 10px 9px;box-shadow:0 2px 6px rgba(80,66,40,.10);
+  display:flex;flex-direction:column;gap:6px;break-inside:avoid;margin:0 0 8px;
+  -webkit-column-break-inside:avoid;
+  opacity:0;transform:translateY(10px) scale(.985);
+  transition:opacity .4s ease,transform .42s cubic-bezier(.32,.72,.35,1),box-shadow .3s ease}
 .kc.on{opacity:1;transform:none}
-.kc.fresh{box-shadow:0 0 0 3px rgba(242,163,60,.22),0 1px 4px rgba(80,66,40,.10)}
-.kc .tx{min-width:0;flex:1}
-.kc .t{font:800 13px/1.2 Segoe UI;color:#2A3346}
-.kc .d{font:12.5px/1.3 Segoe UI;color:#6B7183;margin-top:1px}
-/* ── МИНИАТЮРА НА КАРТОЧКЕ (v2.4) ────────────────────────────────────────
-   🔴 Правка руководителя 06.08: «карточки должны быть с небольшими картинками так,
-   как сделано» на экране закрепления. Картинка берётся не откуда попало: это тот же
-   показ, что стоял на экране, когда факт прозвучал (book/zakrep.json, поле art).
-   Карта картинкой быть не может — вместо неё значок «место на карте». */
-.kc .th{flex:none;width:38px;height:38px;border-radius:8px;overflow:hidden;
+.kc.wide{column-span:all;flex-direction:row;align-items:center;gap:11px}
+.kc.wide .th{width:34%;max-width:150px;aspect-ratio:16/10;height:auto}
+.kc.wide .tx{flex:1;min-width:0}
+.kc.wide .t{font-size:15px}
+.kc.fresh{box-shadow:0 0 0 3px rgba(242,163,60,.26),0 2px 6px rgba(80,66,40,.10)}
+/* карточка, которую разбирают прямо сейчас: разбор слева, факт справа */
+.kc.now{box-shadow:0 0 0 3px rgba(74,144,226,.45),0 4px 12px rgba(40,60,90,.18)}
+.kc.now .nm{background:#4A90E2;color:#F2F8FF}
+.kc{position:relative}
+.kc .nm{position:absolute;left:-6px;top:-7px;z-index:2;width:19px;height:19px;border-radius:50%;
+  background:var(--accent);color:#2A1F0A;font:800 11px/19px Segoe UI;text-align:center;
+  box-shadow:0 1px 3px rgba(60,45,20,.35)}
+.kc.plain .nm{background:#8FA9C4;color:#12202C}
+.kc .tx{min-width:0}
+.kc .t{font:800 13.5px/1.2 Segoe UI;color:#2A3346}
+.kc .d{font:12.5px/1.35 Segoe UI;color:#6B7183;margin-top:3px}
+/* ── КАРТИНКА НА КАРТОЧКЕ (v2.4, укрупнена в v2.11) ──────────────────────
+   🔴 Правка руководителя 06.08: «карточки должны быть с небольшими картинками».
+   Картинка берётся не откуда попало: это тот же показ, что стоял на экране, когда
+   факт прозвучал (book/zakrep.json, поле art). Карта картинкой быть не может —
+   вместо неё значок «место на карте». */
+.kc .th{flex:none;width:100%;aspect-ratio:16/9;border-radius:7px;overflow:hidden;
   background:#EFE9DC;border:1px solid rgba(150,132,92,.28);
   display:flex;align-items:center;justify-content:center}
 .kc .th img{width:100%;height:100%;object-fit:cover;display:block}
-.kc .th .mp{font:700 15px/1 Georgia,serif;color:var(--accent)}
-/* На ноутбучном окне (у руководителя 1280×720) панель ниже, а карточек столько же —
-   поджимаем, чтобы верхняя не срезалась: обрезанная карточка читается как поломка. */
+.kc .th .mp{font:700 17px/1 Georgia,serif;color:var(--accent)}
+/* факт, который показывали на карте: место под картинку не занимаем — вместо неё
+   пометка у слова, иначе на доске стоит пустая рамка и читается как поломка */
+.kc.plain{border-top-color:#8FA9C4}
+.kc .t .mp{color:#5E82A6;margin-right:6px;font:700 12px/1 Georgia,serif}
+/* пометки пересказа: что назвал сам, а что забыл */
+.kc.said{border-top-color:#4A7C4E}
+.kc.miss{border-top-color:#B4707A}
+/* На ноутбучном окне (у руководителя 1280×720) места меньше — поджимаем, но
+   двухстолбцовую плитку сохраняем: в один столбец доска перестаёт читаться как доска. */
 @media (max-height:800px){
-  #demo{flex:.98}
-  /* 🔴 Шаг «прочитай самари вслух» — единственный, где в панели ДВА крупных блока
-     сразу: сам текст и мозаика. На 720 px текст обрезался на полуслове, и ребёнку,
-     которого просят прочитать, не было видно даже, что дальше что-то есть.
-     Мозаика тут — награда, а текст — задание, поэтому место уступает мозаика. */
-  #demo.mos{flex:.52}
-  #panel .zh{margin-bottom:5px}
-  .kc{padding:4px 8px;gap:7px}
+  #zTitle{font-size:19px}
+  #zHead{padding:10px 13px 8px}
+  #zBoard{padding:10px 12px 12px}
+  .kc{padding:6px 8px 7px;gap:5px}
   .kc .t{font-size:12.5px}
   .kc .d{font-size:11.5px}
-  .kc .th{width:32px;height:32px}
+  #panel .zh{margin-bottom:5px}
 }
-/* лист, который переворачивается: перед — правая страница, изнанка — следующая левая.
-   Поворот считаем покадрово в JS (не CSS-transition): тень изгиба обязана жить вместе
-   с углом — появляться в середине поворота и уходить к его концу. Статичная тень у
-   корешка (как было) читается как «страница почернела». */
-/* Лист занимает ПРАВУЮ половину (там, где панель) и поворачивается вокруг корешка —
-   своей левой кромки: так он приходит справа и ложится на страницу, как в бумажной книге. */
-#flip{position:absolute;top:0;transform-style:preserve-3d;transform-origin:left center;z-index:5;display:none}
-#flip .face{position:absolute;inset:0;backface-visibility:hidden;background:var(--paper);overflow:hidden}
-/* Лицо листа пустое (справа не страница, а панель) — поэтому оно не белый прямоугольник,
-   а лист бумаги: тёплый тон и намёк на изгиб, иначе в кадре просто вспышка. */
-#flip .front{background:linear-gradient(100deg,#F6F2E9,#FCFAF5 42%,#EFE9DC)}
-#flip .back{transform:rotateY(180deg)}
-#flip .face img{display:block;width:100%;height:100%;object-fit:fill}
-/* тень на самом листе: у переда она гуще у корешка (слева), у изнанки — у её корешка
-   (в её собственных координатах это правый край, лист ведь зеркальный) */
-#flip .shade{position:absolute;inset:0;pointer-events:none;opacity:0}
-#flip .front .shade{background:linear-gradient(90deg,rgba(20,16,12,.55),rgba(20,16,12,0) 55%)}
-#flip .back  .shade{background:linear-gradient(270deg,rgba(20,16,12,.5),rgba(20,16,12,0) 55%)}
-/* тень, которую лист роняет на то, над чем навис */
-#castShade{position:absolute;top:0;bottom:0;pointer-events:none;opacity:0;z-index:3;
-  background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.34))}
-
 /* метки поверх страницы — координаты в ДОЛЯХ страницы, поэтому масштаб не важен */
 .marks{position:absolute;inset:0;pointer-events:none;z-index:4}
 .mk{position:absolute}
@@ -530,11 +639,11 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    уходит в полутень: видно, что она никуда не делась, но глазу там делать нечего.
    Метки и рамки-лупы гасим совсем — они и были тем самым «подчёркивает параллельно». */
 #left,#bookMarks,#bookFigs{transition:opacity .45s ease,filter .45s ease}
-#book:has(#panel.st-sum) #left,#book:has(#panel.st-read) #left{filter:grayscale(.5) brightness(.74);opacity:.36}
-#book:has(#panel.st-sum) #bookMarks,#book:has(#panel.st-read) #bookMarks,
-#book:has(#panel.st-sum) #bookFigs,#book:has(#panel.st-read) #bookFigs{opacity:0;pointer-events:none}
-#topics{position:absolute;inset:18px 20px 6px;z-index:8;display:grid;gap:12px;
-  grid-template-columns:minmax(0,196px) minmax(0,1fr) minmax(0,252px);
+#stage:has(#panel.st-sum) #left,#stage:has(#panel.st-read) #left{filter:grayscale(.5) brightness(.74);opacity:.36}
+#stage:has(#panel.st-sum) #bookMarks,#stage:has(#panel.st-read) #bookMarks,
+#stage:has(#panel.st-sum) #bookFigs,#stage:has(#panel.st-read) #bookFigs{opacity:0;pointer-events:none}
+#topics{position:absolute;inset:0;z-index:8;display:grid;gap:12px;
+  grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);
   opacity:0;transform:scale(1.02);pointer-events:none;
   transition:opacity .5s ease .12s,transform .55s cubic-bezier(.32,.72,.3,1) .12s}
 #topics.on{opacity:1;transform:none;pointer-events:auto}
@@ -549,6 +658,9 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    правой колонки: подпись «стр. 121» уходила прямо под неё. Отодвигаем только
    заголовок — двигать ради кнопки весь экран нельзя. */
 #topics .tpane:last-child .tph{padding-right:44px}
+/* Список топиков спрятан с v2.11: его роль играет доска справа — там те же карточки,
+   и они никуда не уезжают. Узлы остаются в разметке: по ним ходит сам разбор. */
+#tpLibPane{display:none}
 /* левая колонка: те же карточки «запомни», но теперь это оглавление разбора */
 #tpLib{flex:1;min-height:0;overflow:auto;padding:0 8px 10px;display:flex;flex-direction:column;gap:4px}
 .ti{display:flex;gap:9px;align-items:center;padding:6px 7px;border-radius:9px;
@@ -794,8 +906,8 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #cost{font-size:12px;color:var(--dim)}
 #ver{font:700 12px/1 Segoe UI;color:#8A93AD;background:#242836;border:1px solid var(--line);
   padding:5px 9px;border-radius:8px;letter-spacing:.5px}
-#steps{display:flex;gap:3px;margin-left:auto}
-#steps b{width:9px;height:9px;border-radius:50%;background:#3A3F52;display:block}
+#steps{display:flex;gap:3px;margin-left:auto;min-width:0;flex-shrink:1}
+#steps b{flex:0 1 9px;min-width:4px;height:9px;border-radius:99px;background:#3A3F52;display:block}
 #steps b.on{background:var(--accent)}
 #steps b.done{background:#5A6A55}
 
@@ -868,13 +980,47 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
   <!-- ЦЕНТР: книга -->
   <div id=center>
     <div id=stage>
+     <!-- 🔴 РАСКЛАДКА v2.11 (правка Кратова 26.08). Экран поделён на три работы, и у
+          каждой своё дело:
+            ТЕКСТ  — окно в страницу учебника. В ячейку влезает только верх страницы,
+                     дальше она едет за голосом; кончилась — снизу подходит следующая.
+            КАРТА  — под текстом: то, о чём говорят ПРЯМО СЕЙЧАС. Один показ за раз,
+                     меняется синхронно со строкой (карта, иллюстрация, зум фрески).
+            ЗЕБРА  — справа: то, что уже прозвучало. Копится и НЕ стирается до конца
+                     смыслового раздела. Это новая версия карточек «запомни». -->
+     <div id=read>
       <div id=book>
-        <div class=pg id=left><img id=leftImg alt=""></div>
-        <!-- ПРАВАЯ ПОЛОВИНА — не вторая страница, а рабочая панель (правка по фидбэку
-             руководителя 03.08). Разворот показывает ОДНУ страницу — ту, которую сейчас
-             читают, — а место второй занимает то, чего в бумажном учебнике быть не может:
-             сверху показ того, о чём Аня говорит прямо сейчас, снизу копятся тизеры
-             «что запомнить» с этой страницы. По ним же потом делаем контроль. -->
+        <!-- ОКНО в страницу. Едет не окно, а лист внутри него (#sheet): вместе с листом
+             обязаны ехать метки и рамки-лупы, иначе подчёркивание уползёт от строки. -->
+        <div class=pg id=left>
+          <div id=sheet>
+            <div class=pgw id=pgA>
+              <img id=leftImg alt="">
+              <!-- метки и рамки-лупы лежат НА странице и едут вместе с ней: раньше они
+                   жили над всей книгой, но лист теперь двигается, и неподвижная
+                   разметка отстала бы от своей строки на первом же доезде. Долю
+                   страницы считаем от этой коробки — она и есть страница. -->
+              <div class=marks id=bookMarks></div>
+              <div class=figs id=bookFigs></div>
+            </div>
+            <!-- следующая страница ждёт встык под текущей: доехали до низа — она уже
+                 здесь, и «открывается новая» без прыжка и без перезагрузки картинки -->
+            <div class=pgw id=pgB><img id=leftNext alt="" aria-hidden=true></div>
+          </div>
+          <!-- на тесте страница закрывается: «запомнить текст» проверяется по памяти,
+               а не списыванием с открытой страницы -->
+          <div id=veil class=off><div><b>Страница закрыта</b><br>отвечай по памяти</div></div>
+          <!-- край окна: снизу текст уходит в бумагу, а не обрывается по линейке —
+               видно, что страница продолжается и сейчас доедет -->
+          <div id=pgFade></div>
+          <div id=pgNum><b id=pgNumT>120</b></div>
+          <!-- Полоса положения. Страницу теперь можно крутить самому колесом, и без
+               неё непонятно, куда уехал: где ты (ползунок), сколько всего (трек) и
+               где сейчас читают (риска). -->
+          <div id=pgScroll><div id=pgMark></div><div id=pgThumb></div></div>
+          <button id=pgBack type=button>↩ вернуться к чтению</button>
+        </div>
+      </div>
         <div class=pg id=panel>
           <!-- ПРОВЕРКА СТРАНИЦЫ (фидбэк руководителя 03.08): послушал → прочитал сам →
                пересказал → тест → не сдал → повтор именно того куска, где ошибся. Живёт на
@@ -902,8 +1048,6 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
               <!-- МОЗАИКА (v2.4): закрытые плитки, которые открываются по ходу чтения
                    вслух. Живёт в той же коробке показа — там, где на скриншоте
                    руководителя было обведено пустое место. -->
-              <div id=mosaic></div>
-              <div id=mosDone>картинка собрана — всё это со страницы</div>
               <div id=demoEmpty>здесь появится то,<br>о чём говорит Аня</div>
               <!-- тот же значок «развернуть», что у картинок учебника: показ тоже
                    открывается во весь экран, и язык нажатия должен быть один -->
@@ -914,28 +1058,11 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
             <div id=demoCap></div>
             <div id=demoSub></div>
           </div>
-          <div id=keep>
-            <div class=zh><span class="dot k"></span>ЗАПОМНИ СО СТРАНИЦЫ <b id=keepPage>120</b>
-              <span id=keepAll></span></div>
-            <div id=keepList><div id=keepEmpty>карточки появятся по ходу чтения</div></div>
-          </div>
         </div>
-        <!-- метки живут НАД разворотом, а не внутри страницы: прожектор обязан гасить
-             оба листа сразу, а внутри страницы его затемнение обрезалось её же overflow -->
-        <div class=marks id=bookMarks></div>
-        <!-- прозрачные кнопки по рамкам иллюстраций: нажатие открывает апскейл -->
-        <div class=figs id=bookFigs></div>
-        <!-- на тесте страница закрывается: «запомнить текст» проверяется по памяти, а не
-             списыванием с открытой страницы -->
-        <div id=veil class=off><div><b>Страница закрыта</b><br>отвечай по памяти</div></div>
-        <div id=castShade></div>
-        <div id=flip>
-          <div class="face front"><img id=flipFront alt=""><div class=shade id=shadeF></div></div>
-          <div class="face back"><img id=flipBack alt=""><div class=shade id=shadeB></div></div>
-        </div>
-      </div>
-      <!-- ЭКРАН ТОПИКОВ (v2.4). Занимает всю сцену: страница учебника на это время
-           уезжает, как и просил руководитель («страница слева должна уйти»). -->
+      <!-- ЭКРАН ТОПИКОВ (v2.4, переставлен в v2.11). Занимает КОЛОНКУ ЧТЕНИЯ, а не
+           всю сцену: страница на это время уезжает («страница слева должна уйти»),
+           но доска справа обязана остаться — разбор идёт по её же карточкам, и
+           накрывать собранное экраном разбора значит прятать то, о чём говоришь. -->
       <div id=topics class=off>
         <section class=tpane id=tpLibPane>
           <div class=tph>ЧТО ЗАПОМНИТЬ <b id=tpCount></b></div>
@@ -961,6 +1088,36 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
           </div>
         </section>
       </div>
+     </div>
+
+     <!-- ЗЕБРА (v2.11). Не «панель со списком», а доска, которая СОБИРАЕТСЯ: каждый
+          факт встаёт на неё в ту секунду, когда Аня его дочитала, и остаётся стоять
+          до конца смыслового раздела учебника. Разделы берём не на глаз — их назвал
+          сам учебник: «Природа и жизнь», «Минойская цивилизация…», «Микенская
+          цивилизация». Дочитали до заголовка следующего — доска складывается в стопку
+          и начинает собираться новая; к собранным можно вернуться номерами в шапке. -->
+     <aside id=zebra>
+       <div id=zHead>
+         <div id=zHero class=off><div id=zHeroBox>
+           <img id=zHeroImg alt="">
+           <div id=zHeroMap><div id=zHeroMapIn></div></div>
+         </div></div>
+         <div id=zHeadTx>
+           <div id=zTabs></div>
+           <div id=zTitle>ЗЕБРА</div>
+           <div id=zMeta><span id=zPages></span><b id=zCount></b></div>
+           <div id=zRead></div>
+           <div id=zHeroCap></div>
+         </div>
+       </div>
+       <div id=zBoard>
+         <div id=keep>
+           <div id=keepList><div id=keepEmpty>здесь будет собираться то,<br>что уже прозвучало</div></div>
+         </div>
+       </div>
+       <div id=zShut>доска закрыта — сейчас отвечаешь сам</div>
+     </aside>
+
 
       <!-- ИТОГИ УРОКА (v2.5). Методичка: единая понятная таблица, влезающая на один
            экран ноутбука с невысоким разрешением; сверху точные дата и время начала и
@@ -998,6 +1155,9 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
       <button class="btn sm" id=btnPrev>‹</button>
       <span id=pgLabel>120–121</span>
       <button class="btn sm" id=btnNext>›</button>
+      <!-- Два способа показывать страницу: сплошной лентой или пополам с переездом
+           окон местами. Кнопка помнит выбор между запусками. -->
+      <button class="btn sm" id=modeBtn>▥ лента</button>
       <!-- ЗАМЕЧАНИЕ ПРЯМО ИЗ УРОКА. На витрине форма тоже есть, но там руководителю
            придётся вспоминать, где именно ему что-то не понравилось. Отсюда замечание
            уходит вместе со страницей и шагом — правится ровно то место.
@@ -1015,7 +1175,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
         <span class="hi t" id=drTaskWrap title="осталось на это задание">⏳ <b id=drTask>3:00</b></span>
       </span>
       <span id=cost></span>
-      <span id=ver title="версия сборки урока · журнал в .planning/KNIGA-VERSIONS.md">v2.10.2</span>
+      <span id=ver title="версия сборки урока · журнал в .planning/KNIGA-VERSIONS.md">v2.11</span>
       <div id=steps></div>
     </div>
   </div>
@@ -1189,116 +1349,269 @@ const PAGES=[120,121,122,123,124,125]
 // ОДНУ страницу — ту, которую сейчас читают, — а вторую половину занимает рабочая
 // панель. Причин две: ребёнок перестаёт искать глазами, где из двух страниц читают,
 // и освобождается место под показ и тизеры. Поэтому «где мы» — индекс СТРАНИЦЫ.
+// 🔴 ОКНО В СТРАНИЦУ вместо разворота (v2.11, заказ Кратова 26.08). В ячейку влезает
+// только верхняя часть страницы — дальше лист ЕДЕТ за голосом, а кончилась страница —
+// снизу встык подходит следующая. Перелистывания как жеста больше нет: чтение стало
+// непрерывным, и «страница кончилась» ребёнок видит по шву, а не по анимации.
+//
+// Устройство. В окне живёт лист #sheet из двух коробок: #pgA — та страница, что читают
+// (на ней метки и рамки-лупы), #pgB — следующая, она просто ждёт внизу. Когда доезд
+// уходит ниже низа A, делаем ПЕРЕСАДКУ: A забирает страницу B, смещение уменьшаем на
+// высоту A со швом, B грузит следующую. Пересадка незаметна — картинка уже загружена,
+// а смещение меняется ровно на ту же величину, что и содержимое.
 let sheet=0, flipping=false
 let MARKS={}
 const imgUrl=(p)=>'/book/p'+p+'.jpg'
-
-// Размер считаем от окна: страница 210×297 (A4-пропорция скана 957×1252). Панель —
-// ровно такая же по размеру: вместе они дают привычный силуэт раскрытой книги.
+const ШОВ=10                                   // просвет между страницами, как в CSS #pgB
+let сдвиг=0                                    // на сколько пикселей лист уехал вверх
+// Пропорция скана 957×1252: высота страницы известна ДО загрузки картинки, и доезд
+// можно считать сразу, не дожидаясь onload.
 const PAGE_AR=1252/957
+// ── ДВА РЕЖИМА ОКНА (v2.11, заказ Кратова 27.08) ──────────────────────────
+//  ЛЕНТА     — как было: окно стоит сверху, лист едет за голосом непрерывно, кончилась
+//              страница — снизу подошла следующая.
+//  ПОЛОВИНЫ  — окно режет страницу ровно пополам и делит колонку с показом 50/50.
+//              Читаем верх страницы — окно сверху, показ под ним; дошли до низа —
+//              окна МЕНЯЮТСЯ МЕСТАМИ: текст съезжает вниз, показ поднимается наверх.
+//              Читаемое всегда оказывается там же, где оно на самой странице.
+//  Выбор живёт в localStorage: ребёнок (или Кратов на показе) переключает кнопкой и
+//  больше к этому не возвращается.
+let РЕЖИМ='lenta'
+try{ if(localStorage.kn_read_mode==='pol') РЕЖИМ='pol' }catch(e){}
+// ссылкой тоже: /kniga?mode=pol — чтобы показать режим, ничего не нажимая
+try{ const м=new URLSearchParams(location.search).get('mode')
+  if(м==='pol'||м==='lenta'){ РЕЖИМ=м; localStorage.kn_read_mode=м } }catch(e){}
+// На проверке страницы половинки уступают: там панели нужна вся высота, а окно вообще
+// уходит. Поэтому «режим сейчас» и «выбранный режим» — разные вещи.
+const половинкиСейчас=()=>РЕЖИМ==='pol'&&!$('#panel').classList.contains('ctrl')
+let половина=0                                 // 0 — верх страницы, 1 — низ
+
+// Ширину листа в половинках подбираем так, чтобы ПОЛОВИНА страницы точно легла в
+// высоту ячейки: иначе «пополам» получится на глаз, с обрезанной строкой на стыке.
+const ширинаЛиста=()=>$('#sheet').clientWidth||$('#left').clientWidth
+const высотаСтраницы=()=>Math.round(ширинаЛиста()*PAGE_AR)
+const высотаОкна=()=>$('#left').clientHeight
+function подогнатьЛист(){
+  const окно=$('#left'), s=$('#sheet')
+  if(половинкиСейчас()){
+    const w=Math.max(120,Math.min(окно.clientWidth,Math.floor(окно.clientHeight*2/PAGE_AR)))
+    s.style.width=w+'px'; s.style.left=Math.round((окно.clientWidth-w)/2)+'px'
+  } else { s.style.width=''; s.style.left='' }
+}
+
+function ставитьЛист(анимация){
+  const s=$('#sheet')
+  s.classList.toggle('snap',!анимация)
+  s.style.transform='translateY('+(-сдвиг)+'px)'
+  if(!анимация) requestAnimationFrame(()=>s.classList.remove('snap'))
+  обновитьПолосу()
+}
+// Предел доезда: ниже низа последней доступной страницы уезжать некуда — окно упёрлось бы
+// в пустоту, и ребёнок решил бы, что текст кончился.
+function всегоЛиста(){
+  const H=высотаСтраницы()
+  return (sheet>=PAGES.length-1) ? H : H+ШОВ+H
+}
+function пределСдвига(){ return Math.max(0, всегоЛиста()-высотаОкна()) }
+function везтиК(y,анимация){
+  сдвиг=Math.round(y)
+  // Крутят вверх выше начала страницы — значит хотят перечитать предыдущую. Ставим её
+  // под лист и продолжаем: свиток обязан ходить в обе стороны, иначе «вернуться»
+  // работает только кнопкой.
+  // 🔴 27.08. Назад лист уходит ТОЛЬКО от руки. Раньше это делал любой отрицательный
+  //  доезд — а он бывает штатно: строка в начале страницы минус треть окна даёт минус.
+  //  Урок переходил на новую страницу, тут же откатывался на прошлую, шаг «не доезжал»,
+  //  и на стыке 120→121 весь урок вставал молча.
+  while(рукаВедёт()&&сдвиг<0&&sheet>0){
+    sheet--
+    сдвиг+=высотаСтраницы()+ШОВ
+    paintSheet()
+  }
+  сдвиг=Math.max(0,Math.min(пределСдвига(),сдвиг))
+  ставитьЛист(анимация!==false)
+  проверитьПересадку()
+}
+// Лист уехал так, что страница A вся выше окна — значит читают уже B. Меняем их местами.
+function проверитьПересадку(){
+  const H=высотаСтраницы()
+  if(сдвиг < H+ШОВ-2) return                    // A ещё видна хотя бы краем
+  if(sheet>=PAGES.length-1) return
+  sheet++
+  сдвиг-=H+ШОВ
+  ставитьЛист(false)
+  paintSheet()
+}
+
+// ── СВОЯ ПРОКРУТКА: колесо, полоса положения, дверь обратно ───────────────
+//  🔴 Кратов 27.08: «хочу, чтобы её можно было скролить самому — навёл мышку и крутишь;
+//  и чтобы было визуально понятно, куда улистал, чтобы понимать, что надо вернуться».
+//  Пока ребёнок крутит сам, урок НЕ отбирает у него лист: доезд за голосом молчит, но
+//  риска на полосе продолжает показывать, где сейчас читают, а кнопка возвращает одним
+//  нажатием. Через четверть минуты без колеса лист снова слушается голоса.
+const РУЧНОЙ_МС=15000
+let ручнойДо=0
+const рукаВедёт=()=>performance.now()<ручнойДо
+function рукойКрутили(){ ручнойДо=performance.now()+РУЧНОЙ_МС }
+function вернутьсяКЧтению(){
+  ручнойДо=0
+  if(shownBeat) { goPage(shownBeat.page); везтиКСтроке(shownBeat,true) }
+  обновитьПолосу()
+}
+// Где лежит то, что читают, — в координатах ВСЕГО параграфа (страница за страницей,
+// через шов). Так место чтения известно, даже когда ребёнок укрутил на две страницы
+// вперёд: полоса и дверь обратно обязаны работать именно в этот момент.
+const шагЛиста=()=>высотаСтраницы()+ШОВ
+const абсСдвиг=()=>sheet*шагЛиста()+сдвиг
+const всегоПараграфа=()=>PAGES.length*шагЛиста()-ШОВ
+function коордЧтенияАбс(b){
+  if(!b) return null
+  const H=высотаСтраницы(), ш=шагЛиста(), ys=[]
+  for(const l of (b.lines||[])){
+    const i=PAGES.indexOf(l.page||b.page); if(i<0) continue
+    ys.push(i*ш+l.r[1]*H, i*ш+(l.r[1]+l.r[3])*H)
+  }
+  if(!ys.length&&b.box){ const i=PAGES.indexOf(b.page)
+    if(i>=0) ys.push(i*ш+b.box[1]*H, i*ш+(b.box[1]+b.box[3])*H) }
+  if(!ys.length) return null
+  return { верх:Math.min(...ys), низ:Math.max(...ys) }
+}
+// то же, но в координатах листа: для доезда. null — читаемое не на этом листе.
+function координатыЧтения(b){
+  const а=коордЧтенияАбс(b); if(!а) return null
+  const б=sheet*шагЛиста()
+  const где={ верх:а.верх-б, низ:а.низ-б }
+  return (где.низ<-шагЛиста()||где.верх>2*шагЛиста()) ? null : где
+}
+// деления рисуем один раз на размер окна: их положение зависит только от геометрии
+function делитьПолосу(){
+  const п=$('#pgScroll'), трек=п.clientHeight, всего=Math.max(1,всегоПараграфа())
+  for(const el of п.querySelectorAll('.pgTick')) el.remove()
+  for(let i=1;i<PAGES.length;i++){
+    const d=document.createElement('div'); d.className='pgTick'
+    d.style.top=Math.round(трек*(i*шагЛиста()-ШОВ/2)/всего)+'px'
+    d.title='страница '+PAGES[i]
+    п.appendChild(d)
+  }
+}
+function обновитьПолосу(){
+  const трек=$('#pgScroll').clientHeight, всего=Math.max(1,всегоПараграфа()), окно=высотаОкна()
+  const абс=абсСдвиг(), th=$('#pgThumb')
+  const дл=Math.max(.05,Math.min(1,окно/всего))
+  th.style.height=Math.round(трек*дл)+'px'
+  th.style.top=Math.round(трек*Math.max(0,Math.min(1-дл,абс/всего)))+'px'
+  const где=коордЧтенияАбс(shownBeat), mk=$('#pgMark')
+  if(!где){ mk.style.display='none' }
+  else { mk.style.display=''; mk.style.top=Math.round(трек*Math.max(0,Math.min(1,где.верх/всего)))+'px' }
+  // дверь обратно — только когда читаемое и правда вне окна
+  const далеко=!!где&&(где.низ<абс+6||где.верх>абс+окно-6)
+  $('#pgBack').classList.toggle('on',далеко&&!!shownBeat)
+  $('#pgScroll').classList.toggle('on',далеко||рукаВедёт())
+}
+
+// ── ДОЕЗД ЗА ЧТЕНИЕМ ──────────────────────────────────────────────────────
+// В ленте строку держим в верхней трети окна: выше — ребёнок теряет уже прочитанное,
+// ниже — не видно, что дальше. Двигаемся, только если строка вышла из спокойной зоны:
+// доезд на каждой строке читался бы как дрожь.
+// В половинках доезда нет вовсе — есть перестановка: строка либо в верхней половине
+// страницы, либо в нижней, и вместе с ней переезжает само окно.
+const ЗОНА_ВЕРХ=0.20, ЗОНА_НИЗ=0.72, ЦЕЛЬ=0.32
+function везтиКСтроке(b,анимация){
+  const где=координатыЧтения(b)
+  if(!где){ обновитьПолосу(); return }
+  if(рукаВедёт()){ обновитьПолосу(); return }        // сейчас листает ребёнок, не мы
+  if(половинкиСейчас()){
+    const H=высотаСтраницы()
+    const серединаСтроки=(где.верх+где.низ)/2
+    поставитьПоловину(серединаСтроки>=H/2?1:0,анимация)
+    return
+  }
+  const окно=высотаОкна()
+  const вОкне=(где.верх-сдвиг)/окно, низВОкне=(где.низ-сдвиг)/окно
+  if(вОкне>=ЗОНА_ВЕРХ&&низВОкне<=ЗОНА_НИЗ){ обновитьПолосу(); return }  // и так видно
+  везтиК(где.верх-окно*ЦЕЛЬ,анимация)
+}
+// Где верх страницы p на ленте: 0 — та, что читают, H+ШОВ — следующая, иначе её нет.
+function смещениеСтраницы(p){
+  if(p===PAGES[sheet]) return 0
+  if(p===PAGES[sheet+1]) return высотаСтраницы()+ШОВ
+  return null
+}
+// Половинки: окно показывает верх или низ страницы, а само меняется местами с показом.
+function поставитьПоловину(п,анимация){
+  половина=п
+  $('#read').classList.toggle('niz',п===1)
+  везтиК(п===1?высотаСтраницы()/2:0,анимация!==false)
+}
+function режимПрименить(){
+  $('#read').classList.toggle('pol',РЕЖИМ==='pol')
+  if(!половинкиСейчас()) $('#read').classList.remove('niz')
+  подогнатьЛист()
+  const b=$('#modeBtn')
+  if(b){ b.textContent=РЕЖИМ==='pol'?'▤ половины':'▥ лента'
+         b.title=РЕЖИМ==='pol'
+           ? 'Страница поделена пополам: читаем низ — окно с текстом и показ меняются местами. Нажми, чтобы вернуть сплошную ленту.'
+           : 'Страница едет сплошной лентой. Нажми, чтобы делить её пополам и менять окна местами.' }
+  // перестроились — вернуть лист туда, где читают
+  if(половинкиСейчас()&&shownBeat) поставитьПоловину(половина,false)
+  else везтиК(сдвиг,false)
+  if(shownBeat&&onSheet(shownBeat.page)===0) везтиКСтроке(shownBeat,false)
+}
+function режимПереключить(){
+  РЕЖИМ=РЕЖИМ==='pol'?'lenta':'pol'
+  try{ localStorage.kn_read_mode=РЕЖИМ }catch(e){}
+  ручнойДо=0
+  режимПрименить()
+}
 function layout(){
-  const st=$('#stage'), maxH=st.clientHeight-10, maxW=(st.clientWidth-40)/2
-  const h=Math.min(maxH, maxW*PAGE_AR), w=h/PAGE_AR
-  for(const el of [$('#left'),$('#panel'),$('#veil')]){ el.style.width=w+'px'; el.style.height=h+'px' }
-  const f=$('#flip'); f.style.width=w+'px'; f.style.height=h+'px'; f.style.left=w+'px'
+  // Ширину окна задаёт сетка; в JS пересчитываем только доезд — при изменении ширины
+  // меняется и высота листа, и старый сдвиг в пикселях указывал бы не на ту строку.
+  $('#pgB').style.marginTop=ШОВ+'px'
+  подогнатьЛист()
+  делитьПолосу()
+  зебраПодвести()
+  if(половинкиСейчас()) поставитьПоловину(половина,false)
+  else везтиК(Math.min(сдвиг,пределСдвига()),false)
+  if(shownBeat&&onSheet(shownBeat.page)===0) везтиКСтроке(shownBeat,false)
 }
 addEventListener('resize',layout)
+// колесо над окном крутит страницу, а не прокручивает урок
+$('#book').addEventListener('wheel',(e)=>{
+  e.preventDefault()
+  рукойКрутили()
+  везтиК(сдвиг+e.deltaY,false)
+},{passive:false})
+$('#pgBack').onclick=вернутьсяКЧтению
+$('#modeBtn').onclick=режимПереключить
 
 function paintSheet(){
   const p=PAGES[sheet]
-  $('#leftImg').src=imgUrl(p); $('#leftImg').dataset.page=p
+  const надо=imgUrl(p)
+  // ⚠️ Ставим src ВСЕГДА, а не только на переходе: пустая картинка схлопывает свою
+  //  коробку в ноль, и окно честно показывает следующую страницу — на старте это
+  //  выглядело как «урок открылся не на той странице».
+  if(!$('#leftImg').src.endsWith(надо)) $('#leftImg').src=надо
+  $('#leftImg').dataset.page=p
   $('#pgLabel').textContent='стр. '+p
+  $('#pgNumT').textContent=p
+  // следующая ждёт внизу — чтобы «открылась новая» без паузы на загрузку
+  const n=PAGES[sheet+1]
+  if(n){ $('#pgB').style.display=''
+    // тот же приём, что и с текущей страницей: не трогаем src, если файл уже тот —
+    // иначе перемотка отменяет наполовину скачанную картинку (ERR_ABORTED)
+    const сл=imgUrl(n); if(!$('#leftNext').src.endsWith(сл)) $('#leftNext').src=сл }
+  else $('#pgB').style.display='none'
   clearMarks()
   paintFigs()                                        // кнопки «рассмотреть» на этой странице
-  paintKeep(p)                                       // тизеры, собранные с этой страницы
   // 🔴 «Перевернул страницу — и там зачем-то картинка с лабиринтом» (05.08).
   // Показ оставался от ПРОШЛОЙ страницы и висел, пока на новой не прозвучит первая
   // привязанная фраза. Чужая картинка хуже, чем пустое место: пустое место честно
   // говорит «сейчас появится», а чужая — врёт про то, что сейчас читают.
   if(demoPageNow&&demoPageNow!==p) clearDemo()
 }
-// Перелистывание. 🔴 «Переворачивание страницы как-то не туда» (03.08): лист уходил ВПРАВО,
-// а это жест «назад» — вперёд в книге страница ПРИХОДИТ СПРАВА и ложится налево. Теперь как
-// в бумажной: лист поднимается от корешка (середина книги), проходит над страницей справа
-// налево и ложится на неё новой страницей — она нарисована на его изнанке.
-// Лицевая сторона листа пустая: справа у нас не вторая страница, а панель, нарисовать её на
-// летящем листе нечем. Поэтому в начале лист ПРОЯВЛЯЕТСЯ — пока он лежит плашмя, видно
-// панель, и лист становится виден уже приподнятым.
-//
-// 🔴 Прогон 03.08: «ближе к корешку страница почему-то темнеет». Тень изгиба была
-// статичной картинкой на листе и висела весь поворот — читалось как грязное пятно.
-// Считаем поворот покадрово и вяжем к углу ЧЕТЫРЕ вещи:
-//   · тень на самом листе — сильнее всего, когда лист стоит ребром (середина поворота);
-//   · какая из двух сторон затенена — перед до 90°, изнанка после;
-//   · тень, которую лист роняет на то, над чем навис, — ползёт вместе с ним;
-//   · прозрачность: плашмя над панелью лист виден быть не должен, он закрыл бы показ.
-const FLIP_MS=950
-function flipFrame(dir,t){
-  const f=$('#flip'), cast=$('#castShade')
-  const e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2          // easeInOut, как у бумаги
-  const a=dir>0 ? -176*e : -176*(1-e)
-  f.style.transform='rotateY('+a+'deg)'
-  const bend=Math.sin(Math.PI*t)                     // 0 → 1 → 0: лист ребром = максимум
-  const front=Math.abs(a)<90
-  $('#shadeF').style.opacity=front?bend*0.5:0
-  $('#shadeB').style.opacity=front?0:bend*0.45
-  // ширина падающей тени = насколько лист навис: до 90° он ещё над панелью, после —
-  // уже над страницей
-  const w=$('#left').clientWidth, cos=Math.abs(Math.cos(a*Math.PI/180))
-  const cw=Math.max(12,w*cos*0.55)
-  cast.style.width=cw+'px'
-  cast.style.left=(front?w:w-cw)+'px'
-  cast.style.opacity=bend*0.7
-  cast.style.transform=front?'none':'scaleX(-1)'
-  // Плашмя над панелью лист прозрачен и проявляется, ПОКА ПОДЫМАЕТСЯ, — к моменту,
-  // когда встанет ребром, он уже плотный. Быстрее нельзя: белый лист, вспыхнувший поверх
-  // показа, читается как мигание, а не как страница.
-  const flat=dir>0?t:1-t
-  f.style.opacity=flat<.45?flat/.45:1
-}
-// 🔴 Перелистывания обязаны становиться В ОЧЕРЕДЬ. Раньше turn во время другого поворота
-// молча возвращал «готово», и goPage крутил `while(sheet!==t)` вхолостую — вкладка
-// намертво вставала. Ловится это только двумя листаниями подряд (нажать ›› или уйти
-// на страницу через три), поэтому и дожило до сих пор.
-let flipQ=Promise.resolve()
-function turn(dir){
-  const p=flipQ.then(()=>turnNow(dir))
-  flipQ=p.catch(()=>{})
-  return p
-}
-function turnNow(dir){
-  const to=sheet+dir
-  if(to<0||to>=PAGES.length) return Promise.resolve()
-  flipping=true; clearMarks(); clearFigs()           // на летящем листе нажимать нечего
-  // 🔴 «Перевернула страницу — и на мгновение появился лабиринт» (05.08). Показ гасили
-  // в paintSheet, а это середина переворота: картинка прошлой страницы успевала
-  // мелькнуть на новой. Гасим в самом начале — пока лист ещё лежит плашмя.
-  if(demoPageNow&&demoPageNow!==PAGES[to]) clearDemo()
-  const f=$('#flip'), from=PAGES[sheet], next=PAGES[to], w=$('#left').clientWidth
-  // На изнанке листа — та страница, что окажется слева, когда он ляжет:
-  //   вперёд — следующая (лист приходит справа и накрывает ею текущую);
-  //   назад  — текущая (лист снимает её со страницы и уносит вправо, открывая прошлую).
-  $('#flipBack').src=imgUrl(dir>0?next:from)
-  $('#flipFront').removeAttribute('src')             // лицо пустое: справа панель, а не страница
-  if(dir<0) $('#leftImg').src=imgUrl(next)           // прошлая страница уже под листом
-  f.style.left=w+'px'; f.style.display='block'
-  flipFrame(dir,0)
-  return new Promise(res=>{
-    const t0=performance.now()
-    const step=()=>{
-      const t=Math.min(1,(performance.now()-t0)/FLIP_MS)
-      flipFrame(dir,t)
-      if(t<1) return requestAnimationFrame(step)
-      f.style.display='none'; f.style.opacity=1
-      $('#castShade').style.opacity=0; $('#shadeF').style.opacity=0; $('#shadeB').style.opacity=0
-      sheet=to; paintSheet(); flipping=false
-      // страница сменилась — если читаемый кусок на ней, метки возвращаем
-      if(shownBeat&&sheetOf(shownBeat.page)===sheet) showBeat(shownBeat,true)
-      res()
-    }
-    requestAnimationFrame(step)
-  })
-}
+// Совместимость: такты и кнопки зовут turn(±1) — теперь это переход к соседней
+// странице, а не поворот листа. Обещание то же: промис завершается, когда доехали.
+const ЕЗДА_МС=900
+function turn(dir){ return goPage(PAGES[Math.max(0,Math.min(PAGES.length-1,sheet+dir))]) }
 const sheetOf=(p)=>PAGES.indexOf(p)
 // К нужной странице ведёт РОВНО ОДИН водитель. Иначе два goPage подряд (а их зовёт
 // каждый такт) считают направление по ещё не обновившемуся `sheet` и проскакивают цель:
@@ -1309,9 +1622,48 @@ function goPage(p){
   wantSheet=t
   if(navBusy) return navQ              // ведущий сам заметит новую цель
   navBusy=true
-  navQ=(async()=>{ try{ while(sheet!==wantSheet) await turn(wantSheet>sheet?1:-1) }
+  // ⚠️ и вторая страховка: сколько бы шагов ни потребовалось, их не может быть больше,
+  // чем страниц в параграфе. Иначе цикл крутится вечно и урок стоит молча.
+  navQ=(async()=>{ try{ let n=0
+                     while(sheet!==wantSheet&&n++<PAGES.length+2) await шагК(wantSheet)
+                     if(sheet!==wantSheet){ console.error('лист не доехал до страницы',PAGES[wantSheet])
+                       поставитьСтраницу(wantSheet) } }
                    finally{ navBusy=false } })()
   return navQ
+}
+// Один шаг к цели. Вперёд на соседнюю — доезжаем по ленте: это и есть «страница
+// кончилась, пошла следующая». Назад или далеко — ставим страницу сразу: везти лист
+// через две чужих страницы дольше, чем длится такт, и урок ждал бы дорогу.
+// 🔴 27.08. Урок вставал намертво на стыке страниц: конец шага (доставить страницу,
+// вернуть метки) выполнялся БЕЗ защиты, и любая заминка внутри съедала res() — промис
+// оставался вечным, ведущий навсегда «занят», а goPage с этого момента возвращал
+// зависший навQ каждому следующему такту. Урок при этом молчит и не подаёт признаков
+// ошибки — ровно тот сорт поломки, ради которого заведён сторож.
+// Правило: шаг ОБЯЗАН отпустить ведущего, что бы внутри ни случилось.
+function шагК(t){
+  flipping=true
+  const дожать=(res)=>{
+    try{
+      if(sheet!==t) поставитьСтраницу(t)           // не доехали (лист ниже предела) — ставим
+      хвостШага()
+    }catch(e){ console.error('шаг листа споткнулся:',e&&e.message) }
+    finally{ flipping=false; res() }
+  }
+  if(t===sheet+1){
+    везтиК(высотаСтраницы()+ШОВ,true)              // доезд сам сделает пересадку
+    return new Promise(res=>setTimeout(()=>дожать(res),ЕЗДА_МС))
+  }
+  поставитьСтраницу(t)
+  return new Promise(res=>setTimeout(()=>дожать(res),260))
+}
+function поставитьСтраницу(t){
+  sheet=t; сдвиг=0
+  ставитьЛист(false)
+  paintSheet()
+}
+// страница сменилась — если читаемый кусок на ней, метки возвращаем
+function хвостШага(){
+  if(shownBeat&&sheetOf(shownBeat.page)===sheet) showBeat(shownBeat,true)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1352,7 +1704,7 @@ const fetchСрок=(url,opt,мс,что)=>сЛимитом(мс,что,(signal)
 //  Тизеры копятся ПО СТРАНИЦАМ: страница — это то, что потом спросят.
 // ═══════════════════════════════════════════════════════════════════════════
 let DEMOS=[], TEASERS=[]
-const KEEP=new Map()                      // страница → [{term,txt}]
+const KEEP=new Map()                      // раздел зебры → [{term,txt}]
 // Итог пересказа (что назвал, что забыл) живёт ОТДЕЛЬНО от разметки карточек.
 // Иначе первая же новая карточка перерисовывает список — и галочки исчезают:
 // приёмка ловила это как «0 назвал / 0 забыл» через раз.
@@ -1425,6 +1777,9 @@ function fadeText(el,txt){
 const MAPS={
   demo:{box:'#demoMap', inn:'#demoMapIn', svg:null, _load:null, держим:true},
   tp:  {box:'#tpMap',   inn:'#tpMapIn',   svg:null, _load:null, держим:false},
+  // карта как крупный визуал зебры: наезд ставится один раз на раздел, держать
+  // прошлый кадр незачем — раздел новый, и кадр у него свой
+  zeb: {box:'#zHeroMap', inn:'#zHeroMapIn', svg:null, _load:null, держим:false},
 }
 let mapText=null, mapTextLoad=null
 // Кегль подписей на карте меняется при наезде. Чтобы он ЕХАЛ вместе с картой, а не
@@ -1715,45 +2070,138 @@ function applyDemo(d){
   pre.onerror=()=>console.warn('нет картинки показа:',src)
   pre.src=src
 }
-function addKeep(page,t){
-  if(!KEEP.has(page)) KEEP.set(page,[])
-  KEEP.get(page).push(t)
-  if(+$('#leftImg').dataset.page===page) paintKeep(page)
+// ── ЗЕБРА: доска смыслового раздела (v2.11) ──────────────────────────────
+//  Заказ Кратова 26.08: «постепенно появляется новая информация — и не исчезает;
+//  на одну-две страницы своя, потом собирается следующая».
+//  Разделы не выдуманы и не нарезаны по две страницы на глаз — их назвал САМ учебник:
+//  «Природа и жизнь», «Минойская цивилизация и первые государства на Крите»,
+//  «Микенская цивилизация». Поэтому доска меняется там же, где меняется мысль.
+//  Переключаемся по СТРОКЕ — тем же механизмом, что показы: дочитали до заголовка
+//  раздела, доска сменилась. Страница держится страховкой на случай, если такт с
+//  заголовком не прозвучал (вошли с середины, ушли на повтор, листали руками).
+const ZEBRA=[
+  { n:1, title:'Природа и жизнь', pages:'страницы 120–121', from:120,
+    hero:{ art:'map:zone-north,zone-middle,zone-south', cap:'ГРЕЦИЯ ДЕЛИЛАСЬ НА ТРИ ЧАСТИ' } },
+  { n:2, title:'Минойская цивилизация на Крите', pages:'страницы 122–123', from:122,
+    re:/Минойская цивилизация и первые государства/i,
+    hero:{ art:'book:p122-1', cap:'ДВОРЕЦ В КНОССЕ · РЕКОНСТРУКЦИЯ' } },
+  { n:3, title:'Микенская цивилизация', pages:'страницы 123–125', from:124,
+    re:/Микенская цивилизация/i,
+    hero:{ art:'book:p124-2', cap:'ЛЬВИНЫЕ ВОРОТА В МИКЕНАХ' } },
+]
+let zPart=0        // где идёт урок
+let zСмотрим=0     // на какую доску смотрят: к собранным можно вернуться номерами
+let zHeroFor=-1    // для какого раздела уже нарисован крупный визуал
+const скл=(n,ф)=>{ const a=Math.abs(n)%100, b=a%10
+  return n+' '+(a>10&&a<20?ф[2]:b===1?ф[0]:b>1&&b<5?ф[1]:ф[2]) }
+
+// Раздел меняется ТОЛЬКО вперёд: назад урок откатывается лишь на повторе, и стирать
+// там собранное нельзя — оно и есть конспект пройденного.
+function zebraBeat(b){
+  let цель=zPart
+  for(let i=ZEBRA.length-1;i>zPart;i--){
+    const z=ZEBRA[i]
+    if((z.re&&z.re.test(b.say||''))||(b.page&&b.page>=z.from)){ цель=i; break }
+  }
+  if(цель!==zPart){ zPart=цель; zСмотрим=цель; paintZebra() }
 }
+function zebraShow(i){ if(i>zPart) return; zСмотрим=i; paintZebra() }
+
 // Картинка карточки: сперва данные закрепления (там привязка выверена скриптом),
 // иначе — показ, сработавший в этой же реплике перед самой карточкой (поле _art
 // ставится в panelTick). Пусто — карточка просто останется со значком.
-function keepArt(page,t){
-  const z=zakOf(page,t.term)
+function keepArt(t){
+  const z=zakOf(t.page,t.term)
   return (z&&z.art)||t._art||''
 }
-function paintKeep(page){
-  $('#keepPage').textContent=page
-  const list=$('#keepList'), items=KEEP.get(page)||[]
+function addKeep(t){
+  if(!KEEP.has(zPart)) KEEP.set(zPart,[])
+  KEEP.get(zPart).push(t)
+  zСмотрим=zPart                       // новый факт возвращает взгляд на текущую доску
+  paintZebra()
+}
+// Крупный визуал раздела — якорь доски: по нему сразу видно, ПРО ЧТО тут собрано.
+// Рисуем один раз на раздел: карта пересчитывает наезд, и перерисовывать её на каждой
+// новой карточке — значит дёргать её десять раз за раздел.
+function zebraHero(z){
+  const box=$('#zHero')
+  if(!z.hero){ box.classList.add('off'); return }
+  box.classList.remove('off')
+  $('#zHeroCap').textContent=z.hero.cap||''
+  const art=z.hero.art
+  if(art.startsWith('map')){
+    $('#zHeroImg').classList.remove('on')
+    ensureMap(MAPS.zeb,'greece').then(svg=>{ if(!svg) return
+      mapAim(MAPS.zeb, art.startsWith('map:')?art.slice(4):'')
+      $('#zHeroMap').classList.add('on') })
+  } else {
+    $('#zHeroMap').classList.remove('on')
+    const i=$('#zHeroImg'); i.classList.remove('on')
+    i.onload=()=>i.classList.add('on')
+    i.onerror=()=>box.classList.add('off')
+    i.src=artUrl(art)
+  }
+  requestAnimationFrame(()=>box.classList.add('on'))
+}
+function зебраПодсветить(term){
+  for(const e of document.querySelectorAll('#keepList .kc'))
+    e.classList.toggle('now', !!term&&e.dataset.term===term)
+  const e=document.querySelector('#keepList .kc.now')
+  if(e&&e.scrollIntoView) e.scrollIntoView({block:'nearest',behavior:'smooth'})
+}
+function зебраПодвести(){
+  if(zСмотрим!==zPart) return
+  const п=$('#keepList').lastElementChild
+  if(п&&п.scrollIntoView) п.scrollIntoView({block:'nearest',behavior:'smooth'})
+}
+function paintZebra(){
+  const z=ZEBRA[zСмотрим], items=KEEP.get(zСмотрим)||[]
+  $('#zTitle').textContent=z.title
+  $('#zPages').textContent=z.pages
+  $('#zCount').textContent=items.length?скл(items.length,['факт','факта','фактов']):''
+  // номера разделов: пройденные открыты, будущие закрыты — вперёд доска не забегает
+  const tabs=$('#zTabs'); tabs.innerHTML=''
+  ZEBRA.forEach((p,i)=>{
+    const b=document.createElement('button')
+    b.className='ztab'+(i===zСмотрим?' on':'')+((KEEP.get(i)||[]).length&&i!==zСмотрим?' done':'')
+    b.textContent=p.n; b.disabled=i>zPart
+    b.title=i>zPart?'сюда ещё не дошли':p.title
+    b.onclick=()=>zebraShow(i)
+    tabs.appendChild(b)
+  })
+  if(zHeroFor!==zСмотрим){ zHeroFor=zСмотрим; zebraHero(z) }
+  const list=$('#keepList')
   list.innerHTML=''
   if(!items.length){
     const e=document.createElement('div'); e.id='keepEmpty'
-    e.textContent='карточки появятся по ходу чтения'; list.appendChild(e)
+    e.innerHTML='здесь будет собираться то,<br>что уже прозвучало'
+    list.appendChild(e); return
   }
   items.forEach((t,i)=>{
     const d=document.createElement('div')
-    d.className='kc'+(i===items.length-1?' fresh':'')+(KEEPMARK.has(t.term)?' '+KEEPMARK.get(t.term):'')
-    // 🔴 Правка руководителя 06.08: «карточки должны быть с небольшими картинками».
-    // Картинка не подбирается заново — это ТОТ ЖЕ показ, что стоял на экране, когда
-    // факт прозвучал: сначала смотрим в данные (zakrep.json), а если их нет —
-    // берём показ, сработавший в этой же реплике прямо перед карточкой.
-    d.appendChild(thumbNode(keepArt(page,t)))
+    // первый факт раздела — во всю ширину: он задаёт тему, и по нему глаз находит,
+    // где доска началась
+    d.className='kc'+(i===0?' wide':'')+(i===items.length-1?' fresh':'')
+      +(KEEPMARK.has(t.term)?' '+KEEPMARK.get(t.term):'')
+    const art=keepArt(t), наКарте=!art||art.startsWith('map')
+    if(!наКарте) d.appendChild(thumbNode(art)); else d.classList.add('plain')
+    const nm=document.createElement('span'); nm.className='nm'; nm.textContent=i+1
+    d.appendChild(nm); d.dataset.term=t.term
     const tx=document.createElement('div'); tx.className='tx'
-    const a=document.createElement('div'); a.className='t'; a.textContent=t.term
+    const a=document.createElement('div'); a.className='t'
+    if(наКарте){ const i=document.createElement('span'); i.className='mp'
+      i.textContent='◉'; i.title='это место мы смотрели на карте'; a.appendChild(i) }
+    a.appendChild(document.createTextNode(t.term))
     const b=document.createElement('div'); b.className='d'; b.textContent=t.txt
     tx.appendChild(a); tx.appendChild(b); d.appendChild(tx); list.appendChild(d)
-    requestAnimationFrame(()=>d.classList.add('on'))
+    // въезжает только новая карточка; уже стоявшие проявляются в том же кадре, иначе
+    // вся доска мигает на каждом факте
+    if(i===items.length-1) requestAnimationFrame(()=>d.classList.add('on'))
+    else d.classList.add('on')
   })
-  // счётчик за весь урок показываем, только когда есть собранное с ДРУГИХ страниц:
-  // иначе он повторяет то, что и так видно списком
-  const all=[...KEEP.values()].reduce((a,b)=>a+b.length,0)
-  $('#keepAll').textContent=all>items.length?('за урок '+all):''
-  requestAnimationFrame(()=>{ list.scrollTop=list.scrollHeight })
+  // доска прокручивается к тому, что встало последним, — но только если смотрят
+  // текущий раздел: на возврате к прошлому это дёрнуло бы чужую доску
+  requestAnimationFrame(зебраПодвести)
 }
 // ── показ идёт ЗА ФРАЗОЙ, а не за тактом (v2.0) ───────────────────────────
 //  🔴 Первая претензия руководителя к v1.0: «текст, который она рассказывает, не
@@ -1772,6 +2220,7 @@ function panelBeat(b){
   const len=Math.max(1,say.length)
   const at=(re,end)=>{ const m=re.exec(say); if(!m) return null
     return Math.max(0,Math.min(1,(m.index+(end?m[0].length:0))/len)) }
+  zebraBeat(b)                        // раздел учебника мог смениться этой же репликой
   PLAN={items:[],fired:new Set()}
   for(const d of DEMOS){ const a=at(d._re,false); if(a!==null) PLAN.items.push({a,kind:'demo',x:d}) }
   for(const t of TEASERS){
@@ -1799,7 +2248,7 @@ function panelTick(prog){
       for(let j=i-1;j>=0;j--) if(PLAN.items[j].kind==='demo'){ a=PLAN.items[j].x.art; break }
       it.x._art=a||(demoNow?demoNow.split('|')[0]:'')
     }
-    if(!keepFired.has(k)){ keepFired.add(k); addKeep(it.x.page,it.x) }
+    if(!keepFired.has(k)){ keepFired.add(k); addKeep(it.x) }
   })
   if(show) showDemo(show)
 }
@@ -1813,12 +2262,11 @@ function resetPanel(){
   const e=$('#demoEmpty'); e.style.display=''; requestAnimationFrame(()=>{ e.style.opacity='1' })
   $('#demoCap').textContent=''; $('#demoSub').textContent=''
   $('#demoCap').classList.remove('on'); $('#demoSub').classList.remove('on')
-  paintKeep(PAGES[sheet])
+  zPart=0; zСмотрим=0; zHeroFor=-1
+  paintZebra()
 }
 // показ можно рассмотреть во весь экран — тем же окном, что и картинки учебника
 $('#demoBox').onclick=()=>{ const img=demoImg()
-  // пока в коробке мозаика, нажатие принадлежит плитке, а не показу под ней
-  if($('#mosaic').classList.contains('on')) return
   if(!img.classList.contains('on')||!img.currentSrc) return
   openLensSrc(img.currentSrc, img.dataset.cap||'Показ', img.dataset.sub||'') }
 
@@ -1913,44 +2361,45 @@ function beatOfSentence(s){
 //  ниоткуда, а визуальный ряд страницы, который через минуту разбирается поимённо.
 // ═══════════════════════════════════════════════════════════════════════════
 let MOS={tiles:[],open:0,n:0}
+// ── ЧТЕНИЕ ВСЛУХ: награда живёт на ДОСКЕ, а не отдельной мозаикой ────────
+//  🔴 Кратов 26.08: «где надо самому читать, эти картинки открываются вертикально в
+//  урезанном формате — это что-то не то. Плюс какой смысл они открываются, если они уже
+//  есть справа?». Мозаика открывала ровно те же картинки, что стоят на доске: тот же
+//  термин, тот же файл. Дубль убран.
+//  Награда осталась, но переехала туда, где ей место: пока ребёнок читает вслух, факты
+//  ЕГО РАЗДЕЛА гаснут и возвращаются в цвет по мере прочитанного. Открывать нечего —
+//  оживает то, что он уже собрал своими руками.
+//  Имена функций оставлены прежними (mosaic*): их зовут прогон и приёмка, а суть шага —
+//  «читаешь, и на экране по одному отзывается прочитанное» — не изменилась.
 function mosaicBuild(page){
-  const box=$('#mosaic'); box.innerHTML=''
   MOS={tiles:[],open:0,n:0}
-  const use=zakTerms(page).filter(t=>t.art).slice(0,6)
-  if(use.length<3) return 0                      // из двух плиток мозаики не выйдет
-  box.style.gridTemplateColumns='repeat('+(use.length<=4?2:3)+',1fr)'
-  use.forEach((t,i)=>{
-    const el=document.createElement('div'); el.className='mt'
-    if(t.art.startsWith('map')){
-      const m=document.createElement('div'); m.className='mp'; m.textContent='◉'; el.appendChild(m)
-    } else {
-      const im=document.createElement('img'); im.alt=''; im.src=artUrl(t.art); el.appendChild(im)
-    }
-    const cap=document.createElement('div'); cap.className='cap'; cap.textContent=t.term
-    const cov=document.createElement('div'); cov.className='cover'; cov.textContent=String(i+1)
-    el.appendChild(cap); el.appendChild(cov)
-    el.onclick=()=>{ if(!el.classList.contains('open')) return
-      if(t.art.startsWith('map')) return
-      openLensSrc(artUrl(t.art), t.term, t.txt||'') }
-    box.appendChild(el); MOS.tiles.push({el,t})
-  })
-  MOS.n=use.length
-  $('#mosDone').classList.remove('on')
-  box.classList.add('on')
-  // Пока висит мозаика, коробка показа отдаёт часть высоты тексту самари: на
-  // ноутбуке 1280×720 иначе обрезается ровно то, что ребёнка просят прочитать.
-  $('#demo').classList.add('mos')
+  const use=zakTerms(page).slice(0,8)
+  if(use.length<3) return 0                      // из двух отметок игры не выйдет
+  // карточки ищем НА ДОСКЕ по слову: доска живёт разделом, страница — её часть
+  for(const t of use){
+    const el=document.querySelector('#keepList .kc[data-term="'+CSS.escape(t.term)+'"]')
+    if(el) MOS.tiles.push({el,t})
+  }
+  if(MOS.tiles.length<3){ MOS={tiles:[],open:0,n:0}; return 0 }
+  MOS.n=MOS.tiles.length
+  for(const x of MOS.tiles) x.el.classList.add('wait','read')
+  $('#zRead').textContent='читаешь вслух: 0 из '+MOS.n
+  $('#zRead').classList.add('on')
   return MOS.n
 }
 function mosaicOpen(k){
-  const it=MOS.tiles[k]; if(!it||it.el.classList.contains('open')) return
-  MOS.tiles.forEach(x=>x.el.classList.remove('just'))
-  it.el.classList.add('open','just')
+  const it=MOS.tiles[k]; if(!it||!it.el.classList.contains('wait')) return
+  for(const x of MOS.tiles) x.el.classList.remove('just')
+  it.el.classList.remove('wait'); it.el.classList.add('just')
+  if(it.el.scrollIntoView) it.el.scrollIntoView({block:'nearest',behavior:'smooth'})
   MOS.open=Math.max(MOS.open,k+1)
-  if(MOS.open>=MOS.n) $('#mosDone').classList.add('on')
+  $('#zRead').textContent=MOS.open>=MOS.n
+    ? 'прочитал вслух всё — доска снова твоя'
+    : ('читаешь вслух: '+MOS.open+' из '+MOS.n)
+  $('#zRead').classList.toggle('done',MOS.open>=MOS.n)
 }
-// Плитка открывается на СВОЕЙ доле прочитанного. Первая уходит рано (0.6/n): ребёнок
-// должен увидеть, что чтение вообще что-то делает, ещё на первой фразе.
+// Факт отзывается на СВОЕЙ доле прочитанного. Первый уходит рано (0.6/n): ребёнок должен
+// увидеть, что чтение вообще что-то делает, ещё на первой фразе.
 function mosaicTo(prog){
   for(let k=MOS.open;k<MOS.n;k++){
     if(prog<(k+0.6)/MOS.n) break
@@ -1960,9 +2409,9 @@ function mosaicTo(prog){
 function mosaicAll(){ let d=0
   for(let k=0;k<MOS.n;k++){ setTimeout(()=>mosaicOpen(k),d); d+=240 } }
 function mosaicOff(){
-  const box=$('#mosaic'); box.classList.remove('on'); box.innerHTML=''
-  $('#mosDone').classList.remove('on')
-  $('#demo').classList.remove('mos')
+  for(const el of document.querySelectorAll('#keepList .kc.read'))
+    el.classList.remove('wait','just','read')
+  $('#zRead').classList.remove('on','done')
   MOS={tiles:[],open:0,n:0}
 }
 
@@ -2025,6 +2474,7 @@ function topicPick(k){
   $('#tpNum').textContent=(k+1)+' / '+TP.list.length
   $('#tpStep').textContent='топик '+(k+1)+' из '+TP.list.length
   $('#tpCount').textContent=(k+1)+' из '+TP.list.length
+  зебраПодсветить(t.term)
   topicVisual(t)
 }
 function topicVisual(t){
@@ -2963,7 +3413,7 @@ async function controlPage(page,alive){
   //  readAloud (кнопка «прочитал про себя» гасит чтение через stop). Две подписки на
   //  одну очередь нажатий устраивали гонку — шаг проскакивал не глядя.
   await ann(SUM
-    ? (nTiles?'Прочитай это вслух — я уже слушаю. Читай, и картинки справа начнут открываться.'
+    ? (nTiles?'Прочитай это вслух — я уже слушаю. Читай, и на доске справа будет оживать то, что ты уже собрал.'
              :'Теперь прочитай это вслух — я уже слушаю.')
     : 'Теперь прочитай этот кусок вслух — он подсвечен на странице, я уже слушаю.')
   if(!alive()) return false
@@ -3302,8 +3752,9 @@ async function controlPage(page,alive){
 const esc=(s)=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
 
 // ── метки: подчеркнуть · маркер · прожектор ───────────────────────────────
-// Координаты в marks.json — доли СТРАНИЦЫ. Слой меток лежит на всей книге (страница +
-// панель), поэтому доли страницы занимают её левую половину: x и ширина делятся пополам.
+// Координаты в marks.json — доли СТРАНИЦЫ. С v2.11 слой лежит ровно на странице и едет
+// вместе с листом, поэтому доли берутся как есть: делить пополам (как при развороте)
+// больше нечего.
 // След чтения: строки подсветки, их геометрия и последняя ширина линии.
 let readEls=null, readLines=null, readW=null
 // ⚠️ 13.08: чистить только разметку нельзя. readEls держит ССЫЛКИ на удалённые узлы, и
@@ -3313,13 +3764,16 @@ let readEls=null, readLines=null, readW=null
 function clearMarks(){ $('#bookMarks').innerHTML=''; readEls=null; readLines=null; readW=null }
 // -1 = этой страницы сейчас не видно (открыта другая)
 const onSheet=(page)=>+$('#leftImg').dataset.page===page ? 0 : -1
-const conv=(r)=>({ x:r[0]*50, y:r[1]*100, w:r[2]*50, h:r[3]*100 })
+const conv=(r)=>({ x:r[0]*100, y:r[1]*100, w:r[2]*100, h:r[3]*100 })
 // kind: 'under' (подчеркнуть) · 'marker' (выделить) · 'spot' (прожектор на картинку)
 function showMark(id,kind){
   const m=MARKS[id]; if(!m) return
   const s=onSheet(m.page); if(s<0) return
   clearMarks()
   const layer=$('#bookMarks'), rects=m.rects
+  // v2.11: подчёркнутое место может лежать ниже окна — сначала довозим до него лист,
+  // иначе Аня подчёркивает то, чего не видно.
+  везтиКСтроке({page:m.page,lines:rects.map(r=>({page:m.page,r}))},true)
   if(kind==='spot'){
     const c=conv(rects[0]), d=document.createElement('div')
     d.className='mk spot'
@@ -3413,10 +3867,13 @@ function showBeat(b,keepProg){
   clearMarks(); readEls=null; readLines=null; readW=null
   shownBeat=b
   if(!keepProg) lastProg=0
-  panelBeat(b)                        // правая половина живёт от того же такта
+  panelBeat(b)                        // показ и зебра живут от того же такта
   const s=onSheet(b.page); if(s<0) return
   const layer=$('#bookMarks')
   if(b.kind==='own') return
+  // v2.11: лист доезжает до читаемого места ДО того, как побегут линии — иначе линия
+  // чертится за краем окна и ребёнок не видит, где читают.
+  везтиКСтроке(b,true)
   if(b.kind==='spot'){
     const c=conv(b.box), d=document.createElement('div')
     d.className='mk spot'
@@ -5799,7 +6256,7 @@ const убратьЗагрузку=()=>{ const el=$('#boot'); if(!el) return
   try{ BLOCKS=await pBlocks; BEATS=buildBeats(BLOCKS) }
   catch(e){ скажиСтатус('не пришёл текст учебника: '+e.message,true)
     BEATS=BEATS_OWN.map(b=>({page:b.p,kind:'own',say:b.say,ask:b.ask})) }
-  paintSheet(); layout(); fit(); aim(); paintCost(); paintDots(); paintSteps()
+  paintSheet(); режимПрименить(); layout(); paintZebra(); fit(); aim(); paintCost(); paintDots(); paintSteps()
   fillVoices()
   $('#bhBase').value=localStorage.kn_bh_base||'http://localhost:8090'
   $('#bhBase').oninput=e=>{ try{ localStorage.kn_bh_base=e.target.value }catch(err){} }
@@ -5881,14 +6338,22 @@ const убратьЗагрузку=()=>{ const el=$('#boot'); if(!el) return
 window.__kniga={
   sheet:()=>({ номер:sheet, страница:PAGES[sheet], листает:flipping }),
   turn:(d)=>{ turn(d) }, goPage:(p)=>{ goPage(p) },
-  // заморозить кадр переворота: приёмке нужен ДЕТЕРМИНИРОВАННЫЙ снимок середины,
-  // иначе под swiftshader попадаешь то в начало, то в конец
-  freeze:(dir,t)=>{ const to=sheet+dir; if(to<0||to>=PAGES.length) return false
-    $('#flipBack').src=imgUrl(dir>0?PAGES[to]:PAGES[sheet]); $('#flipFront').removeAttribute('src')
-    $('#flip').style.left=$('#left').clientWidth+'px'; $('#flip').style.display='block'
-    flipFrame(dir,t); return true },
-  shade:()=>({ перед:+($('#shadeF').style.opacity||0), изнанка:+($('#shadeB').style.opacity||0),
-               падающая:+($('#castShade').style.opacity||0) }),
+  // доезд листа: приёмке нужно видеть, где стоит окно и что оно показывает
+  лист:()=>({ сдвиг:сдвиг, высотаСтраницы:высотаСтраницы(), высотаОкна:высотаОкна(),
+    предел:пределСдвига(), доляСтраницы:+(сдвиг/Math.max(1,высотаСтраницы())).toFixed(3),
+    следующая:+(($('#leftNext').getAttribute('src')||'').match(/p(\d+)\.jpg/)||[0,0])[1] }),
+  везтиК:(y)=>{ везтиК(y,false); return сдвиг },
+  // кто ведёт лист прямо сейчас: без этого «урок застрял» не отличить от «лист едет»
+  ведущий:()=>({ листает:flipping, ведёт:navBusy, цель:PAGES[wantSheet], сейчас:PAGES[sheet] }),
+  // как показываем страницу: сплошной лентой или пополам с переездом окон
+  режим:()=>({ режим:РЕЖИМ, половинки:половинкиСейчас(), половина:половина,
+    ширинаЛиста:ширинаЛиста(), рукаВедёт:рукаВедёт(),
+    полосаВидна:$('#pgScroll').classList.contains('on'),
+    дверьОбратно:$('#pgBack').classList.contains('on'),
+    ползунок:[$('#pgThumb').style.top,$('#pgThumb').style.height],
+    риска:$('#pgMark').style.display==='none'?null:$('#pgMark').style.top }),
+  режимПереключить:()=>{ режимПереключить(); return РЕЖИМ },
+  крутить:(dy)=>{ рукойКрутили(); везтиК(сдвиг+dy,false); return сдвиг },
   marks:()=>Object.keys(MARKS),
   // иллюстрации: что нашли в PDF и что уже подняли апскейлером
   figures:()=>FIGS.map(f=>({ id:f.id, стр:f.page, вучебнике:f.w+'×'+f.h,
@@ -5910,12 +6375,16 @@ window.__kniga={
   fullScript:()=>BEATS.map((b,i)=>({ n:i+1, page:b.page, kind:b.kind, ask:!!b.ask, say:b.say,
     // на каких страницах лежат строки такта: страница на экране одна, и такт, чьи строки
     // разъехались по двум, читался бы наполовину невидимым
-    pages:[...new Set((b.lines||[]).map(l=>l.page||b.page))] })),
+    pages:[...new Set((b.lines||[]).map(l=>l.page||b.page))],
+    // доля высоты страницы, на которой лежит первая строка такта: по ней приёмка
+    // (и режим половин) отличает верх страницы от низа
+    y:(b.lines&&b.lines[0]&&b.lines[0].r)?+b.lines[0].r[1].toFixed(3)
+      :(b.box?+b.box[1].toFixed(3):null) })),
   // правая половина: что показано и что уже собрано в тизеры
   panel:()=>({ показ:$('#demoCap').textContent, пояснение:$('#demoSub').textContent,
     файл:(demoImg().currentSrc||'').split('/').pop(), виден:demoImg().classList.contains('on'),
     слоёв:[...document.querySelectorAll('#demoBox .dimg.on')].length,
-    страница:+$('#keepPage').textContent,
+    раздел:ZEBRA[zСмотрим].title, номерРаздела:zСмотрим+1, идёт:zPart+1,
     тизеры:[...document.querySelectorAll('#keepList .kc')].map(e=>e.querySelector('.t').textContent),
     собрано:[...KEEP.entries()].map(([p,v])=>p+':'+v.length).join(' ') }),
   panelData:()=>({ показов:DEMOS.length, тизеров:TEASERS.length,
@@ -5930,7 +6399,7 @@ window.__kniga={
     вопрос:($('#ctrlBody').querySelector('.cq')||{}).textContent||'',
     кнопки:[...$('#ctrlBody').querySelectorAll('[data-act]')].map(b=>b.dataset.act+(b.dataset.i>=0?':'+b.dataset.i:'')),
     страницаЗакрыта:$('#veil').classList.contains('on'),
-    карточкиВидны:getComputedStyle($('#keep')).display!=='none' }),
+    карточкиВидны:!$('#zShut')||getComputedStyle($('#zShut')).display==='none' }),
   // подменить микрофон на готовый текст — следующий пересказ придёт отсюда
   hear:(t)=>{ micFake=t; return true },
   // то же для чтения вслух: подсунуть «что услышала» вместо микрофона
@@ -5956,10 +6425,12 @@ window.__kniga={
           вучебнике:дословно(x.s)||(хвост.length>30&&дословно(хвост)),
           подлежащее:!дословно(x.s)} }) } },
   // мозаика: сколько плиток и сколько уже открыто
-  mosaic:()=>({ плиток:MOS.n, открыто:MOS.open, видна:$('#mosaic').classList.contains('on'),
-    собрана:$('#mosDone').classList.contains('on'),
+  // «мозаика» осталась именем крючка: шаг тот же — читаешь вслух, и прочитанное
+  // отзывается на доске по одному факту
+  mosaic:()=>({ плиток:MOS.n, открыто:MOS.open, видна:MOS.n>0,
+    собрана:MOS.n>0&&MOS.open>=MOS.n,
     подписи:MOS.tiles.map(x=>x.t.term),
-    открытые:MOS.tiles.filter(x=>x.el.classList.contains('open')).map(x=>x.t.term) }),
+    открытые:MOS.tiles.filter(x=>!x.el.classList.contains('wait')).map(x=>x.t.term) }),
   mosaicTo:(p)=>{ mosaicTo(Math.max(0,Math.min(1,+p||0))); return MOS.open },
   // экран топиков: видно ли его, уехала ли книга и что сейчас на нём показано
   topics:()=>({ виден:$('#topics').classList.contains('on'),
@@ -6047,7 +6518,8 @@ window.__kniga={
   keepArt:()=>[...document.querySelectorAll('#keepList .kc')].map(e=>({
     термин:(e.querySelector('.t')||{}).textContent||'',
     файл:((e.querySelector('.th img')||{}).currentSrc||'').split('/').pop(),
-    значок:((e.querySelector('.th .mp')||{}).textContent)||'' })),
+    значок:((e.querySelector('.th .mp')||e.querySelector('.t .mp')||{}).textContent)||'',
+    номер:(e.querySelector('.nm')||{}).textContent||'' })),
   // все топики параграфа — для сверки покрытия картинками и цитатами
   zak:()=>Object.entries(ZAK).map(([p,v])=>({ стр:+p,
     топиков:v.terms.length,
