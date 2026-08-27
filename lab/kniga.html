@@ -232,6 +232,50 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    по бокам видно поле — пусть это будет тень книги, а не пустая дыра. */
 #read.pol #left{background:#171A22}
 
+/* ── РЕЖИМ «СРАВНЕНИЕ» (v2.11, 27.08) ─────────────────────────────────────
+   Слева только страница — во всю высоту колонки. Справа вертикаль внимания: сверху
+   показ (о чём говорят сейчас), под ним доска (что уже собрали). Экран перестаёт
+   делиться натрое, и на ноутбуке 1280×720 каждому куску наконец хватает места. */
+#stage.sravn #read>#book{flex:1}
+#stage.sravn #zebra{padding:0}
+#stage.sravn #zebra>#panel{flex:none;height:32%;min-height:0;border-radius:12px 12px 0 0;
+  box-shadow:none;border-bottom:1px solid rgba(150,132,92,.28)}
+/* доска-сравнение: сверху лента общего, ниже две колонки — Крит и Микены */
+#zebra.cmp #zHead{padding:8px 13px 7px}
+#zebra.cmp #zTitle{font-size:19px}
+#zebra.cmp #zPages{text-transform:none;letter-spacing:.1px;font-weight:600;color:#7C8496;
+  max-width:78%;line-height:1.35}
+#zebra.cmp #zBoard{overflow:hidden;display:flex;flex-direction:column}
+#zebra.cmp #keep{flex:1;min-height:0;display:flex;flex-direction:column}
+#zebra.cmp #keepList{flex:1;min-height:0;display:flex;flex-direction:column;gap:9px;column-count:auto}
+.cmpTop{flex:none}
+.cmpH{display:flex;align-items:baseline;gap:7px;margin-bottom:5px}
+.cmpH b{font:800 11px/1.2 Segoe UI;letter-spacing:1.2px;color:#3E465A;text-transform:uppercase}
+.cmpH span{font:11px/1.2 Segoe UI;color:#9A9384}
+.cmpChips{display:flex;flex-wrap:wrap;gap:4px;max-height:58px;overflow:auto;scrollbar-width:thin}
+.chip{background:#F3EDE0;border:1px solid rgba(150,132,92,.32);border-radius:99px;
+  padding:2px 8px;font:600 11px/1.3 Segoe UI;color:#4A4230;white-space:nowrap}
+.chip.fresh{background:var(--accent);border-color:var(--accent);color:#2A1F0A}
+.cmpEmpty{font:11.5px/1.4 Segoe UI;color:#A9A292;padding:3px 1px}
+.cmpCols{flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.cmpCol{min-width:0;min-height:0;display:flex;flex-direction:column;
+  border-radius:10px;padding:8px 9px;background:rgba(255,253,247,.55);
+  border:1px solid rgba(150,132,92,.22);transition:box-shadow .35s ease,border-color .35s ease}
+/* колонка, в которую сейчас кладут, чуть подсвечена: видно, про кого идёт рассказ */
+.cmpCol.now{border-color:rgba(242,163,60,.55);box-shadow:0 0 0 2px rgba(242,163,60,.16)}
+.cmpBody{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:6px;
+  padding-right:2px;scrollbar-width:thin}
+/* карточка в сравнении — короткая зарубка: миниатюра, слово и строка. Крупные плитки
+   тут не помещаются, а сравнивают всё равно по словам. */
+.kc.mini{flex:none;flex-direction:row;align-items:center;gap:7px;padding:4px 7px;
+  border-top-width:1px;border-left:3px solid var(--accent);border-radius:7px;margin:0}
+.kc.mini.plain{border-left-color:#8FA9C4}
+.kc.mini .th{width:34px;height:34px;aspect-ratio:auto;border-radius:6px}
+.kc.mini .t{font-size:12.5px}
+.kc.mini .d{font-size:11.5px;margin-top:1px}
+.kc.mini .nm{display:none}
+@media (max-height:800px){ .kc.mini .th{width:28px;height:28px} .kc.mini .d{font-size:11px} }
+
 /* ── НИЖНЯЯ ЯЧЕЙКА: показ («карта») ──────────────────────────────────────
    То, о чём говорят прямо сейчас. Та же бумага, что у страницы: показ — часть
    учебника, а не всплывшее поверх него окно. Здесь же живёт проверка. */
@@ -1380,7 +1424,7 @@ let РЕЖИМ='lenta'
 try{ if(localStorage.kn_read_mode==='pol') РЕЖИМ='pol' }catch(e){}
 // ссылкой тоже: /kniga?mode=pol — чтобы показать режим, ничего не нажимая
 try{ const м=new URLSearchParams(location.search).get('mode')
-  if(м==='pol'||м==='lenta'){ РЕЖИМ=м; localStorage.kn_read_mode=м } }catch(e){}
+  if(м==='pol'||м==='lenta'||м==='sravn'){ РЕЖИМ=м; localStorage.kn_read_mode=м } }catch(e){}
 // На проверке страницы половинки уступают: там панели нужна вся высота, а окно вообще
 // уходит. Поэтому «режим сейчас» и «выбранный режим» — разные вещи.
 const половинкиСейчас=()=>РЕЖИМ==='pol'&&!$('#panel').classList.contains('ctrl')
@@ -1542,22 +1586,30 @@ function поставитьПоловину(п,анимация){
   $('#read').classList.toggle('niz',п===1)
   везтиК(п===1?высотаСтраницы()/2:0,анимация!==false)
 }
+const ПОДПИСЬ={
+  lenta:['▥ лента','Страница едет сплошной лентой, показ под ней. Нажми — поделим страницу пополам.'],
+  pol:  ['▤ половины','Страница поделена пополам: дошли до низа — окно с текстом и показ меняются местами. Нажми — соберём всё справа.'],
+  sravn:['⇄ сравнение','Слева только страница, справа сверху показ, снизу доска: Крит и Микены в своих колонках. Нажми — вернём сплошную ленту.'],
+}
 function режимПрименить(){
   $('#read').classList.toggle('pol',РЕЖИМ==='pol')
+  $('#stage').classList.toggle('sravn',РЕЖИМ==='sravn')
+  $('#zebra').classList.toggle('cmp',РЕЖИМ==='sravn')
   if(!половинкиСейчас()) $('#read').classList.remove('niz')
+  панельНаМесто()
   подогнатьЛист()
+  paintZebra()
   const b=$('#modeBtn')
-  if(b){ b.textContent=РЕЖИМ==='pol'?'▤ половины':'▥ лента'
-         b.title=РЕЖИМ==='pol'
-           ? 'Страница поделена пополам: читаем низ — окно с текстом и показ меняются местами. Нажми, чтобы вернуть сплошную ленту.'
-           : 'Страница едет сплошной лентой. Нажми, чтобы делить её пополам и менять окна местами.' }
+  if(b){ const п=ПОДПИСЬ[РЕЖИМ]||ПОДПИСЬ.lenta; b.textContent=п[0]; b.title=п[1] }
   // перестроились — вернуть лист туда, где читают
   if(половинкиСейчас()&&shownBeat) поставитьПоловину(половина,false)
   else везтиК(сдвиг,false)
   if(shownBeat&&onSheet(shownBeat.page)===0) везтиКСтроке(shownBeat,false)
 }
+// кнопка ходит по кругу: лента → половины → сравнение → лента
+const КРУГ=['lenta','pol','sravn']
 function режимПереключить(){
-  РЕЖИМ=РЕЖИМ==='pol'?'lenta':'pol'
+  РЕЖИМ=КРУГ[(КРУГ.indexOf(РЕЖИМ)+1)%КРУГ.length]
   try{ localStorage.kn_read_mode=РЕЖИМ }catch(e){}
   ручнойДо=0
   режимПрименить()
@@ -2154,7 +2206,93 @@ function зебраПодвести(){
   const п=$('#keepList').lastElementChild
   if(п&&п.scrollIntoView) п.scrollIntoView({block:'nearest',behavior:'smooth'})
 }
+// ── ТРЕТИЙ РЕЖИМ: «СРАВНЕНИЕ» (v2.11, 27.08) ─────────────────────────────
+//  Первые два режима спорят за высоту: слева текст и показ, справа доска — на ноутбуке
+//  1280×720 всем троим тесно. Третий разводит их по сторонам:
+//    СЛЕВА  — только страница, во всю высоту колонки. Ничего не режем.
+//    СПРАВА — сверху показ (о чём говорят сейчас), под ним доска (что уже собрали).
+//             Одна вертикаль внимания вместо двух.
+//  И доска здесь другая. Главный вопрос §20 — «Что объединяло государства, сложившиеся
+//  на Крите и в Микенах?», а разбор 21.08 показал, что на сравнение урок не работает
+//  вовсе. Поэтому факты падают не в общий список, а в СВОЮ колонку: Крит или Микены,
+//  общее про Грецию — лентой сверху. К концу параграфа доска и есть готовый ответ.
+//  Раскладывать по колонкам ничего не надо: раздел, в котором факт прозвучал, уже и есть
+//  его сторона — учебник сам так поделил (Природа и жизнь · Минойская · Микенская).
+const сравнениеСейчас=()=>РЕЖИМ==='sravn'&&!$('#panel').classList.contains('ctrl')
+const CMP={ 0:{ гл:'Греция вокруг них', под:'общее для обеих' },
+            1:{ гл:'Крит', под:'минойцы' },
+            2:{ гл:'Микены', под:'ахейцы' } }
+// Показ переезжает в правую колонку — узлом, а не копией: он один на урок, и его
+// состояние (наезд карты, слои картинок) переживать переезд обязано.
+function панельНаМесто(){
+  const п=$('#panel'), надо=сравнениеСейчас()?$('#zebra'):$('#read')
+  if(п.parentNode===надо) return
+  if(надо.id==='zebra') надо.insertBefore(п,надо.firstChild)
+  else надо.appendChild(п)
+}
+function paintZebraCmp(){
+  $('#zTitle').textContent='Крит и Микены'
+  // дословный вопрос параграфа: доска собирается ровно в ответ на него
+  $('#zPages').textContent='Что объединяло государства, сложившиеся на Крите и в Микенах?'
+  const всего=[...KEEP.values()].reduce((a,b)=>a+b.length,0)
+  $('#zCount').textContent=всего?скл(всего,['факт','факта','фактов']):''
+  $('#zTabs').innerHTML=''
+  $('#zHero').classList.add('off'); zHeroFor=-1
+  const list=$('#keepList')
+  list.innerHTML=''
+  const карточка=(t,свежая)=>{
+    const d=document.createElement('div')
+    d.className='kc mini'+(свежая?' fresh':'')+(KEEPMARK.has(t.term)?' '+KEEPMARK.get(t.term):'')
+    d.dataset.term=t.term
+    const art=keepArt(t), наКарте=!art||art.startsWith('map')
+    if(!наКарте) d.appendChild(thumbNode(art)); else d.classList.add('plain')
+    const tx=document.createElement('div'); tx.className='tx'
+    const a=document.createElement('div'); a.className='t'
+    if(наКарте){ const i=document.createElement('span'); i.className='mp'
+      i.textContent='◉'; i.title='это место мы смотрели на карте'; a.appendChild(i) }
+    a.appendChild(document.createTextNode(t.term))
+    const b=document.createElement('div'); b.className='d'; b.textContent=t.txt
+    tx.appendChild(a); tx.appendChild(b); d.appendChild(tx)
+    requestAnimationFrame(()=>d.classList.add('on'))
+    return d
+  }
+  const последний=(i)=>{ const л=KEEP.get(i)||[]; return л.length?л[л.length-1].term:null }
+  const свежийРаздел=zPart
+  // верхняя лента — общее про Грецию (первый раздел учебника)
+  const общее=KEEP.get(0)||[]
+  const шапка=document.createElement('div'); шапка.className='cmpTop'
+  const зг=document.createElement('div'); зг.className='cmpH'
+  зг.innerHTML='<b>'+esc(CMP[0].гл)+'</b><span>'+esc(CMP[0].под)+'</span>'
+  шапка.appendChild(зг)
+  const лента=document.createElement('div'); лента.className='cmpChips'
+  if(!общее.length){ const e=document.createElement('div'); e.className='cmpEmpty'
+    e.textContent='сюда попадёт то, что общее для всей Греции'; лента.appendChild(e) }
+  for(const t of общее){
+    const c=document.createElement('span')
+    c.className='chip'+(t.term===последний(0)&&свежийРаздел===0?' fresh':'')
+    c.textContent=t.term; c.title=t.txt
+    лента.appendChild(c)
+  }
+  шапка.appendChild(лента); list.appendChild(шапка)
+  // две колонки — Крит и Микены
+  const кол=document.createElement('div'); кол.className='cmpCols'
+  for(const i of [1,2]){
+    const s=document.createElement('section'); s.className='cmpCol'+(свежийРаздел===i?' now':'')
+    const h=document.createElement('div'); h.className='cmpH'
+    h.innerHTML='<b>'+esc(CMP[i].гл)+'</b><span>'+esc(CMP[i].под)+'</span>'
+    s.appendChild(h)
+    const тело=document.createElement('div'); тело.className='cmpBody'
+    const списк=KEEP.get(i)||[]
+    if(!списк.length){ const e=document.createElement('div'); e.className='cmpEmpty'
+      e.textContent=zPart<i?'сюда ещё не дошли':'пока пусто'; тело.appendChild(e) }
+    for(const t of списк) тело.appendChild(карточка(t,t.term===последний(i)&&свежийРаздел===i))
+    s.appendChild(тело); кол.appendChild(s)
+  }
+  list.appendChild(кол)
+  requestAnimationFrame(зебраПодвести)
+}
 function paintZebra(){
+  if(сравнениеСейчас()) return paintZebraCmp()
   const z=ZEBRA[zСмотрим], items=KEEP.get(zСмотрим)||[]
   $('#zTitle').textContent=z.title
   $('#zPages').textContent=z.pages
@@ -3213,6 +3351,9 @@ function ctrlBody(html){ ctrlQ=[]; $('#ctrlBody').innerHTML=html }
 function ctrlStep(s,head,label){
   CTRL.stage=s
   $('#panel').className='pg ctrl st-'+s
+  // ⚠️ В режиме сравнения показ живёт в правой колонке, а проверке нужна левая: на
+  //  время проверки он возвращается к странице и уходит обратно, когда она кончится.
+  панельНаМесто()
   $('#ctrlHead').textContent=head
   $('#ctrlStep').textContent=label||''
   // внизу во время проверки должно быть написано про проверку, а не «читаю 11 из 70»
@@ -3238,6 +3379,7 @@ $('#ctrlBody').addEventListener('click',(e)=>{
   ctrlDone({act:el.dataset.act, i:+(el.dataset.i||-1)})
 })
 function ctrlOff(){
+  setTimeout(панельНаМесто,0)   // проверка кончилась — показ возвращается в свою колонку
   CTRL.on=false; CTRL.expect=null; ctrlDone(null); veil(false)
   mosaicOff(); topicsHide()          // книга обязана вернуться, чем бы ни кончилась проверка
   $('#panel').className='pg'; $('#ctrlBody').innerHTML=''
@@ -6343,6 +6485,7 @@ window.__kniga={
     предел:пределСдвига(), доляСтраницы:+(сдвиг/Math.max(1,высотаСтраницы())).toFixed(3),
     следующая:+(($('#leftNext').getAttribute('src')||'').match(/p(\d+)\.jpg/)||[0,0])[1] }),
   везтиК:(y)=>{ везтиК(y,false); return сдвиг },
+  панельНаМесто:()=>{ панельНаМесто(); return $('#panel').parentNode.id },
   // кто ведёт лист прямо сейчас: без этого «урок застрял» не отличить от «лист едет»
   ведущий:()=>({ листает:flipping, ведёт:navBusy, цель:PAGES[wantSheet], сейчас:PAGES[sheet] }),
   // как показываем страницу: сплошной лентой или пополам с переездом окон
@@ -6432,6 +6575,9 @@ window.__kniga={
     подписи:MOS.tiles.map(x=>x.t.term),
     открытые:MOS.tiles.filter(x=>!x.el.classList.contains('wait')).map(x=>x.t.term) }),
   mosaicTo:(p)=>{ mosaicTo(Math.max(0,Math.min(1,+p||0))); return MOS.open },
+  // доля произнесённого такта: без звука прогресса нет, и показы с карточками,
+  // привязанные к середине реплики, не срабатывают — приёмке нужен этот рычаг
+  тактДо:(p)=>{ panelTick(Math.max(0,Math.min(1,+p||0))); return true },
   // экран топиков: видно ли его, уехала ли книга и что сейчас на нём показано
   topics:()=>({ виден:$('#topics').classList.contains('on'),
     книгаУехала:$('#book').classList.contains('away'),
