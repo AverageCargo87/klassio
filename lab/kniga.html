@@ -166,7 +166,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
   grid-template-columns:minmax(0,1.16fr) minmax(0,1fr)}
 #read{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;gap:12px}
 /* ОКНО. Высота — сколько дадут: лист внутри длиннее и едет за голосом. */
-#book{position:relative;flex:1.24;min-height:0;border-radius:8px;overflow:hidden;
+#book{position:relative;flex:1.3;min-height:0;border-radius:8px;overflow:hidden;
   filter:drop-shadow(0 18px 34px rgba(0,0,0,.45))}
 .pg{position:relative;background:var(--paper);overflow:hidden}
 #left{position:absolute;inset:0;border-radius:8px}
@@ -240,7 +240,9 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 .msw+.msw{border-left:1px solid var(--line)}
 .msw:hover{background:#2B3145;color:#D7DDEA}
 .msw.on{background:var(--accent);color:#2A1F0A}
-@media (max-width:1180px){ .msw{padding:7px 7px;font-size:11px} }
+.msw .sl{display:none}
+.msw.on .sl{display:inline}
+@media (max-width:1180px){ .msw{padding:7px 7px;font-size:12px} }
 
 /* ── РЕЖИМ «СРАВНЕНИЕ» (v2.11, 27.08) ─────────────────────────────────────
    Слева только страница — во всю высоту колонки. Справа вертикаль внимания: сверху
@@ -289,7 +291,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 /* ── НИЖНЯЯ ЯЧЕЙКА: показ («карта») ──────────────────────────────────────
    То, о чём говорят прямо сейчас. Та же бумага, что у страницы: показ — часть
    учебника, а не всплывшее поверх него окно. Здесь же живёт проверка. */
-#panel{flex:1.16;min-height:0;border-radius:8px;box-shadow:0 14px 28px rgba(0,0,0,.34);
+#panel{flex:1.1;min-height:0;border-radius:8px;box-shadow:0 14px 28px rgba(0,0,0,.34);
   background:linear-gradient(180deg,#FCFAF5,#F4F0E6);display:flex;flex-direction:column;
   padding:12px 14px;gap:8px;color:#2A2B31}
 #panel .zh{flex:none;display:flex;align-items:center;gap:7px;font:700 11.5px/1 Segoe UI;
@@ -353,12 +355,21 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    поверх него окно. На тесте забирает панель целиком (тизеры прячем — это
    готовые ответы), на чтении и пересказе делит её с ними. */
 #ctrl{display:none;flex-direction:column;min-height:0}
-#read:has(#panel.ctrl) #book{flex:.95}
-#read:has(#panel.ctrl) #panel{flex:1.7}
+#book,#panel{transition:flex-grow .45s cubic-bezier(.32,.72,.28,1)}
+#read:has(#panel.ctrl) #book{flex:.75}
+#read:has(#panel.ctrl) #panel{flex:1.9}
+/* Закрытые шаги (пересказ, тест, тренажёр, итог страницы): окно остаётся на экране
+   узкой полосой с ширмой — так ребёнок видит, что учебник никуда не делся, а экран
+   не перекраивается на каждой проверке. */
 #read:has(#panel.st-tell) #book,#read:has(#panel.st-test) #book,
-#read:has(#panel.st-drill) #book,#read:has(#panel.st-done) #book{display:none}
+#read:has(#panel.st-drill) #book,#read:has(#panel.st-done) #book{flex:.22}
 #read:has(#panel.st-tell) #panel,#read:has(#panel.st-test) #panel,
-#read:has(#panel.st-drill) #panel,#read:has(#panel.st-done) #panel{flex:3.4}
+#read:has(#panel.st-drill) #panel,#read:has(#panel.st-done) #panel{flex:3.1}
+/* под ширмой саму страницу прячем: обрывок текста под плашкой читается как поломка */
+#read:has(#panel.st-tell) #sheet,#read:has(#panel.st-test) #sheet,
+#read:has(#panel.st-drill) #sheet,#read:has(#panel.st-done) #sheet,
+#read:has(#panel.st-tell) #pgScroll,#read:has(#panel.st-test) #pgScroll,
+#read:has(#panel.st-drill) #pgScroll,#read:has(#panel.st-done) #pgScroll{opacity:0}
 #panel.ctrl #demo{display:none}
 #panel.ctrl #ctrl{display:flex;flex:1.5}
 /* ⚠️ Зебра — это и есть активный словарь раздела. На пересказе, тесте и тренажёре
@@ -395,6 +406,8 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 /* на тесте панель занята одним вопросом — ставим его по центру листа, иначе низ пустует */
 #panel.st-test #ctrlBody,#panel.st-done #ctrlBody{justify-content:center}
 #ctrlBody{width:100%;max-width:860px;margin:0 auto}
+#panel.st-drill #ctrlBody,#panel.st-pre #ctrlBody,#panel.st-howto #ctrlBody{
+  display:flex;flex-direction:column;justify-content:center}
 .cq{font:800 15px/1.35 Segoe UI;color:#233047}
 .chint{font:13px/1.4 Segoe UI;color:#6B7183}
 .copt{text-align:left;padding:9px 12px;border-radius:9px;border:1px solid rgba(150,132,92,.32);
@@ -469,13 +482,30 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #zRead.done{color:#4A7C4E}
 
 /* закрытая страница */
-#veil{position:absolute;left:0;top:0;bottom:0;z-index:6;border-radius:6px 0 0 6px;
+#veil{position:absolute;inset:0;z-index:6;border-radius:8px;
   background:linear-gradient(180deg,#262936,#1C1F2A);backdrop-filter:blur(6px);
   display:flex;align-items:center;justify-content:center;text-align:center;
   color:#C9C3B4;font:14px/1.7 Segoe UI;opacity:0;transition:opacity .35s ease}
 #veil.off{display:none}
 #veil.on{opacity:1}
 #veil b{display:block;font-size:17px;color:#E8E4DC;margin-bottom:2px}
+/* На закрытых шагах окно — узкая полоса: там помещается ровно одна строка. Двухэтажная
+   надпись в ней обрезалась по буквам и читалась как поломка (Кратов 27.08). */
+#read:has(#panel.st-tell) #veil,#read:has(#panel.st-test) #veil,
+#read:has(#panel.st-drill) #veil,#read:has(#panel.st-done) #veil{font-size:12.5px;
+  letter-spacing:.2px;padding:0 12px}
+#read:has(#panel.st-tell) #veil b,#read:has(#panel.st-test) #veil b,
+#read:has(#panel.st-drill) #veil b,#read:has(#panel.st-done) #veil b{display:inline;
+  font-size:13px;margin:0 7px 0 0}
+#read:has(#panel.st-tell) #veil br,#read:has(#panel.st-test) #veil br,
+#read:has(#panel.st-drill) #veil br,#read:has(#panel.st-done) #veil br{display:none}
+/* и сама полоса — тёмная: бумага под ширмой просвечивала белым обрубком */
+#read:has(#panel.st-tell) #left,#read:has(#panel.st-test) #left,
+#read:has(#panel.st-drill) #left,#read:has(#panel.st-done) #left{background:#1A1D26}
+#read:has(#panel.st-tell) #pgNum,#read:has(#panel.st-test) #pgNum,
+#read:has(#panel.st-drill) #pgNum,#read:has(#panel.st-done) #pgNum{opacity:0}
+#read:has(#panel.st-tell) #pgFade,#read:has(#panel.st-test) #pgFade,
+#read:has(#panel.st-drill) #pgFade,#read:has(#panel.st-done) #pgFade{opacity:0}
 
 /* ── ЗЕБРА: доска раздела (v2.11) ────────────────────────────────────────
    Заказ Кратова 26.08: «постепенно появляется новая информация — и не исчезает;
@@ -539,6 +569,10 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 .kc.wide .tx{flex:1;min-width:0}
 .kc.wide .t{font-size:15px}
 .kc.fresh{box-shadow:0 0 0 3px rgba(242,163,60,.26),0 2px 6px rgba(80,66,40,.10)}
+/* «сейчас говорят про это»: карточка, чья картинка стоит на показе. Тихая пометка —
+   доска не должна мигать, она должна совпадать с серединой экрана. */
+.kc.now{border-color:rgba(242,163,60,.75);background:#FFF9EC}
+.kc.now .t{color:#6A4A12}
 /* карточка, которую разбирают прямо сейчас: разбор слева, факт справа */
 .kc.now{box-shadow:0 0 0 3px rgba(74,144,226,.45),0 4px 12px rgba(40,60,90,.18)}
 .kc.now .nm{background:#4A90E2;color:#F2F8FF}
@@ -1212,9 +1246,9 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
       <!-- ТРИ вида одного и того же урока. Не разные сборки — переключается прямо
            посреди чтения, одним нажатием, и выбор помнится между запусками. -->
       <div id=modeSw role=group aria-label="вид экрана">
-        <button class="msw on" data-m=lenta title="Страница едет сплошной лентой, показ под ней">▥ лента</button>
-        <button class=msw data-m=pol title="Страница пополам: дошли до низа — текст и показ меняются местами">▤ половины</button>
-        <button class=msw data-m=sravn title="Слева страница целиком, справа показ и доска: Крит и Микены по колонкам">⇄ сравнение</button>
+        <button class="msw on" data-m=lenta title="Страница едет сплошной лентой, показ под ней">▥ <span class=sl>лента</span></button>
+        <button class=msw data-m=pol title="Страница пополам: дошли до низа — текст и показ меняются местами">▤ <span class=sl>половины</span></button>
+        <button class=msw data-m=sravn title="Слева страница целиком, справа показ и доска: Крит и Микены по колонкам">⇄ <span class=sl>сравнение</span></button>
       </div>
       <!-- ЗАМЕЧАНИЕ ПРЯМО ИЗ УРОКА. На витрине форма тоже есть, но там руководителю
            придётся вспоминать, где именно ему что-то не понравилось. Отсюда замечание
@@ -1659,6 +1693,9 @@ for(const b of document.querySelectorAll('#modeSw .msw'))
   b.onclick=()=>режимСтавить(b.dataset.m)
 
 function paintSheet(){
+  // ⚠️ Ждущие карточки принадлежат ПРОШЛОЙ странице: если их не выпустить, они встанут
+  //  на доску уже под чужой текст. Смена страницы всегда закрывает очередь.
+  if(typeof сливДоски==='function') сливДоски()
   const p=PAGES[sheet]
   const надо=imgUrl(p)
   // ⚠️ Ставим src ВСЕГДА, а не только на переходе: пустая картинка схлопывает свою
@@ -2121,6 +2158,10 @@ function showDemo(d){
 }
 function applyDemo(d){
   demoNow=d.art+'|'+d.cap; demoAt=performance.now(); demoPageNow=d.page||demoPageNow
+  // картинка доехала — факты, которые её ждали, встают на доску, и подсвечивается тот,
+  // о котором говорят прямо сейчас: средний и правый экраны показывают одно и то же
+  былПоказан.add(d.art); синхроСобытие('показ',d.art,d.cap||'')
+  setTimeout(()=>{ проверитьДоску(); подсветитьНаДоске(d.art) },0)
   // 'map' и 'map:<метка>' — подробная Греция, 'map-europe[:<метка>]' — обзорная Европа
   if(d.art==='map'||d.art.startsWith('map:')||d.art.startsWith('map-europe')) return showMapDemo(d)
   $('#demoMap').classList.remove('on')
@@ -2189,7 +2230,66 @@ function keepArt(t){
   const z=zakOf(t.page,t.term)
   return (z&&z.art)||t._art||''
 }
+// 🔴 Кратов 27.08: «средний и правый экраны немного не синхронизированы между собой».
+//  Замер подтвердил и объяснил: показ держится не меньше DEMO_MIN (2.5 с) и лишние
+//  картинки ждут очереди, а карточки ложились на доску МГНОВЕННО. Выходило, что на
+//  показе «Лес на корабли», а справа в это время встают «Оливы и виноград», «Глина и
+//  посуда», «Камень и мрамор» — правый экран убегал от среднего на три-четыре шага.
+//  Теперь карточка ждёт СВОЮ картинку: пока её показ стоит в очереди, она не выходит.
+//  Показ доехал — факт встал рядом. Если показа у факта нет (или он давно прошёл),
+//  карточка выходит сразу; срок в три секунды страхует от зависания очереди.
+// ⚠️ Замер 27.08 показал точнее: карточка выходила на ОДИН ШАГ РАНЬШЕ своей картинки.
+//  Привязка факта считается по КОНЦУ фразы, а показ к тому же месту встаёт следующим —
+//  на экране «Север Греции», а справа уже «Оливы и виноград», и только потом оливы
+//  появляются на показе. Значит ждать надо не очереди, а того, что картинка факта
+//  СТАНЕТ ТЕКУЩЕЙ (или уже была показана раньше).
+// Ждать стоит долго: картинка темы приходит на показ через такт-другой после того,
+// как факт прозвучал (привязка факта — по концу фразы, показ — по началу следующей).
+// Двенадцать секунд — это три-четыре такта; дальше ждать бессмысленно, факт уже далеко.
+// Журнал «что и когда вышло на экран»: по нему приёмка считает, насколько средний и
+// правый экраны идут в ногу. Кольцо на 400 записей — памяти не жалко, а без него
+// синхронность приходится мерить опросом, и сам опрос сдвигает картину.
+const СИНХРО=[]
+const синхроСобытие=(тип,art,имя)=>{ СИНХРО.push({t:Math.round(performance.now()),тип,art:art||'',имя:имя||''})
+  if(СИНХРО.length>400) СИНХРО.shift() }
+const ДОСКА_СРОК = 9000
+let keepQ = [], keepWait = 0
+const былПоказан = new Set()
+function вОчередьНаДоску(t){
+  // ⚠️ Ждать надо ровно ТУ картинку, которая окажется на карточке. Сначала очередь
+  //  ждала `t._art` — показ, сработавший перед фактом в этой же реплике, — а рисовался
+  //  `keepArt(t)` из zakrep.json. Картинки разные, и синхронности не выходило.
+  keepQ.push({ t, art:(keepArt(t)||'').split('|')[0], срок:performance.now()+ДОСКА_СРОК })
+  проверитьДоску()
+}
+// выпустить всё, что ждёт: страница сменилась или урок перескочил
+function сливДоски(){
+  clearTimeout(keepWait); keepWait=0
+  while(keepQ.length) addKeep(keepQ.shift().t)
+}
+function проверитьДоску(){
+  clearTimeout(keepWait); keepWait = 0
+  const текущий = (demoNow||'').split('|')[0]
+  while(keepQ.length){
+    const q = keepQ[0]
+    // Ждём ровно один случай: картинка факта СТОИТ В ОЧЕРЕДИ показа и вот-вот выедет.
+    // Если она уже на экране, уже была или её вовсе не будет — держать факт незачем.
+    const едет = q.art && q.art !== текущий && demoQ.some(d => d.art === q.art)
+    if(едет && performance.now() < q.срок) break
+    keepQ.shift(); addKeep(q.t)
+  }
+  if(keepQ.length) keepWait = setTimeout(проверитьДоску, 240)
+}
 function addKeep(t){
+  // Последний шаг к тому, чтобы средний и правый экраны говорили об одном: если факт
+  // встал на доску, а его картинки на показе нет и не едет — показ её подхватывает.
+  // Только фотографии: карту дёргать наездом ради миниатюры нельзя, она ведёт свой
+  // рассказ (правка 13.08 «карта мечется» — возвращать её нельзя).
+  const артФакта=(keepArt(t)||'').split('|')[0]
+  if(артФакта&&!артФакта.startsWith('map')&&артФакта!==(demoNow||'').split('|')[0]
+     &&!demoQ.some(d=>d.art===артФакта))
+    showDemo({ art:артФакта, cap:String(t.term||'').toUpperCase(), sub:t.txt||'', page:t.page })
+  синхроСобытие('карточка',артФакта,t.term)
   if(!KEEP.has(zPart)) KEEP.set(zPart,[])
   KEEP.get(zPart).push(t)
   zСмотрим=zPart                       // новый факт возвращает взгляд на текущую доску
@@ -2268,6 +2368,7 @@ function paintZebraCmp(){
     d.className='kc mini'+(свежая?' fresh':'')+(KEEPMARK.has(t.term)?' '+KEEPMARK.get(t.term):'')
     d.dataset.term=t.term
     const art=keepArt(t), наКарте=!art||art.startsWith('map')
+    d.dataset.art=art||''
     if(!наКарте) d.appendChild(thumbNode(art)); else d.classList.add('plain')
     const tx=document.createElement('div'); tx.className='tx'
     const a=document.createElement('div'); a.className='t'
@@ -2314,6 +2415,15 @@ function paintZebraCmp(){
   list.appendChild(кол)
   requestAnimationFrame(зебраПодвести)
 }
+// Карточка, о которой говорят прямо сейчас (её картинка на показе), помечается: так
+// видно, что доска справа — про то же, что и экран в середине.
+function подсветитьНаДоске(art){
+  const цель=(art||'').split('|')[0]
+  for(const el of document.querySelectorAll('#keepList .kc')){
+    const свой = el.dataset.art && el.dataset.art === цель
+    el.classList.toggle('now', !!свой)
+  }
+}
 function paintZebra(){
   if(сравнениеСейчас()) return paintZebraCmp()
   const z=ZEBRA[zСмотрим], items=KEEP.get(zСмотрим)||[]
@@ -2347,7 +2457,7 @@ function paintZebra(){
     const art=keepArt(t), наКарте=!art||art.startsWith('map')
     if(!наКарте) d.appendChild(thumbNode(art)); else d.classList.add('plain')
     const nm=document.createElement('span'); nm.className='nm'; nm.textContent=i+1
-    d.appendChild(nm); d.dataset.term=t.term
+    d.appendChild(nm); d.dataset.term=t.term; d.dataset.art=art||''
     const tx=document.createElement('div'); tx.className='tx'
     const a=document.createElement('div'); a.className='t'
     if(наКарте){ const i=document.createElement('span'); i.className='mp'
@@ -2384,9 +2494,19 @@ function panelBeat(b){
   zebraBeat(b)                        // раздел учебника мог смениться этой же репликой
   PLAN={items:[],fired:new Set()}
   for(const d of DEMOS){ const a=at(d._re,false); if(a!==null) PLAN.items.push({a,kind:'demo',x:d}) }
+  // 🔴 Кратов 27.08: «средний и правый экраны не синхронизированы». Причина оказалась в
+  //  привязках, а не в механике: факт привязан к строке, где он НАЗВАН, а показ с его
+  //  картинкой стоит в другом месте страницы — карта трёх частей идёт вторым показом, а
+  //  карточка «Три части Греции» ложилась по концу фразы, когда на экране уже перешеек.
+  //  Поэтому карточку ведёт ЕЁ ПОКАЗ: если у факта есть картинка и на странице есть показ
+  //  с ней, карточка встаёт в том же месте реплики, что и он. Своя привязка остаётся
+  //  запасной — для фактов без картинки (их на параграф три).
   for(const t of TEASERS){
     if(keepFired.has(t.page+'|'+t.term)) continue
-    const a=at(t._re,true); if(a!==null) PLAN.items.push({a,kind:'keep',x:t})
+    const art=(keepArt(t)||'').split('|')[0]
+    const свой=art?DEMOS.find(d=>d.art===art&&(d.page||t.page)===t.page):null
+    const a=свой?at(свой._re,false):at(t._re,true)
+    if(a!==null) PLAN.items.push({a,kind:'keep',x:t})
   }
   PLAN.items.sort((p,q)=>p.a-q.a)
   panelTick(0)          // то, что стоит в самом начале реплики, показываем сразу
@@ -2395,6 +2515,7 @@ function panelBeat(b){
 function panelTick(prog){
   if(!PLAN) return
   let show=null
+  const ждут=[]
   PLAN.items.forEach((it,i)=>{
     if(PLAN.fired.has(i)||it.a>prog) return
     PLAN.fired.add(i)
@@ -2409,12 +2530,17 @@ function panelTick(prog){
       for(let j=i-1;j>=0;j--) if(PLAN.items[j].kind==='demo'){ a=PLAN.items[j].x.art; break }
       it.x._art=a||(demoNow?demoNow.split('|')[0]:'')
     }
-    if(!keepFired.has(k)){ keepFired.add(k); addKeep(it.x) }
+    if(!keepFired.has(k)){ keepFired.add(k); ждут.push(it.x) }
   })
+  // ⚠️ ПОРЯДОК: сначала ставим показ, потом отдаём факты доске. Иначе карточка попадала
+  //  в очередь раньше, чем её картинка вообще была запланирована, и очередь честно
+  //  решала, что ждать нечего — правый экран снова убегал от среднего.
   if(show) showDemo(show)
+  for(const t of ждут) вОчередьНаДоску(t)
 }
 function resetPanel(){
   KEEP.clear(); KEEPMARK.clear(); keepFired=new Set(); demoNow=''; PLAN=null
+  keepQ=[]; clearTimeout(keepWait); keepWait=0; былПоказан.clear()
   demoAt=0; demoPageNow=0; clearTimeout(demoWait); demoWait=0; demoQ=[]
   $('#demoMap').classList.remove('on'); if(MAPS.demo.svg) mapAim(MAPS.demo,'')
   mosaicOff(); topicsHide()
@@ -6553,6 +6679,20 @@ window.__kniga={
     раздел:ZEBRA[zСмотрим].title, номерРаздела:zСмотрим+1, идёт:zPart+1,
     тизеры:[...document.querySelectorAll('#keepList .kc')].map(e=>e.querySelector('.t').textContent),
     собрано:[...KEEP.entries()].map(([p,v])=>p+':'+v.length).join(' ') }),
+  // что СЕЙЧАС на показе и что ждёт очереди — для замера синхронности с доской
+  показСейчас:()=>({ art:(demoNow||'').split('|')[0], подпись:$('#demoCap').textContent,
+    вОчередиПоказов:demoQ.map(d=>d.art), ждутДоски:keepQ.map(q=>q.t.term+'→'+q.art),
+    наДоске:[...document.querySelectorAll('#keepList .kc')].map(e=>e.dataset.term+'→'+(e.dataset.art||'')),
+    подсвечено:[...document.querySelectorAll('#keepList .kc.now')].map(e=>e.dataset.term) }),
+  // насколько правый экран идёт в ногу со средним: для каждой карточки — ближайший по
+  // времени показ с той же картинкой
+  синхро:()=>{ const пок=СИНХРО.filter(x=>x.тип==='показ')
+    return СИНХРО.filter(x=>x.тип==='карточка').map(k=>{
+      if(!k.art) return { карточка:k.имя, разрыв:0, безКартинки:true }
+      const свой=пок.filter(p=>p.art===k.art)
+      if(!свой.length) return { карточка:k.имя, разрыв:null, показаНеБыло:true }
+      const d=свой.map(p=>p.t-k.t).sort((a,b)=>Math.abs(a)-Math.abs(b))[0]
+      return { карточка:k.имя, разрыв:d } }) },
   panelData:()=>({ показов:DEMOS.length, тизеров:TEASERS.length,
     файлы:[...new Set(DEMOS.map(d=>artUrl(d.art)))] }),
   // ── проверка страницы: приёмка обязана уметь пройти её без человека ──
