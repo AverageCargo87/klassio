@@ -478,12 +478,45 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #read:has(#panel.st-sum) #panel,#read:has(#panel.st-read) #panel{flex:2}
 #read:has(#panel.st-sum) #book,#read:has(#panel.st-read) #book{flex:.8}
 #panel.ctrl.st-sum #demo,#panel.ctrl.st-read #demo{display:flex;flex:1;flex-direction:column}
+/* 🔴 01.09: кадр показа обязан оставаться ГОРИЗОНТАЛЬНЫМ. flex:none — чтобы коробка
+   не растягивалась на всю высоту колонки; aspect-ratio 16/9 — та пропорция, в которой
+   сделаны все иллюстрации урока (1280×720). max-height страхует низкие экраны: там
+   коробка сожмётся, но картинку резать будет сверху и снизу, а не в вертикальную
+   полосу. Прижата к верху: под ней подпись, а дальше место текста. */
+#panel.ctrl.st-sum #demoBox,#panel.ctrl.st-read #demoBox{
+  flex:none;width:100%;aspect-ratio:16/9;max-height:min(52vh,100%);background:#F1ECE0}
+/* Картинка вписывается целиком и держит свою пропорцию: на этих шагах её
+   рассматривают, а не используют как фон. Наезд (kenburns) тут тоже лишний —
+   он оживляет кадр в ленте урока, а под текстом выжимки просто отвлекает. */
+#panel.ctrl.st-sum .dimg,#panel.ctrl.st-read .dimg{object-fit:contain;animation:none}
+#panel.ctrl.st-sum .dimg.on,#panel.ctrl.st-read .dimg.on{animation:none;transform:none}
 #panel.ctrl.st-sum #demoBox:after,#panel.ctrl.st-read #demoBox:after{display:none}
 #panel.ctrl.st-sum #demoCap,#panel.ctrl.st-read #demoCap{position:static;padding:7px 0 0;
   color:#233047;font-size:14px}
 #panel.ctrl.st-sum #demoSub,#panel.ctrl.st-read #demoSub{position:static;padding:2px 0 0;
   color:#6B7183;white-space:normal}
-#panel.ctrl.st-sum #ctrl,#panel.ctrl.st-read #ctrl{flex:1.55}
+/* Доли колонок на самари и чтении вслух. Было 1.55 против 1 в пользу текста — при
+   честной пропорции 16:9 картинка от этого выходила 171×96, и рассматривать в ней
+   было нечего. Текст здесь короткий (выжимка в несколько строк), поэтому делим
+   почти поровну; на широком экране показу отдаём чуть больше. */
+#panel.ctrl.st-sum #ctrl,#panel.ctrl.st-read #ctrl{flex:1.15}
+#panel.ctrl.st-sum #demo,#panel.ctrl.st-read #demo{flex:1}
+@media (min-width:1500px){
+  #panel.ctrl.st-sum #demo,#panel.ctrl.st-read #demo{flex:1.25}
+  #panel.ctrl.st-sum #ctrl,#panel.ctrl.st-read #ctrl{flex:1}
+}
+/* Узкий экран (ноутбук 1280): в строку кадру не хватает ширины — ставим его НАД
+   текстом во всю ширину панели. Пропорцию тут держим не жёсткие 16:9, а половину
+   высоты панели: получается широкая полоса, картинка обрезается сверху и снизу
+   мягко, а не сжимается в столбик. */
+@media (max-width:1499px){
+  #panel.ctrl.st-sum,#panel.ctrl.st-read{flex-direction:column;gap:9px}
+  /* половину высоты панели — кадру, остальное тексту выжимки */
+  #panel.ctrl.st-sum #demo,#panel.ctrl.st-read #demo{flex:0 0 48%;min-height:0}
+  #panel.ctrl.st-sum #ctrl,#panel.ctrl.st-read #ctrl{flex:1;min-height:0}
+  #panel.ctrl.st-sum #demoBox,#panel.ctrl.st-read #demoBox{
+    flex:1;aspect-ratio:auto;max-height:none}
+}
 #panel .dot.c{background:#6FA8DC}
 #ctrlStep{margin-left:auto;color:#9A9384;letter-spacing:.2px}
 #ctrlBody{flex:1;min-height:0;display:flex;flex-direction:column;gap:9px;overflow:auto}
