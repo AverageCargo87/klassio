@@ -1,6 +1,6 @@
 <!doctype html><html lang=ru><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>v2.11 · УЧЕБНИК · §20 · урок с ИИ-учителем</title>
+<title>v2.12 · УЧЕБНИК · §20 · урок с ИИ-учителем</title>
 <!-- ВЕРСИЯ СБОРКИ. Стоит и в заголовке вкладки, и плашкой в нижней панели: по скриншоту
      должно быть видно, о какой версии речь. Журнал версий — .planning/KNIGA-VERSIONS.md,
      прошлые сборки открываются по /kniga/v1. Меняя версию — правь оба места и журнал. -->
@@ -32,12 +32,81 @@
 :root{
   --bg:#171922; --panel:#20232E; --line:#333748; --ink:#E8E4DC; --dim:#9A9384;
   --accent:#F2A33C; --ok:#8FD08A; --paper:#fff;
+
+  /* ── ЯЗЫК ДВИЖЕНИЯ (v2.12) ─────────────────────────────────────────────
+     🔴 Кратов 31.08: «не хватает большей анимации информации в блоках; посмотрите,
+     как в вебе делают сложную анимацию».
+     Раньше движение назначалось по месту: пять разных кривых, длительности на глаз,
+     и главное — «пришло НОВОЕ» выглядело так же, как «изменилось старое». Поэтому
+     заводим словарь и дальше говорим только на нём.
+
+     ЧЕТЫРЕ СКОРОСТИ. Верхняя граница взята не с потолка: голос читает ~1 такт в
+     6–10 с, и всё движение обязано уложиться в паузу между смыслами, иначе оно
+     спорит с речью (Mayer, temporal contiguity).
+       --миг    отклик на руку: нажатие, наведение. Быстрее человек не заметит.
+       --шаг    смена состояния у того, что уже на экране.
+       --приход появление новой информации. Столько глаз успевает довести до места.
+       --путь   перелёт через экран: показ → карточка. Дольше — читается как задержка.
+
+     ТРИ КРИВЫЕ.
+       --вход   быстро стартует, мягко тормозит: предмет ПРИЕХАЛ и встал.
+       --выход  наоборот: уходящее не должно тянуть на себя взгляд.
+       --живая  linear()-пружина с одним коротким доводом. Даёт вес: карточка не
+                «проявляется», а КЛАДЁТСЯ на доску. Двух колебаний не берём —
+                на детском экране это уже игрушка, а не учебник.
+
+     СТАГГЕР — шаг задержки внутри одной группы (слои карточки, варианты ответа).
+     Меньше 40 мс не читается как очередь, больше 90 — распадается на отдельные
+     события и начинает раздражать. */
+  --миг:.14s; --шаг:.28s; --приход:.42s; --путь:.62s; --уход:.22s;
+  --вход:cubic-bezier(.22,.68,.24,1);
+  --выход:cubic-bezier(.55,.06,.68,.19);
+  --живая:linear(0,.006,.026 2.8%,.096 5.6%,.335 12%,.5 16%,.638 19.9%,.749 24%,
+    .83 27.9%,.895 32.2%,.94 36.6%,.972 41.5%,.996 48.1%,1.007 55.1%,1.005 65%,1);
+  --стаггер:56ms;
 }
+/* Урок идёт сорок минут, ребёнок один за ноутбуком. Если система просит меньше
+   движения (укачивает, вестибулярная чувствительность) — движение обязано
+   исчезнуть, а информация остаться: всё, что появлялось перелётом, просто
+   появляется. Ни один класс при этом не снимается, поэтому приёмка не ломается. */
+@media (prefers-reduced-motion:reduce){
+  :root{ --миг:.01s; --шаг:.01s; --приход:.01s; --путь:.01s; --уход:.01s;
+    --вход:linear; --выход:linear; --живая:linear; --стаггер:0ms }
+  *,*:before,*:after{ animation-duration:.01ms !important; animation-iteration-count:1 !important;
+    scroll-behavior:auto !important }
+  .призрак{ display:none !important }
+}
+/* тот же выключатель, но по нашему рычагу: тумблер «спокойно» или ?anim=0 */
+:root.покой{ --миг:.01s; --шаг:.01s; --приход:.01s; --путь:.01s; --уход:.01s;
+  --вход:linear; --выход:linear; --живая:linear; --стаггер:0ms }
+:root.покой *,:root.покой *:before,:root.покой *:after{
+  animation-duration:.01ms !important; animation-iteration-count:1 !important }
+:root.покой .призрак{ display:none !important }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%,#232636,#141620 70%);
   color:var(--ink);font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
 #app{display:flex;height:100%;gap:0}
 
+/* ── ПЕРЕЕЗД ВИДОВ ЭКРАНА (v2.12) ────────────────────────────────────────
+   Три работы урока получают имена, и браузер узнаёт их по обе стороны смены вида:
+   окно в страницу, показ и доска не исчезают и не появляются заново — они едут на
+   новые места и в новые размеры. Имена уникальны, каждый блок на экране один.
+   ⚠️ Имя нельзя давать тому, что при смене вида пропадает совсем: браузер будет
+   ждать пару и доиграет уход впустую. Поэтому имён ровно три. */
+#book{view-transition-name:окно}
+#teacher{view-transition-name:учитель}
+#panel{view-transition-name:показ}
+#zebra{view-transition-name:доска}
+::view-transition-group(учитель){animation-duration:var(--путь);animation-timing-function:var(--вход)}
+::view-transition-old(учитель),::view-transition-new(учитель){animation:none;height:100%}
+::view-transition-group(окно),::view-transition-group(показ),::view-transition-group(доска){
+  animation-duration:var(--путь);animation-timing-function:var(--вход)}
+/* Содержимое внутри едущей коробки не должно ещё и перекрёстно гаснуть — от этого
+   переезд читается как «мигнуло и переставилось». Пусть просто едет. */
+::view-transition-old(окно),::view-transition-new(окно),
+::view-transition-old(показ),::view-transition-new(показ),
+::view-transition-old(доска),::view-transition-new(доска){
+  animation:none;mix-blend-mode:normal;height:100%}
 /* ── ЛЕВО: учитель ─────────────────────────────────────────────────────── */
 /* 🔴 14.08, Кратов: лицо не влезает и артикуляции не видно. Окно учителя квадратное, а
    вертикальный кадр 424×754 ужимался втрое, и слабое движение рта на такой миниатюре не
@@ -312,7 +381,16 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
   opacity:0;transition:opacity .5s ease}
 /* Очень медленный наезд, пока картинка «звучит»: показ отличается от вклеенной
    иллюстрации именно тем, что живой. Быстрее делать нельзя — начнёт отвлекать. */
-.dimg.on{opacity:1;animation:kenburns 22s ease-out forwards}
+/* Приезд: шторка слева направо + лёгкий доводочный масштаб. Две анимации на одном
+   слое — наезд крутит transform, приезд трогает clip-path и прозрачность, поэтому
+   они не мешают друг другу. Уход остаётся прежним (см. .dimg.on.out ниже): гаснет
+   только прозрачность, наезд доигрывается. */
+@keyframes показПриехал{
+  from{opacity:0;clip-path:inset(0 0 0 14%)}
+  60%{opacity:1}
+  to{opacity:1;clip-path:inset(0 0 0 0)} }
+.dimg.on{opacity:1;animation:kenburns 22s ease-out forwards,
+  показПриехал var(--приход) var(--вход)}
 /* Уходящий слой гасим ТОЛЬКО прозрачностью, не снимая .on: снимешь — вместе с классом
    исчезнет и анимация наезда, и картинка прыгнет обратно в исходный масштаб прямо
    посреди перехода. Именно это и читалось как «резко». */
@@ -349,6 +427,12 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   opacity:0;transition:opacity .3s ease}
 #demoCap.on,#demoSub.on{opacity:1}
+/* Подпись собирается по словам — со скоростью, с какой предмет называют вслух.
+   Приём тот же, что у живой транскрипции чтения (.rdtext .wd): он в уроке уже
+   есть, и второй язык для той же мысли заводить незачем. */
+#demoCap .сл,#demoSub .сл{display:inline-block;opacity:0;transform:translateY(4px);
+  animation:слойВышел var(--шаг) var(--вход) both;
+  animation-delay:calc(var(--стаггер) * var(--i,0) * .6)}
 
 /* ── ПРОВЕРКА СТРАНИЦЫ ───────────────────────────────────────────────────
    Тот же лист бумаги, что и панель: проверка — часть урока, а не всплывшее
@@ -531,7 +615,22 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #zTitle{font:400 22px/1.15 Georgia,serif;color:#22262F}
 #zMeta{margin-top:4px;display:flex;align-items:baseline;gap:8px;
   font:700 10.5px/1 Segoe UI;letter-spacing:1.1px;color:#8D8574}
-#zMeta b{margin-left:auto;color:var(--accent);font-size:11px;letter-spacing:.4px}
+/* Счётчик перекатывается, поэтому ему нужна своя коробка с обрезкой: цифра
+   уезжает вверх и приходит снизу, а не подменяется на месте. */
+#zMeta b{margin-left:auto;color:var(--accent);font-size:11px;letter-spacing:.4px;
+  display:inline-block;overflow:hidden;line-height:1.35}
+/* Доска раздела, которая уезжает. Это КОПИЯ ушедшей доски, положенная поверх на
+   время прощания: настоящий список в этот момент уже собирает новый раздел, и
+   ждать анимацию он не должен — иначе на медленной машине урок встанет. */
+.ушла{position:fixed;pointer-events:none;z-index:12;overflow:hidden}
+.ушла>*{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}
+/* Номер, под которым легла собранная доска: короткий отклик, чтобы было видно,
+   КУДА она убралась, — и на этом всё, мигать номерами дальше нечего. */
+@keyframes номерПринял{ 40%{transform:scale(1.28);box-shadow:0 0 0 4px rgba(242,163,60,.28)} }
+.ztab.принял{animation:номерПринял var(--путь) var(--живая)}
+/* Заголовок раздела меняется вместе с доской, а не сам по себе. */
+@keyframes заголовокСменился{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+#zTitle.сменился{animation:заголовокСменился var(--приход) var(--вход)}
 #zBoard{position:relative;flex:1;min-height:0;overflow:auto;padding:12px 14px 26px;
   scrollbar-width:thin;transition:filter .4s ease;scroll-padding:14px 14px 26px}
 #zebra:after{content:'';position:absolute;left:0;right:0;bottom:0;height:26px;z-index:4;
@@ -555,16 +654,60 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 /* Плитка фактов: два столбца. Первый факт раздела — во всю ширину: он задаёт тему,
    и по нему глаз находит, где доска началась. */
 #keep{min-height:0}
-#keepList{display:block;column-count:2;column-gap:8px;orphans:1;widows:1}
-#keepEmpty{column-span:all;font:13px/1.5 Segoe UI;color:#A9A292;padding:10px 2px}
+/* ⚠️ Грид, а не мультиколонка. column-count браузер балансирует: вставка одной
+   карточки перекидывает соседей между столбцами, и перекладка (FLIP) превращается
+   в переезд всей доски на каждый факт. В гриде новая карточка встаёт снизу, а
+   стоящие не двигаются — ровно то, что и обещано: «копится и не стирается».
+   align-items:start — чтобы карточка не растягивалась под самую высокую в строке. */
+#keepList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;align-content:start;align-items:start}
+#keepEmpty{grid-column:1/-1;font:13px/1.5 Segoe UI;color:#A9A292;padding:10px 2px}
 .kc{background:#FFFDF7;border:1px solid rgba(150,132,92,.24);border-top:3px solid var(--accent);
   border-radius:9px;padding:8px 10px 9px;box-shadow:0 2px 6px rgba(80,66,40,.10);
-  display:flex;flex-direction:column;gap:6px;break-inside:avoid;margin:0 0 8px;
-  -webkit-column-break-inside:avoid;
+  display:flex;flex-direction:column;gap:6px;
   opacity:0;transform:translateY(10px) scale(.985);
-  transition:opacity .4s ease,transform .42s cubic-bezier(.32,.72,.35,1),box-shadow .3s ease}
+  transition:opacity var(--приход) var(--вход),transform var(--приход) var(--вход),
+    box-shadow var(--шаг) var(--вход),border-color var(--шаг) var(--вход),
+    background var(--шаг) var(--вход)}
 .kc.on{opacity:1;transform:none}
-.kc.wide{column-span:all;flex-direction:row;align-items:center;gap:11px}
+.kc.wide{grid-column:1/-1;flex-direction:row;align-items:center;gap:11px}
+/* ── КАРТОЧКА СОБИРАЕТСЯ ПО СЛОЯМ (v2.12) ────────────────────────────────
+   Раньше карточка целиком проявлялась за 0.4 с — «моргнуло, и стало». Теперь она
+   выходит в том порядке, в каком её и читают: сперва картинка (её глаз узнаёт —
+   он только что смотрел это на показе), следом номер, слово, и последней строка
+   учебника. Задержки маленькие: вся сборка укладывается в 0.4 с и не спорит с
+   голосом, но очередь глазом читается.
+   Класс .вход живёт только на новой карточке и только на время сборки. */
+@keyframes слойВышел{ from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:none} }
+@keyframes номерВстал{ from{opacity:0;transform:scale(.4)} to{opacity:1;transform:scale(1)} }
+@keyframes картинкаОткрылась{
+  from{opacity:0;clip-path:inset(0 0 100% 0)}
+  to{opacity:1;clip-path:inset(0 0 0 0)} }
+.kc.вход .th{animation:картинкаОткрылась var(--приход) var(--вход) both}
+.kc.вход .nm{animation:номерВстал var(--шаг) var(--живая) both;animation-delay:calc(var(--стаггер)*1.5)}
+.kc.вход .t {animation:слойВышел var(--шаг) var(--вход) both;animation-delay:calc(var(--стаггер)*2)}
+.kc.вход .d {animation:слойВышел var(--шаг) var(--вход) both;animation-delay:calc(var(--стаггер)*3)}
+/* Место под картинку, пока она ещё летит с показа: рамка уже стоит, но пустая —
+   иначе картинка окажется на доске дважды, и в полёте, и на месте. */
+.kc .th.ждёт img{opacity:0}
+.kc .th.ждёт{background:#EFE9DC}
+/* Карточка приняла прилетевшую картинку: короткий довод, чтобы было видно, КУДА
+   именно она легла. Тень, не размер: соседи не должны шевелиться. */
+@keyframes приняла{ 50%{box-shadow:0 0 0 5px rgba(242,163,60,.34),0 6px 18px rgba(80,66,40,.22)} }
+.kc.принял{animation:приняла var(--путь) var(--вход)}
+/* ── ПРИЗРАК ПЕРЕЛЁТА ────────────────────────────────────────────────────
+   Копия картинки показа, летящая в миниатюру карточки. Именно копия: сам показ
+   продолжает жить своей жизнью (он ведёт рассказ дальше), гасить его нельзя.
+   Лежит поверх всего и не ловит мышь — на время полёта урок остаётся кликабельным. */
+.призрак{position:fixed;z-index:70;pointer-events:none;overflow:hidden;
+  border:1px solid rgba(150,132,92,.28);
+  box-shadow:0 10px 30px rgba(30,24,12,.34);will-change:width,height,left,top}
+.призрак img{width:100%;height:100%;object-fit:cover;display:block}
+/* Показ на миг «отпускает» картинку: чуть подаётся назад и возвращается. Это тот
+   же приём, что у кнопки под пальцем, — он говорит, что предмет отдали, а не что
+   он исчез. Трогаем только сам кадр, подпись остаётся на месте. */
+@keyframes отдал{ 45%{transform:scale(.972)} }
+#demoBox.отдал{animation:отдал var(--путь) var(--вход)}
 .kc.wide .th{width:34%;max-width:150px;aspect-ratio:16/10;height:auto}
 .kc.wide .tx{flex:1;min-width:0}
 .kc.wide .t{font-size:15px}
@@ -573,9 +716,17 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    доска не должна мигать, она должна совпадать с серединой экрана. */
 .kc.now{border-color:rgba(242,163,60,.75);background:#FFF9EC}
 .kc.now .t{color:#6A4A12}
-/* карточка, которую разбирают прямо сейчас: разбор слева, факт справа */
-.kc.now{box-shadow:0 0 0 3px rgba(74,144,226,.45),0 4px 12px rgba(40,60,90,.18)}
-.kc.now .nm{background:#4A90E2;color:#F2F8FF}
+/* карточка, которую разбирают прямо сейчас на экране топиков: разбор слева, факт
+   справа. Свой класс, а не .now: у показа и у разбора разные хозяева и разные
+   поводы, а класс был один — на инкрементальной доске синее залипало поверх
+   оранжевого до самой смены раздела. */
+/* Карточка, по которой сейчас ищут строку в учебнике. Отклик короткий: смотреть
+   надо на страницу, куда уехал лист, а не на доску. */
+.kc.ищем{box-shadow:0 0 0 3px rgba(242,163,60,.55),0 6px 18px rgba(120,90,30,.24)}
+.kc[data-takt]{cursor:pointer}
+.kc[data-takt]:hover{border-color:rgba(242,163,60,.6)}
+.kc.разбор{box-shadow:0 0 0 3px rgba(74,144,226,.45),0 4px 12px rgba(40,60,90,.18)}
+.kc.разбор .nm{background:#4A90E2;color:#F2F8FF}
 .kc{position:relative}
 .kc .nm{position:absolute;left:-6px;top:-7px;z-index:2;width:19px;height:19px;border-radius:50%;
   background:var(--accent);color:#2A1F0A;font:800 11px/19px Segoe UI;text-align:center;
@@ -750,6 +901,10 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    и они никуда не уезжают. Узлы остаются в разметке: по ним ходит сам разбор. */
 #tpLibPane{display:none}
 /* левая колонка: те же карточки «запомни», но теперь это оглавление разбора */
+/* Карточки «что запомнить» выходят очередью — экран разбора открывается один раз
+   на страницу, и очередь читается как «вот сколько мы собрали». */
+#topics:not(.off) #tpLib .ti{animation:слойВышел var(--шаг) var(--вход) both;
+  animation-delay:calc(var(--стаггер) * var(--i,0) * .8)}
 #tpLib{flex:1;min-height:0;overflow:auto;padding:0 8px 10px;display:flex;flex-direction:column;gap:4px}
 .ti{display:flex;gap:9px;align-items:center;padding:6px 7px;border-radius:9px;
   border:1px solid transparent;background:transparent;text-align:left;cursor:pointer;
@@ -836,6 +991,35 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 .dopt.no{background:#F8E6E4;border-color:#C97A70}
 .dopt.no .tick{opacity:1;background:#C0584C}
 /* Разбор ошибки: на первую — причина, на вторую — как решать, на третью — ответ */
+/* ── ОЧЕРЕДЬ ПОЯВЛЕНИЯ (v2.12) ──────────────────────────────────────────
+   Слои задания выходят в том порядке, в каком их читают. Задержки считает
+   ctrlBody: он же и знает, сколько слоёв в этой разметке. */
+.ctrlвход>*{animation:слойВышел var(--приход) var(--вход) both;
+  animation-delay:calc(var(--стаггер) * var(--i,0))}
+/* Варианты ответа — своя очередь внутри своего блока: они появляются ПОСЛЕ
+   вопроса, иначе глаз начинает читать ответы раньше, чем понял задание. */
+.ctrlвход .dopts>*,.ctrlвход .dmatch>*{animation:слойВышел var(--шаг) var(--вход) both;
+  animation-delay:calc(var(--стаггер) * (var(--i,0) + 2))}
+/* Верный ответ принимают: волна по варианту слева направо, как галочку ставят.
+   Работает на фоне уже стоящего зелёного — это отклик, а не второй сигнал. */
+@keyframes ответПринят{
+  from{box-shadow:inset 0 0 0 0 rgba(111,174,106,0)}
+  45%{box-shadow:inset 0 0 0 40px rgba(111,174,106,.22)}
+  to{box-shadow:inset 0 0 0 40px rgba(111,174,106,0)} }
+.dopt.ok,.mit.good{animation:ответПринят var(--путь) var(--вход)}
+.dopt.ok .tick,.mit.good .tick{animation:номерВстал var(--шаг) var(--живая) both;
+  animation-delay:.08s}
+/* Неверный — оседает, а не трясётся: ошибка не должна выглядеть как окрик. */
+@keyframes ответОсел{ from{transform:none} 55%{transform:translateY(2px)} to{transform:none} }
+.dopt.no,.mit.bad{animation:ответОсел var(--шаг) var(--вход)}
+/* Разбор раскрывается по высоте: он приходит на место, а не наезжает поверх.
+   0fr→1fr — приём, которым в вебе анимируют «высоту по содержимому»: у height:auto
+   анимации нет, а у строки грида есть. */
+@keyframes разборРаскрылся{
+  from{grid-template-rows:0fr;opacity:0;margin-top:0}
+  to{grid-template-rows:1fr;opacity:1;margin-top:7px} }
+.dwhy{display:grid;grid-template-rows:1fr;animation:разборРаскрылся var(--приход) var(--вход) both}
+.dwhy>*{min-height:0}
 .dwhy{flex:none;margin-top:7px;padding:8px 11px;border-radius:9px;
   font:13.5px/1.42 Segoe UI;border:1px solid transparent}
 .dwhy.a1{background:#FDF1DF;border-color:rgba(200,150,60,.45);color:#5C4A22}
@@ -875,6 +1059,8 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #drHud .hi{display:flex;align-items:center;gap:4px;font:12.5px/1 Segoe UI;color:#A8B0C4}
 #drHud .hi b{font:800 13px/1 Segoe UI;color:var(--ink)}
 #drHud #drOk{color:#7FD07A} #drHud #drNo{color:#E5877C}
+/* счётчику нужна коробка с обрезкой — цифра уезжает вверх, новая приходит снизу */
+#drHud b{display:inline-block;overflow:hidden;line-height:1.2;vertical-align:bottom}
 #drHud .t{display:none} #drHud.task .t{display:flex}
 /* На ноутбуке 1280 нижняя панель и так забита: со счётчиком она начинала переноситься
    на вторую строку, и плашка версии уезжала под кнопки. Поджимаем счётчик. */
@@ -898,6 +1084,14 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #repWhen{margin-top:3px;font:12px/1.5 Segoe UI;color:#6B6455}
 #repBig{margin-left:auto;text-align:right;font:800 30px/1 Georgia,serif;color:#3E7C3A}
 #repBig small{display:block;margin-top:3px;font:700 10.5px/1 Segoe UI;letter-spacing:1.2px;color:#8A8271}
+/* Строки итоговой таблицы выходят сверху вниз — в том порядке, в каком их и
+   читают. Урок в этот момент закончен, голос молчит, спорить движению не с чем.
+   Задержку считает showReport: он знает, сколько строк получилось. */
+@keyframes строкаВышла{ from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+#report.on #repTab tr{animation:строкаВышла var(--шаг) var(--вход) both;
+  animation-delay:calc(var(--стаггер) * var(--i,0) * .7)}
+#report.on .rcard{animation:строкаВышла var(--приход) var(--вход) both;
+  animation-delay:calc(var(--стаггер) * var(--i,0) + .18s)}
 #repBody{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:12px}
 #repTab{width:100%;border-collapse:collapse;font:13px/1.3 Segoe UI;align-self:start}
 #repTab th{font:800 9.5px/1.2 Segoe UI;letter-spacing:.7px;color:#7C8496;text-align:right;
@@ -995,6 +1189,8 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #ver{font:700 12px/1 Segoe UI;color:#8A93AD;background:#242836;border:1px solid var(--line);
   padding:5px 9px;border-radius:8px;letter-spacing:.5px}
 #steps{display:flex;gap:3px;margin-left:auto;min-width:0;flex-shrink:1}
+/* точка шага меняет только цвет — это «изменилось старое», геометрию не трогаем */
+#steps b{transition:background var(--шаг) var(--вход),box-shadow var(--шаг) var(--вход)}
 #steps b{flex:0 1 9px;min-width:4px;height:9px;border-radius:99px;background:#3A3F52;display:block}
 #steps b.on{background:var(--accent)}
 #steps b.done{background:#5A6A55}
@@ -1267,7 +1463,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
         <span class="hi t" id=drTaskWrap title="осталось на это задание">⏳ <b id=drTask>3:00</b></span>
       </span>
       <span id=cost></span>
-      <span id=ver title="версия сборки урока · журнал в .planning/KNIGA-VERSIONS.md">v2.11</span>
+      <span id=ver title="версия сборки урока · журнал в .planning/KNIGA-VERSIONS.md">v2.12</span>
       <div id=steps></div>
     </div>
   </div>
@@ -1520,6 +1716,9 @@ function везтиК(y,анимация){
     paintSheet()
   }
   сдвиг=Math.max(0,Math.min(пределСдвига(),сдвиг))
+  // Доезд листа несёт чтение: пока он идёт, экран его, и всё остальное движение
+  // ждёт. Длительность берём ту же, что стоит на #sheet в CSS.
+  if(анимация!==false) занятьЭкран('лист',870)
   ставитьЛист(анимация!==false)
   проверитьПересадку()
 }
@@ -1655,20 +1854,34 @@ function режимПрименить(){
   if(shownBeat&&onSheet(shownBeat.page)===0) везтиКСтроке(shownBeat,false)
 }
 const КРУГ=['lenta','pol','sravn']
+// Перестройка экрана целиком: браузер снимает вид ДО, мы перестраиваем разметку,
+// он доигрывает переезд. Если API нет — просто перестраиваем, как раньше.
+// ⚠️ Внутрь отдаём СИНХРОННУЮ работу: startViewTransition ждёт возврата, и всё,
+// что уедет в таймер, окажется уже после снимка «после» — то есть не поедет.
+function переездВида(дело){
+  if(безДвижения()||!document.startViewTransition) return дело()
+  занятьЭкран('вид',движ('путь')+120)
+  try{
+    const п=document.startViewTransition(дело)
+    // Переходы идут встык (ребёнок жмёт виды подряд) — прерванный переход реджектит
+    // оба промиса. Это нормальный ход событий, а не ошибка урока.
+    п.finished.catch(()=>{}); п.updateCallbackDone.catch(()=>{}); п.ready.catch(()=>{})
+  }catch(e){ дело() }
+}
 // вид ставится прямо, одним нажатием — посреди урока это должно быть мгновенно
 function режимСтавить(м){
   if(!КРУГ.includes(м)||м===РЕЖИМ) return
   РЕЖИМ=м
   try{ localStorage.kn_read_mode=РЕЖИМ }catch(e){}
   ручнойДо=0
-  режимПрименить()
+  переездВида(режимПрименить)
 }
 // на всякий случай оставлен и обход по кругу — им пользуется приёмка
 function режимПереключить(){
   РЕЖИМ=КРУГ[(КРУГ.indexOf(РЕЖИМ)+1)%КРУГ.length]
   try{ localStorage.kn_read_mode=РЕЖИМ }catch(e){}
   ручнойДо=0
-  режимПрименить()
+  переездВида(режимПрименить)
 }
 function layout(){
   // Ширину окна задаёт сетка; в JS пересчитываем только доезд — при изменении ширины
@@ -1870,9 +2083,32 @@ function mkRe(src){ try{ return new RegExp(src,'i') }catch(e){ console.warn('п�
 let demoTop=1                                   // какой из двух слоёв сейчас сверху
 const demoImg=()=>$(demoTop?'#demoB':'#demoA')  // верхний слой — его и открывают по клику
 // плавная смена подписи: текст меняем в тот момент, когда он уже погашен
+// Подпись меняется десятки раз за урок, поэтому разброс по словам делаем дёшево:
+// один textContent на слово, без разметки строкой. Слов в подписи два-четыре —
+// узлов создаётся столько же.
+// ⚠️ Разбирать по словам можно только КОРОТКУЮ строку: у пояснения показа (#demoSub)
+// бывает целое предложение, и очередь из двадцати слов превратилась бы в бегущую
+// строку, которая спорит с голосом. Длинное показываем целиком.
+const ПОСЛОВНО_ДО=7
+function пословно(el,txt){
+  el.textContent=''
+  const слова=String(txt).split(/(\s+)/)
+  let i=0
+  for(const с of слова){
+    if(!с.trim()){ el.appendChild(document.createTextNode(с)); continue }
+    const s=document.createElement('span'); s.className='сл'
+    s.style.setProperty('--i',i++); s.textContent=с
+    el.appendChild(s)
+  }
+}
 function fadeText(el,txt){
   el.classList.remove('on')
-  setTimeout(()=>{ el.textContent=txt; requestAnimationFrame(()=>el.classList.add('on')) },200)
+  setTimeout(()=>{
+    const слов=String(txt||'').trim().split(/\s+/).filter(Boolean).length
+    if(txt&&слов&&слов<=ПОСЛОВНО_ДО&&!безДвижения()) пословно(el,txt)
+    else el.textContent=txt
+    requestAnimationFrame(()=>el.classList.add('on'))
+  },200)
 }
 // ── КАРТА как показ ───────────────────────────────────────────────────────
 //  Живой SVG, а не картинка: у него загорается НАЗВАННАЯ область и он наезжает
@@ -2208,6 +2444,7 @@ const ZEBRA=[
 let zPart=0        // где идёт урок
 let zСмотрим=0     // на какую доску смотрят: к собранным можно вернуться номерами
 let zHeroFor=-1    // для какого раздела уже нарисован крупный визуал
+let доскаДля=-1    // для какого раздела карточки уже разложены (сверка вместо пересборки)
 const скл=(n,ф)=>{ const a=Math.abs(n)%100, b=a%10
   return n+' '+(a>10&&a<20?ф[2]:b===1?ф[0]:b>1&&b<5?ф[1]:ф[2]) }
 
@@ -2255,7 +2492,10 @@ const синхроСобытие=(тип,art,имя)=>{ СИНХРО.push({t:Mat
 const ДОСКА_СРОК = 9000
 let keepQ = [], keepWait = 0
 const былПоказан = new Set()
+// Номер такта, в котором факт прозвучал: по нему карточка потом находит свою
+// строку в учебнике. Ставим при постановке в очередь — здесь такт ещё тот самый.
 function вОчередьНаДоску(t){
+  if(t._такт===undefined) t._такт = BEATS.indexOf(shownBeat)
   // ⚠️ Ждать надо ровно ТУ картинку, которая окажется на карточке. Сначала очередь
   //  ждала `t._art` — показ, сработавший перед фактом в этой же реплике, — а рисовался
   //  `keepArt(t)` из zakrep.json. Картинки разные, и синхронности не выходило.
@@ -2263,9 +2503,14 @@ function вОчередьНаДоску(t){
   проверитьДоску()
 }
 // выпустить всё, что ждёт: страница сменилась или урок перескочил
+let пачкой=false
 function сливДоски(){
   clearTimeout(keepWait); keepWait=0
+  // Выпускаем всё разом — значит это не «пришёл факт», а «догоняем». Такие карточки
+  // просто встают: связь показывать нечем, показ давно ушёл вперёд.
+  пачкой=keepQ.length>1
   while(keepQ.length) addKeep(keepQ.shift().t)
+  пачкой=false
 }
 function проверитьДоску(){
   clearTimeout(keepWait); keepWait = 0
@@ -2298,6 +2543,86 @@ function addKeep(t){
 // Крупный визуал раздела — якорь доски: по нему сразу видно, ПРО ЧТО тут собрано.
 // Рисуем один раз на раздел: карта пересчитывает наезд, и перерисовывать её на каждой
 // новой карточке — значит дёргать её десять раз за раздел.
+// ── ПЕРЕЛЁТ ПОКАЗА НА ДОСКУ (v2.12) ──────────────────────────────────────
+//  Вызывается ровно тогда, когда на доску встала новая карточка. Летим только если
+//  картинка факта СЕЙЧАС на показе — а это, после правки синхронности 27.08, почти
+//  всегда так: карточка специально ждёт свою картинку (см. вОчередьНаДоску).
+//  Если картинки нет (факт «место на карте») или на показе уже другое — карточка
+//  просто собирается по слоям, без полёта. Врать движением нельзя: перелёт значит
+//  «вот это самое», и прилететь может только то, что действительно показывали.
+const ЖДАТЬ_КАРТИНКУ=1400        // столько показ успевает поднять файл и зажечь слой
+function прилетелаКарточка(кар,факт){
+  if(безДвижения()) return
+  const мишень=кар.querySelector('.th')
+  if(!мишень){ СЧЁТ.отказ.безМишени++; return }         // «место на карте» — миниатюры нет
+  const арт=(keepArt(факт)||'').split('|')[0]
+  if(!арт||арт.startsWith('map')){ СЧЁТ.отказ.карта++; return }
+  // Ждём ровно ТУ картинку: сравниваем по файлу, а не по demoNow. demoNow меняется
+  // в начале показа, а слой зажигается после загрузки — между ними как раз и жила
+  // причина, по которой перелёт не срабатывал ни разу.
+  const файл=artUrl(арт)
+  const ждёмС=performance.now()
+  СЧЁТ.ждали++
+  мишень.classList.add('ждёт')
+  // Страховка таймером: rAF в фоновой вкладке не идёт, и без неё картинка на
+  // карточке осталась бы скрытой навсегда. Таймер снимается, когда полёт начался.
+  let сторож=setTimeout(()=>{ сторож=0
+    if(мишень.classList.contains('ждёт')){ мишень.classList.remove('ждёт'); СЧЁТ.отказ.неДождались++ }
+  },ЖДАТЬ_КАРТИНКУ+300)
+  const попытка=()=>{
+    if(!кар.isConnected){ мишень.classList.remove('ждёт'); return }   // доску пересобрали
+    const кадр=$('#demoBox')
+    const сНего=кадр&&[...кадр.querySelectorAll('.dimg.on:not(.out)')]
+      .find(e=>e.src&&e.src.endsWith(файл))
+    if(!сНего){
+      // на показе уже другая картинка и нашей в очереди нет — ждать нечего
+      const ещёЕдет=(demoNow||'').split('|')[0]===арт||demoQ.some(d=>d.art===арт)
+      if(performance.now()-ждёмС<ЖДАТЬ_КАРТИНКУ&&ещёЕдет) return requestAnimationFrame(попытка)
+      clearTimeout(сторож)
+      мишень.classList.remove('ждёт')
+      СЧЁТ.отказ[ещёЕдет?'неДождались':'чужаяКартинка']++
+      return
+    }
+    clearTimeout(сторож)
+    // Лист едет или экран переезжает — призрак полетел бы поперёк чужого движения.
+    // Ждём один раз; не дождались — картинка просто встаёт на место.
+    когдаСвободно((можно)=>{
+      if(!кар.isConnected){ мишень.classList.remove('ждёт'); return }
+      if(!можно){ мишень.classList.remove('ждёт'); СЧЁТ.отказ.занято++; return }
+      полёт(кар,мишень,кадр,сНего)
+    },'путь',движ('путь'))
+  }
+  requestAnimationFrame(попытка)
+}
+function полёт(кар,мишень,кадр,сНего){
+  const r0=кадр.getBoundingClientRect(), r1=мишень.getBoundingClientRect()
+  if(!r0.width||!r1.width){ мишень.classList.remove('ждёт'); return }  // доска свёрнута
+  СЧЁТ.перелётов++
+  занятьЭкран('путь',движ('путь'))
+  const g=document.createElement('div'); g.className='призрак'
+  const i=document.createElement('img'); i.src=сНего.src; i.alt=''
+  g.appendChild(i); document.body.appendChild(g)
+  кадр.classList.remove('отдал'); void кадр.offsetWidth; кадр.classList.add('отдал')
+  // Летим размерами, а не масштабом: у показа и миниатюры разные пропорции, и
+  // неравномерный scale растянул бы лица на фреске. Элемент один и лежит fixed —
+  // раскладку урока он не пересчитывает.
+  const рамка=к=>getComputedStyle(к).borderRadius
+  const a=g.animate([
+    {left:r0.left+'px',top:r0.top+'px',width:r0.width+'px',height:r0.height+'px',
+      borderRadius:рамка(кадр),opacity:1},
+    {left:r1.left+'px',top:r1.top+'px',width:r1.width+'px',height:r1.height+'px',
+      borderRadius:рамка(мишень),opacity:1},
+  ],{duration:движ('путь'),easing:движ('вход'),fill:'both'})
+  const сесть=()=>{ g.remove(); мишень.classList.remove('ждёт'); отпуститьЭкран('путь')
+    // видимая синхронность: карточка стала видна ИМЕННО СЕЙЧАС, а не когда её
+    // положили в данные. Разрыв показ↔доска меряется по этому событию.
+    синхроСобытие('картинка-села',(сНего.src||'').split('/').pop(),кар.dataset.term||'')
+    кар.classList.add('принял'); setTimeout(()=>кар.classList.remove('принял'),движ('путь')) }
+  a.onfinish=сесть
+  // страховка: вкладку увели в фон — анимация встаёт, и картинка осталась бы висеть
+  a.oncancel=сесть
+  setTimeout(()=>{ if(g.isConnected) сесть() },движ('путь')+900)
+}
 function zebraHero(z){
   const box=$('#zHero')
   if(!z.hero){ box.classList.add('off'); return }
@@ -2318,10 +2643,34 @@ function zebraHero(z){
   }
   requestAnimationFrame(()=>box.classList.add('on'))
 }
+// Отвезти страницу к строке, из которой взят факт, и подчеркнуть её — тем же
+// маркером, каким она подчёркивалась, когда звучала. Речь не запускаем.
+function показатьОткуда(кар){
+  const n=+(кар.dataset.takt??-1); const b=BEATS[n]
+  if(!b) return false
+  // на закрытых шагах доска отвечает по памяти — открывать страницу нельзя
+  const п=$('#panel')
+  if(['st-tell','st-test','st-drill','st-done'].some(k=>п.classList.contains(k))) return false
+  if(onSheet(b.page)<0) goPage(b.page)
+  // лист главнее перелётов: занимаем экран, чтобы попутный факт не полетел поперёк
+  занятьЭкран('лист',870)
+  довезтиКСтроке(b)
+  showBeat(b,true)                     // метка и подчёркивание — без запуска речи
+  for(const e of document.querySelectorAll('#keepList .kc')) e.classList.remove('ищем')
+  кар.classList.add('ищем')
+  setTimeout(()=>кар.classList.remove('ищем'),движ('путь')*2)
+  return true
+}
+// Обёртка на случай, если ребёнок сейчас сам крутит лист: везтиКСтроке в этом
+// случае вежливо ничего не делает, а тут доезд нужен именно по просьбе.
+function довезтиКСтроке(b){
+  const был=ручнойДо; ручнойДо=0
+  try{ везтиКСтроке(b,true) } finally { ручнойДо=был }
+}
 function зебраПодсветить(term){
   for(const e of document.querySelectorAll('#keepList .kc'))
-    e.classList.toggle('now', !!term&&e.dataset.term===term)
-  const e=document.querySelector('#keepList .kc.now')
+    e.classList.toggle('разбор', !!term&&e.dataset.term===term)
+  const e=document.querySelector('#keepList .kc.разбор')
   if(e&&e.scrollIntoView) e.scrollIntoView({block:'nearest',behavior:'smooth'})
 }
 function зебраПодвести(){
@@ -2424,12 +2773,138 @@ function подсветитьНаДоске(art){
     el.classList.toggle('now', !!свой)
   }
 }
+// ── ИНСТРУМЕНТ ДВИЖЕНИЯ (v2.12) ──────────────────────────────────────────
+//  Web Animations API просит длительность числом и кривую строкой, а язык движения
+//  живёт в CSS (:root). Держать одни и те же числа в двух местах — верный способ
+//  разъехаться, поэтому JS их ЧИТАЕТ. Кеш: getComputedStyle на каждый факт — это
+//  принудительный пересчёт стилей, а факты идут каждые несколько секунд.
+// ── КТО СЕЙЧАС ВЛАДЕЕТ ЭКРАНОМ ────────────────────────────────────────────
+//  Не очередь и не менеджер анимаций: всего лишь отметка «до какого времени экран
+//  занят и кем». Этого хватает — движений в уроке немного, и все они короткие.
+const ЧИН={ лист:4, вид:3, путь:2, приход:1 }
+const ЭКРАН={ кто:'', до:0 }
+function экранЗанят(){ return ЭКРАН.кто&&performance.now()<ЭКРАН.до ? ЭКРАН.кто : '' }
+function занятьЭкран(кем,мс){
+  const был=экранЗанят()
+  if(был&&ЧИН[был]>=ЧИН[кем]) return false            // старший не уступает
+  ЭКРАН.кто=кем; ЭКРАН.до=performance.now()+мс
+  return true
+}
+function отпуститьЭкран(кем){ if(ЭКРАН.кто===кем){ ЭКРАН.кто=''; ЭКРАН.до=0 } }
+// Ждём освобождения ОДИН раз. Не дождались — дело делается без анимации: карточка
+// обязана встать на доску в любом случае, движение тут второстепенно.
+function когдаСвободно(дело,кем,ждать){
+  const мешает=экранЗанят()
+  if(!мешает||ЧИН[мешает]<ЧИН[кем]) return дело(true)
+  const ждём=Math.min(ждать,Math.max(0,ЭКРАН.до-performance.now())+30)
+  setTimeout(()=>дело(!экранЗанят()),ждём)
+}
+// Счётчики движения. Нужны приёмке: перелёт срабатывает только при совпадении
+// картинки факта с картинкой показа, и если синхронность когда-нибудь снова
+// разъедется, «перелётов: 0» скажет об этом раньше, чем это заметит глаз.
+const СЧЁТ = { прибавок:0, пересборок:0, перелётов:0, ждали:0, безДвижения:0,
+  отказ:{ безМишени:0, карта:0, чужаяКартинка:0, неДождались:0, занято:0 } }
+// Перекат числа: старое уезжает вверх, новое приходит снизу. Годится для любого
+// счётчика урока — фактов на доске, верных ответов, времени.
+function перекат(el,txt){
+  txt=String(txt)
+  if(!el||el.textContent===txt) return
+  if(безДвижения()||!el.textContent){ el.textContent=txt; return }
+  const вверх=el.animate([{transform:'none',opacity:1},{transform:'translateY(-90%)',opacity:0}],
+    {duration:движ('миг'),easing:движ('выход'),fill:'forwards'})
+  вверх.onfinish=()=>{
+    el.textContent=txt
+    el.animate([{transform:'translateY(90%)',opacity:0},{transform:'none',opacity:1}],
+      {duration:движ('шаг'),easing:движ('живая')}).onfinish=()=>вверх.cancel()
+  }
+}
+const ДВИЖ = {}
+function движ(имя){
+  if(ДВИЖ[имя]===undefined){
+    const v=getComputedStyle(document.documentElement).getPropertyValue('--'+имя).trim()
+    ДВИЖ[имя] = /^[\d.]+m?s$/.test(v) ? (v.endsWith('ms')?parseFloat(v):parseFloat(v)*1000) : v
+  }
+  return ДВИЖ[имя]
+}
+// Система просит покоя — движения нет вовсе. Проверяем каждый раз: пользователь
+// может переключить это посреди урока, а урок идёт сорок минут.
+// Три источника, любой из которых выключает движение:
+//   • системная настройка (её ставят те, кого движение укачивает);
+//   • свой тумблер — урок открывают на чужом ноутбуке, где системную никто не
+//     трогал, а ребёнку тяжело;
+//   • ?anim=0 — для приёмки: она меряет, где карточка ВСТАЛА, и ждать полёт ей ни
+//     к чему. Без этого каждая новая анимация подтачивала бы её выдержки времени.
+let ПОКОЙ=null
+function покойВыбран(){
+  if(ПОКОЙ!==null) return ПОКОЙ
+  try{
+    if(new URLSearchParams(location.search).get('anim')==='0') return (ПОКОЙ=true)
+    ПОКОЙ = localStorage.kn_pokoy==='1'
+  }catch(e){ ПОКОЙ=false }
+  return ПОКОЙ
+}
+const безДвижения = () => покойВыбран()||matchMedia('(prefers-reduced-motion:reduce)').matches
+function покойСтавить(на){
+  ПОКОЙ=!!на
+  try{ localStorage.kn_pokoy=на?'1':'0' }catch(e){}
+  document.documentElement.classList.toggle('покой',ПОКОЙ)
+}
+
+// ── FLIP ──────────────────────────────────────────────────────────────────
+//  Приём, которым в вебе двигают списки: снять места ДО правки разметки, поправить
+//  разметку как удобно, снять места ПОСЛЕ и доиграть разницу трансформом. Считает
+//  браузер, поэтому раскладка (у нас — две колонки column-count, факты в них ещё и
+//  перетекают из столбца в столбец) едет плавно, а не прыгает.
+//  ⚠️ Между «снять до» и «снять после» нельзя читать геометрию лишний раз — каждое
+//  чтение заставляет браузер пересчитать раскладку.
+// Доска раздела уезжает копией: настоящий список тут же собирает новый раздел,
+// а прощание доигрывается поверх. Так смена видна глазом и при этом ничего не ждёт.
+function проститьсяСДоской(list,кудаЛегла){
+  if(безДвижения()) return
+  const было=[...list.querySelectorAll('.kc')]; if(!было.length) return
+  const r=list.getBoundingClientRect(); if(!r.width) return
+  const слой=document.createElement('div'); слой.className='ушла'
+  слой.style.left=r.left+'px'; слой.style.top=r.top+'px'
+  слой.style.width=r.width+'px'; слой.style.height=r.height+'px'
+  const клон=list.cloneNode(true); клон.removeAttribute('id')
+  слой.appendChild(клон); document.body.appendChild(слой)
+  слой.animate([{transform:'none',opacity:1},{transform:'translateY(-18px) scale(.965)',opacity:0}],
+    {duration:движ('путь'),easing:движ('выход'),fill:'forwards'}).onfinish=()=>слой.remove()
+  // номер раздела, под которым собранное теперь лежит, коротко отзывается
+  if(кудаЛегла>=0) requestAnimationFrame(()=>{
+    const н=document.querySelectorAll('#zTabs .ztab')[кудаЛегла]
+    if(н){ н.classList.remove('принял'); void н.offsetWidth; н.classList.add('принял') }
+  })
+}
+function снятьМеста(корень,отбор){
+  const m=new Map()
+  for(const e of корень.querySelectorAll(отбор)) if(e.dataset.key) m.set(e.dataset.key,e.getBoundingClientRect())
+  return m
+}
+function доигратьМеста(корень,отбор,было,{длительность}={}){
+  if(безДвижения()) return
+  const д=длительность||движ('приход')
+  for(const e of корень.querySelectorAll(отбор)){
+    const r0=было.get(e.dataset.key); if(!r0) continue
+    const r=e.getBoundingClientRect()
+    const dx=r0.left-r.left, dy=r0.top-r.top
+    if(Math.abs(dx)<1&&Math.abs(dy)<1) continue
+    e.animate([{transform:'translate('+dx+'px,'+dy+'px)'},{transform:'none'}],
+      {duration:д,easing:движ('вход'),composite:'add'})
+  }
+}
 function paintZebra(){
   if(сравнениеСейчас()) return paintZebraCmp()
   const z=ZEBRA[zСмотрим], items=KEEP.get(zСмотрим)||[]
-  $('#zTitle').textContent=z.title
+  // раздел сменился — прощаемся с прошлой доской ДО того, как список перестроится
+  const сменаРаздела = доскаДля>=0 && доскаДля!==zСмотрим
+  if(сменаРаздела) проститьсяСДоской($('#keepList'),доскаДля)
+  if($('#zTitle').textContent!==z.title){
+    $('#zTitle').textContent=z.title
+    const h=$('#zTitle'); h.classList.remove('сменился'); void h.offsetWidth; h.classList.add('сменился')
+  }
   $('#zPages').textContent=z.pages
-  $('#zCount').textContent=items.length?скл(items.length,['факт','факта','фактов']):''
+  перекат($('#zCount'),items.length?скл(items.length,['факт','факта','фактов']):'')
   // номера разделов: пройденные открыты, будущие закрыты — вперёд доска не забегает
   const tabs=$('#zTabs'); tabs.innerHTML=''
   ZEBRA.forEach((p,i)=>{
@@ -2442,34 +2917,95 @@ function paintZebra(){
   })
   if(zHeroFor!==zСмотрим){ zHeroFor=zСмотрим; zebraHero(z) }
   const list=$('#keepList')
-  list.innerHTML=''
-  if(!items.length){
-    const e=document.createElement('div'); e.id='keepEmpty'
-    e.innerHTML='здесь будет собираться то,<br>что уже прозвучало'
-    list.appendChild(e); return
-  }
-  items.forEach((t,i)=>{
+  // ── СВЕРКА ВМЕСТО ПЕРЕСБОРКИ (v2.12) ────────────────────────────────────
+  //  Было: list.innerHTML='' на каждый факт — доска целиком собиралась заново.
+  //  Из-за этого «новая карточка» технически ничем не отличалась от старых: у них
+  //  не было прошлого, и единственным честным движением оставалось «проявись».
+  //  Стало: смотрим, чем разметка отличается от данных.
+  //    те же ключи               → трогаем только классы (пометки пересказа, .now);
+  //    те же плюс один в конце   → добавляем ОДНУ карточку, соседям доигрываем FLIP;
+  //    всё остальное             → полная сборка, но молча, без движения прихода
+  //                                (смена раздела, возврат к прошлой доске, режим).
+  const ключи=items.map(t=>t.page+'|'+t.term)
+  const вДоме=[...list.querySelectorAll('.kc')].map(e=>e.dataset.key)
+  const совпало=(n)=>вДоме.length===n&&ключи.slice(0,n).every((k,i)=>вДоме[i]===k)
+  const прибавка = доскаДля===zСмотрим && items.length && совпало(items.length-1)
+  const тоЖе     = доскаДля===zСмотрим && совпало(items.length)
+  доскаДля=zСмотрим
+
+  // карточка целиком: разметка одна и та же и при полной сборке, и при прибавке
+  const собрать=(t,i)=>{
     const d=document.createElement('div')
     // первый факт раздела — во всю ширину: он задаёт тему, и по нему глаз находит,
     // где доска началась
-    d.className='kc'+(i===0?' wide':'')+(i===items.length-1?' fresh':'')
-      +(KEEPMARK.has(t.term)?' '+KEEPMARK.get(t.term):'')
+    d.className='kc'+(i===0?' wide':'')
     const art=keepArt(t), наКарте=!art||art.startsWith('map')
     if(!наКарте) d.appendChild(thumbNode(art)); else d.classList.add('plain')
     const nm=document.createElement('span'); nm.className='nm'; nm.textContent=i+1
     d.appendChild(nm); d.dataset.term=t.term; d.dataset.art=art||''
+    d.dataset.key=t.page+'|'+t.term
+    if(t._такт>=0){
+      d.dataset.takt=t._такт
+      d.title='нажми — покажу, где это сказано в учебнике'
+      d.onclick=()=>показатьОткуда(d)
+    }
     const tx=document.createElement('div'); tx.className='tx'
     const a=document.createElement('div'); a.className='t'
-    if(наКарте){ const i=document.createElement('span'); i.className='mp'
-      i.textContent='◉'; i.title='это место мы смотрели на карте'; a.appendChild(i) }
+    if(наКарте){ const m=document.createElement('span'); m.className='mp'
+      m.textContent='◉'; m.title='это место мы смотрели на карте'; a.appendChild(m) }
+    // слово факта проявляется отдельно от пояснения — см. правку про слои
     a.appendChild(document.createTextNode(t.term))
     const b=document.createElement('div'); b.className='d'; b.textContent=t.txt
-    tx.appendChild(a); tx.appendChild(b); d.appendChild(tx); list.appendChild(d)
-    // въезжает только новая карточка; уже стоявшие проявляются в том же кадре, иначе
-    // вся доска мигает на каждом факте
-    if(i===items.length-1) requestAnimationFrame(()=>d.classList.add('on'))
-    else d.classList.add('on')
-  })
+    tx.appendChild(a); tx.appendChild(b); d.appendChild(tx)
+    return d
+  }
+  // пометки, которые могут меняться у УЖЕ стоящих карточек: последняя (fresh),
+  // пересказ (said/miss). Класс .now ставит зебраПодсветить — его не трогаем.
+  const пометить=()=>{
+    const все=[...list.querySelectorAll('.kc')]
+    все.forEach((e,i)=>{
+      e.classList.toggle('fresh',i===все.length-1)
+      for(const м of ['said','miss']) e.classList.toggle(м,KEEPMARK.get(e.dataset.term)===м)
+    })
+  }
+
+  if(!items.length){
+    list.innerHTML=''
+    const e=document.createElement('div'); e.id='keepEmpty'
+    e.innerHTML='здесь будет собираться то,<br>что уже прозвучало'
+    list.appendChild(e); return
+  }
+  if(тоЖе){ пометить(); return }
+
+  if(прибавка){
+    СЧЁТ.прибавок++
+    const пусто=$('#keepEmpty'); if(пусто) пусто.remove()
+    const i=items.length-1
+    const d=собрать(items[i],i)
+    // FLIP: соседи разъезжаются, освобождая место, а не перескакивают. В две
+    // колонки это особенно заметно — карточка может уехать из столбца в столбец.
+    const было=снятьМеста(list,'.kc')
+    list.appendChild(d)
+    пометить()
+    доигратьМеста(list,'.kc',было)
+    // Момент, с которого факт виден ребёнку: слово и строка учебника уже на доске.
+    // Картинка может ещё лететь — она приходит следом и меряется отдельно.
+    requestAnimationFrame(()=>синхроСобытие('факт-виден',(keepArt(items[i])||'').split('|')[0],items[i].term))
+    if(пачкой){                                 // догоняем — ставим молча
+      СЧЁТ.безДвижения++
+      d.classList.add('on')
+    } else {
+      d.classList.add('вход')                   // слои карточки выходят по очереди
+      setTimeout(()=>d.classList.remove('вход'),движ('приход')+движ('стаггер')*4)
+      requestAnimationFrame(()=>d.classList.add('on'))
+      прилетелаКарточка(d,items[i])             // картинку приносит показ
+    }
+  } else {
+    СЧЁТ.пересборок++
+    list.innerHTML=''
+    items.forEach((t,i)=>{ const d=собрать(t,i); list.appendChild(d); d.classList.add('on') })
+    пометить()
+  }
   // доска прокручивается к тому, что встало последним, — но только если смотрят
   // текущий раздел: на возврате к прошлому это дёрнуло бы чужую доску
   requestAnimationFrame(зебраПодвести)
@@ -2540,6 +3076,7 @@ function panelTick(prog){
 }
 function resetPanel(){
   KEEP.clear(); KEEPMARK.clear(); keepFired=new Set(); demoNow=''; PLAN=null
+  доскаДля=-1                          // доска пересобирается начисто, а не прибавкой
   keepQ=[]; clearTimeout(keepWait); keepWait=0; былПоказан.clear()
   demoAt=0; demoPageNow=0; clearTimeout(demoWait); demoWait=0; demoQ=[]
   $('#demoMap').classList.remove('on'); if(MAPS.demo.svg) mapAim(MAPS.demo,'')
@@ -2555,6 +3092,7 @@ function resetPanel(){
 // показ можно рассмотреть во весь экран — тем же окном, что и картинки учебника
 $('#demoBox').onclick=()=>{ const img=demoImg()
   if(!img.classList.contains('on')||!img.currentSrc) return
+  лупаОткуда($('#demoBox'))              // окно вырастет из коробки показа
   openLensSrc(img.currentSrc, img.dataset.cap||'Показ', img.dataset.sub||'') }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2715,6 +3253,13 @@ function mosaicOff(){
 //  собранный в другом порядке.
 // ═══════════════════════════════════════════════════════════════════════════
 let TP={list:[],i:-1,on:false,page:0}
+// Библиотека топиков собирается один раз на страницу и дальше только помечается
+// пройденным — значит очередь появления ставим при сборке, а не на каждый выбор.
+function топикиОчередь(){
+  if(безДвижения()) return
+  let i=0
+  for(const e of document.querySelectorAll('#tpLib .ti')) e.style.setProperty('--i',i++)
+}
 function topicsShow(page){
   const list=zakTerms(page)
   if(!list.length) return 0
@@ -2736,6 +3281,7 @@ function topicsShow(page){
   $('#tpPage').textContent='стр. '+page
   $('#tpTerm').textContent=''; $('#tpTxt').textContent=''; $('#tpQuoteText').textContent=''
   $('#book').classList.add('away')
+  топикиОчередь()
   $('#topics').classList.remove('off')
   requestAnimationFrame(()=>$('#topics').classList.add('on'))
   return list.length
@@ -2790,6 +3336,7 @@ $('#tpNext').onclick=()=>{ gen++; cutVoice(); ctrlDone({act:'go'}) }
 // карточку топика тоже можно рассмотреть во весь экран — язык нажатия один на весь урок
 $('#tpView').onclick=()=>{ const t=TP.list[TP.i]
   if(!t||!t.art||t.art.startsWith('map')) return
+  лупаОткуда($('#tpView'))
   openLensSrc(artUrl(t.art), t.cap||t.term, t.txt||'') }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2869,7 +3416,7 @@ function drTick(){
   clearTimeout(drT)
   if(DR.lessonAt){
     $('#drLes').textContent=fmtT((DR.endAt||Date.now())-DR.lessonAt)
-    $('#drOk').textContent=DR.ok; $('#drNo').textContent=DR.no
+    перекат($('#drOk'),DR.ok); перекат($('#drNo'),DR.no)
   }
   const hud=$('#drHud')
   if(taskEnd){
@@ -3211,7 +3758,17 @@ function showReport(){
   $('#repWhen').textContent='Начало: '+(DR.lessonAt?stampRu(DR.lessonAt):'—')
     +'   ·   Окончание: '+stampRu(DR.endAt)
     +'   ·   Всего: '+fmtT(d.total)
-  $('#repBig').innerHTML=pct+'%<small>ВЕРНЫХ ОТВЕТОВ</small>'
+  // Процент накручивается от нуля: это итог сорока минут работы, и он заслуживает
+  // одной секунды внимания. Пишем в textContent через узел — приёмка читает
+  // конечное значение, а не содержимое ::after (её бы она не увидела вовсе).
+  $('#repBig').innerHTML='<span id=repPct>'+(безДвижения()?pct:0)+'</span>%<small>ВЕРНЫХ ОТВЕТОВ</small>'
+  if(!безДвижения()&&pct>0){
+    const цель=$('#repPct'); const t0=performance.now(); const дл=движ('путь')*1.4
+    const шаг=(t)=>{ const д=Math.min(1,(t-t0)/дл)
+      цель.textContent=Math.round(pct*(1-Math.pow(1-д,3)))     // тормозит к концу
+      if(д<1) requestAnimationFrame(шаг) }
+    requestAnimationFrame(шаг)
+  }
   // 🔴 «С 1-й» теперь считается ЧЕСТНО — без подсказки. Отдельная колонка «Подсказок»
   //  нужна затем же: без неё разница между «знает» и «справился с помощью» пропадала.
   $('#repTab').innerHTML='<tr><th>Раздел</th><th>Заданий</th><th>Верно</th><th>Неверно</th>'
@@ -3225,6 +3782,11 @@ function showReport(){
     +'В среднем на раздел: <b>'+fmtT(d.perPage)+'</b><br>'
     +'В среднем на задание: <b>'+fmtT(d.perTask)+'</b>'
   $('#repTips').innerHTML='<ul>'+reportTips(d).map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul>'
+  // очередь появления: строки таблицы, следом две карточки сбоку
+  let н=0
+  for(const tr of $('#repTab').querySelectorAll('tr')) tr.style.setProperty('--i',н++)
+  н=0
+  for(const c of $('#repSide').querySelectorAll('.rcard')) c.style.setProperty('--i',н++)
   $('#report').classList.remove('off')
   requestAnimationFrame(()=>$('#report').classList.add('on'))
 }
@@ -3496,7 +4058,29 @@ function keyBeat(page){
 }
 // ⚠️ Новый экран — очередь нажатий чистая. Иначе клик, не успевший сработать на прошлом
 // вопросе, ответил бы за ребёнка на следующем.
-function ctrlBody(html){ ctrlQ=[]; $('#ctrlBody').innerHTML=html }
+// Разметка задания приходит строкой и целиком — переписывать это на узлы ради
+// анимации незачем: очередь можно раздать после вставки, за один проход по детям.
+// Класс .ctrlвход снимаем, когда очередь доиграла: иначе он останется висеть на
+// разметке и следующая правка стилей будет спорить с ним неизвестно где.
+function ctrlBody(html){
+  ctrlQ=[]
+  const box=$('#ctrlBody')
+  box.classList.remove('ctrlвход')
+  box.innerHTML=html
+  if(безДвижения()) return
+  let i=0
+  for(const e of box.children) e.style.setProperty('--i',i++)
+  for(const гнездо of box.querySelectorAll('.dopts,.dmatch')){
+    let j=0
+    for(const e of гнездо.children) e.style.setProperty('--i',j++)
+  }
+  void box.offsetWidth
+  box.classList.add('ctrlвход')
+  clearTimeout(ctrlВходТаймер)
+  ctrlВходТаймер=setTimeout(()=>box.classList.remove('ctrlвход'),
+    движ('приход')+движ('стаггер')*(i+4))
+}
+let ctrlВходТаймер=0
 function ctrlStep(s,head,label){
   CTRL.stage=s
   $('#panel').className='pg ctrl st-'+s
@@ -3562,7 +4146,10 @@ async function gradeTell(page,heard){
   // Пишем в KEEPMARK, а не только в DOM: список перерисовывается на каждой новой
   // карточке, и разметка «в DOM» с него слетала.
   document.querySelectorAll('#keepList .kc').forEach(el=>{
-    const t=el.querySelector('.t').textContent
+    // ⚠️ Только dataset.term: у «мест на карте» .t начинается со значка ◉, и его
+    //  textContent даёт «◉Крит» — по такому ключу пометка потом не находится.
+    const t=el.dataset.term
+    if(!t) return
     KEEPMARK.set(t, said.has(t)?'said':'miss')
     el.classList.add(KEEPMARK.get(t))
   })
@@ -4119,6 +4706,26 @@ function paintFigs(){
     layer.appendChild(b)
   }
 }
+// Откуда открыли лупу: прямоугольник кнопки-иллюстрации или коробки показа.
+// Ставится ПЕРЕД вызовом, потому что источников несколько и все они знают себя
+// сами, а лупа одна на урок.
+let лупаИз=null
+const лупаОткуда=(el)=>{ лупаИз = el&&el.getBoundingClientRect ? el.getBoundingClientRect() : null }
+// Раскрытие: окно вырастает из места, на которое нажали, и туда же складывается.
+// Работает clip-path'ом по всему слою — так едет и картинка, и подписи, и фон,
+// то есть окно ведёт себя как окно, а не как выехавшая поверх картинка.
+function лупаРаскрыть(L,назад){
+  if(безДвижения()||!лупаИз) return null
+  const r=лупаИз, W=innerWidth, H=innerHeight
+  const из='inset('+r.top+'px '+(W-r.right)+'px '+(H-r.bottom)+'px '+r.left+'px round 10px)'
+  const во='inset(0px 0px 0px 0px round 0px)'
+  const кадры=назад?[{clipPath:во,opacity:1},{clipPath:из,opacity:0}]
+                   :[{clipPath:из,opacity:0},{clipPath:во,opacity:1}]
+  // Открывается «приходом», закрывается «уходом»: назад вдвое короче. Рука ждёт
+  // закрытия мгновенно, а разглядывать по дороге уже нечего.
+  return L.animate(кадры,{duration:назад?движ('уход')*1.4:движ('путь'),
+    easing:назад?движ('выход'):движ('вход'),fill:'both'})
+}
 function openLensSrc(src,cap,sub){
   const L=$('#lens')
   $('#lensCap').textContent=cap||''
@@ -4127,19 +4734,25 @@ function openLensSrc(src,cap,sub){
   img.classList.remove('ready'); img.removeAttribute('src')
   L.classList.remove('off')
   requestAnimationFrame(()=>L.classList.add('on'))      // фон и подписи — сразу
+  лупаРаскрыть(L,false)
   $('#lensX').focus()
   const pre=new Image()
   pre.onload=pre.onerror=()=>{ img.src=src; requestAnimationFrame(()=>img.classList.add('ready')) }
   pre.src=src
 }
-function openLens(f){
+function openLens(f,откуда){
+  лупаОткуда(откуда||document.querySelector('.fig[data-fig="'+f.id+'"]'))
   openLensSrc('/book/'+f.hi, f.title||'Иллюстрация учебника',
     `страница ${f.page} · в учебнике ${f.w}×${f.h} · увеличено до ${f.hiW||'?'}×${f.hiH||'?'}`)
 }
 function closeLens(){
   const L=$('#lens'); if(L.classList.contains('off')) return
   L.classList.remove('on'); $('#lensImg').classList.remove('ready')   // уезжает вместе с фоном
-  setTimeout(()=>{ L.classList.add('off'); $('#lensImg').removeAttribute('src') },420)
+  const а=лупаРаскрыть(L,true)                          // складывается туда, откуда открыли
+  const закрыть=()=>{ L.classList.add('off'); $('#lensImg').removeAttribute('src')
+    if(а) а.cancel() }
+  if(а) а.onfinish=закрыть
+  setTimeout(закрыть,а?движ('уход')*1.4+60:420)
 }
 $('#lensX').onclick=closeLens
 // нажал — открылось, нажал ещё раз — закрылось: закрывает ЛЮБОЙ клик по окну,
@@ -6626,6 +7239,9 @@ const убратьЗагрузку=()=>{ const el=$('#boot'); if(!el) return
 })()
 
 // наружу — для headless-приёмки
+// «спокойно» применяется до первого движения: иначе первая же карточка успеет
+// улететь прежде, чем мы прочитали настройку.
+if(покойВыбран()) document.documentElement.classList.add('покой')
 window.__kniga={
   sheet:()=>({ номер:sheet, страница:PAGES[sheet], листает:flipping }),
   turn:(d)=>{ turn(d) }, goPage:(p)=>{ goPage(p) },
@@ -6646,6 +7262,29 @@ window.__kniga={
     риска:$('#pgMark').style.display==='none'?null:$('#pgMark').style.top }),
   режимПереключить:()=>{ режимПереключить(); return РЕЖИМ },
   крутить:(dy)=>{ рукойКрутили(); везтиК(сдвиг+dy,false); return сдвиг },
+  // ── ДВИЖЕНИЕ (v2.12) ───────────────────────────────────────────────────
+  //  Чем проверять анимацию: доска обязана ПРИБАВЛЯТЬ карточки, а не пересобираться
+  //  (пересборка = ни FLIP, ни слоёв, ни перелёта), и картинка обязана прилетать с
+  //  показа. «перелётов: 0» при непустой доске — верный признак, что средний и
+  //  правый экраны снова разошлись.
+  // нажать карточку доски: «покажи, где это в учебнике»
+  карточкаОткуда:(term)=>{ const e=[...document.querySelectorAll('#keepList .kc')]
+      .find(x=>x.dataset.term===term)
+    if(!e) return null
+    const было=$('#pgNumT').textContent
+    const вышло=показатьОткуда(e)
+    return { нашли:!!e, сработало:вышло, тактКарточки:+(e.dataset.takt??-1),
+      страницаБыла:было, страницаСтала:$('#pgNumT').textContent } },
+  покойСтавить:(на)=>{ покойСтавить(на); return безДвижения() },
+  движение:()=>({ ...СЧЁТ,
+    карточек:document.querySelectorAll('#keepList .kc').length,
+    вПолёте:document.querySelectorAll('.призрак').length,
+    покой:безДвижения(),
+    покойСвой:покойВыбран(),
+    покойСистемный:matchMedia('(prefers-reduced-motion:reduce)').matches,
+    // кто владеет экраном прямо сейчас — по нему видно, работает ли закон одного движения
+    экран:экранЗанят()||'свободен',
+    язык:['миг','шаг','приход','путь','стаггер'].reduce((о,и)=>(о[и]=движ(и),о),{}) }),
   marks:()=>Object.keys(MARKS),
   // иллюстрации: что нашли в PDF и что уже подняли апскейлером
   figures:()=>FIGS.map(f=>({ id:f.id, стр:f.page, вучебнике:f.w+'×'+f.h,
@@ -6686,13 +7325,28 @@ window.__kniga={
     подсвечено:[...document.querySelectorAll('#keepList .kc.now')].map(e=>e.dataset.term) }),
   // насколько правый экран идёт в ногу со средним: для каждой карточки — ближайший по
   // времени показ с той же картинкой
+  // ⚠️ Разрывов ДВА, и путать их нельзя.
+  //  «разрыв» — модельный: между тем, как показ сменился, и тем, как факт положили
+  //  в данные доски. Норматив 6 мс, которым закрыт круг 27.08, — про него.
+  //  «видимый» — между показом и тем мгновением, когда карточка ВСТАЛА на доску
+  //  глазами ребёнка: теперь между ними ожидание картинки и перелёт. Норматив —
+  //  не больше --путь. Без второй цифры первая осталась бы правдой, которая ничего
+  //  не значит.
   синхро:()=>{ const пок=СИНХРО.filter(x=>x.тип==='показ')
+    const видны=СИНХРО.filter(x=>x.тип==='факт-виден')
+    const сели=СИНХРО.filter(x=>x.тип==='картинка-села')
     return СИНХРО.filter(x=>x.тип==='карточка').map(k=>{
       if(!k.art) return { карточка:k.имя, разрыв:0, безКартинки:true }
       const свой=пок.filter(p=>p.art===k.art)
       if(!свой.length) return { карточка:k.имя, разрыв:null, показаНеБыло:true }
       const d=свой.map(p=>p.t-k.t).sort((a,b)=>Math.abs(a)-Math.abs(b))[0]
-      return { карточка:k.имя, разрыв:d } }) },
+      const в=видны.find(v=>v.имя===k.имя), с=сели.find(v=>v.имя===k.имя)
+      // разрыв  — модельный: показ сменился ↔ факт положили в данные (норматив 6 мс);
+      // виден   — факт (слово, строка) появился на доске глазами ребёнка;
+      // селаКартинка — картинка доехала с показа в миниатюру: это длительность
+      //          перелёта, а не отставание доски. Путать их нельзя.
+      return { карточка:k.имя, разрыв:d,
+        виден:в?в.t-k.t:null, селаКартинка:с?с.t-k.t:null } }) },
   panelData:()=>({ показов:DEMOS.length, тизеров:TEASERS.length,
     файлы:[...new Set(DEMOS.map(d=>artUrl(d.art)))] }),
   // ── проверка страницы: приёмка обязана уметь пройти её без человека ──
