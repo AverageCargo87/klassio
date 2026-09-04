@@ -30,8 +30,16 @@
 -->
 <style>
 :root{
-  --bg:#171922; --panel:#20232E; --line:#333748; --ink:#E8E4DC; --dim:#9A9384;
-  --accent:#F2A33C; --ok:#8FD08A; --paper:#fff;
+  /* СВЕТЛАЯ ТЕМА (04.09). Всё выведено из бумаги учебника #FCFAF5:
+     --bg   — общий фон, на два тона темнее листа: панели должны читаться как лежащие
+              сверху, а не растворяться в фоне;
+     --line — тёплая линия, не серая: серая на тёплой бумаге выглядит грязной;
+     --ink  — основной текст, --dim — приглушённый;
+     --тень — коричневатая, не чёрная. */
+  --bg:#EDE8DE; --panel:#FFFDF9; --line:#DCD4C4; --ink:#2B2A26; --dim:#867F71;
+  --accent:#E0912F; --ok:#3F7D53; --paper:#fff;
+  --тень:rgba(92,76,48,.16); --тень-мягко:rgba(92,76,48,.10);
+  --зелёный:#2F7A4F; --зелёный-низ:#256B45; --зелёный-край:#1F5C3B;
 
   /* ── ЯЗЫК ДВИЖЕНИЯ (v2.12) ─────────────────────────────────────────────
      🔴 Кратов 31.08: «не хватает большей анимации информации в блоках; посмотрите,
@@ -83,7 +91,9 @@
   animation-duration:.01ms !important; animation-iteration-count:1 !important }
 :root.покой .призрак{ display:none !important }
 *{box-sizing:border-box}
-html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%,#232636,#141620 70%);
+html,body{height:100%;margin:0;
+  /* мягкий тёплый свет сверху-справа — как настольная лампа над разворотом */
+  background:radial-gradient(1400px 800px at 62% -6%,#FAF7F1,var(--bg) 62%);
   color:var(--ink);font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
 #app{display:flex;height:100%;gap:0}
 
@@ -114,11 +124,11 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    3D-учителю лишнее место ни к чему, а приёмка ловит, что при 1280×720 от расширенной
    колонки карточки перестают влезать в панель. */
 #teacher{width:340px;flex:none;display:flex;flex-direction:column;padding:16px 14px;position:relative;z-index:20;
-  background:linear-gradient(180deg,#20232E,#191C26);border-right:1px solid var(--line)}
-#tchWrap{position:relative;border-radius:16px;overflow:hidden;background:#2A2D3A;
-  box-shadow:0 10px 30px rgba(0,0,0,.35);aspect-ratio:1/1}
+  background:linear-gradient(180deg,#FCFAF5,#F4EFE5);border-right:1px solid var(--line)}
+#tchWrap{position:relative;border-radius:16px;overflow:hidden;background:#E7E1D5;
+  box-shadow:0 10px 26px var(--тень),0 0 0 1px rgba(140,124,92,.18);aspect-ratio:1/1}
 #tchCanvas{width:100%;height:100%;display:block}
-#bhVideo,#clipVideo,#bhCanvas,#anamVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#2A2D3A}
+#bhVideo,#clipVideo,#bhCanvas,#anamVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#E7E1D5}
 /* 🔴 14.08, Кратов: «а ещё не влезает в кадр». Окно учителя квадратное, а bitHuman отдаёт
    вертикальный кадр 424×754 — object-fit:cover заполнял квадрат по ширине и срезал голову
    сверху и снизу. Под видео-аватара окно становится вертикальным (3:4), а кадр прижимается
@@ -136,7 +146,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    а это ровно та беда, на которой умер bitHuman. */
 #anamGal{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;max-height:230px;overflow:auto;margin:3px 0}
 #anamGal .f{position:relative;aspect-ratio:1/1;border-radius:8px;overflow:hidden;cursor:pointer;
-  border:2px solid transparent;background:#242836}
+  border:2px solid transparent;background:#EFE9DD}
 #anamGal .f img,#anamGal .f video{width:100%;height:100%;object-fit:cover;display:block}
 #anamGal .f video{position:absolute;inset:0;opacity:0;transition:opacity .18s}
 #anamGal .f:hover video{opacity:1}
@@ -146,8 +156,10 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #anamGal .f.on b{background:rgba(60,110,80,.9)}
 #anamFlt .anf{opacity:.45;padding:2px 7px;font-size:10.5px}
 #anamFlt .anf.on{opacity:1;border-color:var(--accent)}
-#tchBadge{position:absolute;left:10px;bottom:10px;background:rgba(20,22,30,.72);border-radius:8px;
-  padding:4px 9px;font-size:12px;font-weight:600;color:#CFE6CF}
+#tchBadge{position:absolute;left:10px;bottom:10px;
+  background:rgba(255,253,247,.72);backdrop-filter:blur(6px) saturate(1.1);
+  box-shadow:0 1px 6px rgba(70,58,36,.16),0 0 0 1px rgba(120,104,72,.16);border-radius:8px;
+  padding:4px 9px;font-size:12px;font-weight:600;color:#3E5A46}
 
 /* ── ВЫБОР УЧИТЕЛЯ: кнопка ПРЯМО НА ОКНЕ АНИ ────────────────────────────── */
 /* 🔴 20.08, Кратов: «кнопка выбора аватара должна быть рядом с аватаром. с картинкой».
@@ -156,8 +168,10 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    стоит лицо, которое сейчас ведёт: видно, кто в кадре, и одно нажатие — видно, кто ещё есть. */
 #faceBtn{position:absolute;right:9px;bottom:9px;z-index:6;display:flex;align-items:center;gap:7px;
   padding:4px 11px 4px 4px;border-radius:24px;border:1px solid rgba(255,255,255,.18);
-  background:rgba(20,22,30,.84);color:#E8E4DC;font:600 12px/1 Segoe UI;cursor:pointer}
-#faceBtn:hover{border-color:var(--accent);background:rgba(32,35,47,.96)}
+  background:rgba(255,253,247,.78);backdrop-filter:blur(6px) saturate(1.1);color:#3A362E;
+  box-shadow:0 2px 8px rgba(70,58,36,.18),0 0 0 1px rgba(120,104,72,.18);
+  font:600 12px/1 Segoe UI;cursor:pointer}
+#faceBtn:hover{border-color:var(--accent);background:rgba(255,253,247,.94)}
 #faceBtn img{width:30px;height:30px;border-radius:50%;object-fit:cover;object-position:50% 14%;
   background:#2A2D3A;display:block;flex:none}
 #faceBtn img[src=""]{visibility:hidden}
@@ -165,21 +179,21 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 /* Панель выбора. Прижата к тому же левому краю, что и окно учителя: смотришь на лицо —
    панель раскрывается ровно там же, а не в противоположном углу. */
 #facePane{position:fixed;left:14px;top:14px;z-index:60;width:640px;max-width:calc(100vw - 28px);
-  max-height:calc(100vh - 28px);overflow:auto;background:rgba(26,29,39,.985);border:1px solid var(--line);
+  max-height:calc(100vh - 28px);overflow:auto;background:rgba(255,253,249,.985);border:1px solid var(--line);
   border-radius:16px;padding:14px 15px 15px;box-shadow:0 24px 60px rgba(0,0,0,.6)}
 #facePane.off{display:none}
 #facePane h4{margin:0 0 8px;font:700 12px/1 Segoe UI;letter-spacing:.6px;color:var(--accent)}
 #facePane .подпись{font:400 11.5px/1.45 Segoe UI;color:var(--dim);margin:0 0 9px}
 #faceClose{position:absolute;right:10px;top:9px;width:28px;height:28px;border-radius:8px;
-  border:1px solid var(--line);background:#242836;color:var(--ink);cursor:pointer;font-size:15px;line-height:1}
+  border:1px solid var(--line);background:#F6F1E7;color:var(--ink);cursor:pointer;font-size:15px;line-height:1}
 /* Пять в ряд — чтобы все десять карточек влезли в два ряда и панель не уезжала под
    нижний край экрана вместе с выбором голоса. */
 #faceGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 /* Карточка = фото 3:4 + подпись. Пропорция та же, в которой лицо потом ведёт урок,
    поэтому выбранное на карточке и увиденное в уроке — одно и то же. */
 .fc{position:relative;border-radius:12px;overflow:hidden;cursor:pointer;border:2px solid transparent;
-  background:#242836;text-align:left;padding:0}
-.fc .ph{position:relative;aspect-ratio:3/4;background:#2A2D3A;overflow:hidden}
+  background:#FFFDF9;text-align:left;padding:0}
+.fc .ph{position:relative;aspect-ratio:3/4;background:#E7E1D5;overflow:hidden}
 .fc .ph img,.fc .ph video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   object-position:50% 8%;display:block}
 /* Ролик простоя проявляется по наведению. Это САМОЕ ВАЖНОЕ в выборе: по нему видно,
@@ -205,24 +219,42 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    вместе она и звучит. У каждого голоса ▶ — послушать, не трогая урок. */
 #faceVoices{display:flex;flex-wrap:wrap;gap:6px}
 .vc{display:flex;align-items:center;gap:6px;padding:6px 8px 6px 11px;border-radius:20px;
-  border:1px solid var(--line);background:#242836;color:var(--ink);font:600 12px/1 Segoe UI;cursor:pointer}
+  border:1px solid var(--line);background:#FFFDF9;color:var(--ink);font:600 12px/1 Segoe UI;cursor:pointer}
 .vc:hover{border-color:#57607A}
-.vc.on{border-color:var(--accent);color:var(--accent);background:#2C2738}
-.vc .pl{width:19px;height:19px;border-radius:50%;border:1px solid var(--line);background:#1B1E28;
+.vc.on{border-color:var(--accent);color:#8A5410;background:#FFF3DF}
+.vc .pl{width:19px;height:19px;border-radius:50%;border:1px solid var(--line);background:#F1EBDF;
   color:var(--dim);font:11px/17px Segoe UI;text-align:center;flex:none}
 .vc .pl:hover{color:var(--accent);border-color:var(--accent)}
 #faceVoiceSt{font:400 11px/1.4 Segoe UI;color:var(--dim);min-height:15px;margin-top:6px}
 #name{margin:12px 0 2px;font-size:19px;font-weight:700}
 #role{color:var(--dim);font-size:13px}
-#subs{margin-top:12px;background:#1A1D27;border:1px solid var(--line);border-radius:12px;
+#subs{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 2px 8px var(--тень-мягко);
   padding:12px 13px;font-size:14.5px;line-height:1.55;min-height:120px;flex:1;overflow:auto}
 #subs .who{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.4px;display:block;margin-bottom:4px}
 #subs .me{color:var(--ok)}
-#micBtn{margin-top:10px;padding:12px;border-radius:12px;border:1px solid #4A5A46;background:#26332A;
-  color:#CFEFCF;font:600 15px/1 Segoe UI;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
-#micBtn.rec{background:#4A2530;border-color:#7A3A46;color:#FFD9DE;animation:pulse 1.1s infinite}
-#micBtn:disabled{opacity:.55;cursor:default;animation:none}
-@keyframes pulse{50%{filter:brightness(1.35)}}
+#micBtn{margin-top:10px;padding:14px 16px;border-radius:14px;border:1px solid var(--зелёный-край);
+  background-color:var(--зелёный-низ);
+  background-image:linear-gradient(180deg,#3C8F5E,var(--зелёный-низ));
+  color:#FFFDF7;font:700 15.5px/1 Segoe UI;letter-spacing:.2px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  box-shadow:0 1px 0 rgba(255,255,255,.30) inset,   /* фаска по верхней кромке */
+             0 6px 16px rgba(37,107,69,.28),        /* тень в тон кнопке */
+             0 1px 2px rgba(31,92,59,.30);
+  transition:background var(--миг) var(--вход),box-shadow var(--миг) var(--вход),
+             transform var(--миг) var(--вход)}
+#micBtn:hover:not(:disabled){background-color:#2A7A50;background-image:linear-gradient(180deg,#44A06A,#2A7A50);
+  box-shadow:0 1px 0 rgba(255,255,255,.34) inset,0 9px 22px rgba(37,107,69,.32),0 1px 2px rgba(31,92,59,.30)}
+#micBtn:active:not(:disabled){transform:translateY(1px);
+  box-shadow:0 1px 0 rgba(255,255,255,.20) inset,0 3px 9px rgba(37,107,69,.26)}
+/* Слушаю: кнопка становится тёплой и дышит — это состояние, а не ошибка, поэтому
+   не красная тревога, а мягкая терракота. */
+#micBtn.rec{background-color:#A94B2D;background-image:linear-gradient(180deg,#C4603F,#A94B2D);
+  border-color:#8E3E24;color:#FFF4EE;
+  box-shadow:0 1px 0 rgba(255,255,255,.26) inset,0 6px 18px rgba(169,75,45,.30);
+  animation:pulse 1.6s infinite}
+#micBtn:disabled{opacity:.5;cursor:default;animation:none;box-shadow:none}
+@keyframes pulse{50%{filter:brightness(1.12) saturate(1.08)}}
 #micSt{margin-top:6px;font-size:12px;color:var(--dim);min-height:16px}
 
 /* ── ЦЕНТР: три работы рядом (v2.11) ───────────────────────────────────────
@@ -249,7 +281,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 /* Шов между страницами: тонкая тень и просвет — видно, что кончилась одна и
    началась другая, а не что текст поехал сам по себе. */
 #pgB{margin-top:10px;box-shadow:0 -8px 16px -10px rgba(0,0,0,.55)}
-#pgB:before{content:'';position:absolute;left:0;right:0;top:-10px;height:10px;background:#171A22}
+#pgB:before{content:'';position:absolute;left:0;right:0;top:-10px;height:10px;background:#E4DDCE}
 /* ── СВОЯ ПРОКРУТКА (v2.11) ───────────────────────────────────────────────
    Кратов 27.08: «хочу, чтобы её можно было скролить самому — навёл мышку и крутишь;
    и чтобы было видно, куда улистал, чтобы понимать, что надо вернуться».
@@ -299,16 +331,16 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
   height:auto;top:auto;transition:none}
 /* Лист в половинках уже окна (подобран так, чтобы половина легла точно), поэтому
    по бокам видно поле — пусть это будет тень книги, а не пустая дыра. */
-#read.pol #left{background:#171A22}
+#read.pol #left{background:#E4DDCE}
 
 /* Три вида экрана — переключатель в нижней панели. Не выпадающий список и не круг:
    каждый вид виден и берётся одним нажатием, прямо посреди урока. */
 #modeSw{display:flex;gap:0;border:1px solid var(--line);border-radius:9px;overflow:hidden}
-.msw{border:0;background:#232838;color:#9AA3B8;font:600 11.5px/1 Segoe UI;padding:7px 9px;
+.msw{border:0;background:#EAE3D6;color:#7A7364;font:600 11.5px/1 Segoe UI;padding:7px 9px;
   cursor:pointer;white-space:nowrap;transition:background .18s ease,color .18s ease}
 .msw+.msw{border-left:1px solid var(--line)}
-.msw:hover{background:#2B3145;color:#D7DDEA}
-.msw.on{background:var(--accent);color:#2A1F0A}
+.msw:hover{background:#E0D8C8;color:#4E4839}
+.msw.on{background:var(--accent);color:#3A2707}
 .msw .sl{display:none}
 .msw.on .sl{display:inline}
 @media (max-width:1180px){ .msw{padding:7px 7px;font-size:12px} }
@@ -360,7 +392,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 /* ── НИЖНЯЯ ЯЧЕЙКА: показ («карта») ──────────────────────────────────────
    То, о чём говорят прямо сейчас. Та же бумага, что у страницы: показ — часть
    учебника, а не всплывшее поверх него окно. Здесь же живёт проверка. */
-#panel{flex:1.1;min-height:0;border-radius:8px;box-shadow:0 14px 28px rgba(0,0,0,.34);
+#panel{flex:1.1;min-height:0;border-radius:8px;box-shadow:0 10px 26px var(--тень);
   background:linear-gradient(180deg,#FCFAF5,#F4F0E6);display:flex;flex-direction:column;
   padding:12px 14px;gap:8px;color:#2A2B31}
 #panel .zh{flex:none;display:flex;align-items:center;gap:7px;font:700 11.5px/1 Segoe UI;
@@ -417,8 +449,12 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #demoEmpty{font:13px/1.5 Segoe UI;color:#9A9384;text-align:center;padding:0 18px;
   transition:opacity .4s ease}
 /* подпись — поверх нижнего края коробки, на градиенте: читается на любой картинке */
+/* Градиент под подписью нужен, только когда в коробке есть кадр: на пустой светлой
+   коробке он читается как грязная полоса. */
 #demoBox:after{content:'';position:absolute;left:0;right:0;bottom:0;height:96px;z-index:2;
-  pointer-events:none;background:linear-gradient(transparent,rgba(22,18,12,.82))}
+  pointer-events:none;opacity:0;transition:opacity var(--шаг) var(--вход);
+  background:linear-gradient(transparent,rgba(22,18,12,.82))}
+#demoBox:has(.dimg.on):after,#demoBox:has(#demoMap.on):after{opacity:1}
 #demoCap{position:absolute;left:0;right:0;bottom:26px;z-index:3;padding:0 14px;
   font:800 15px/1.25 Segoe UI;letter-spacing:.5px;color:#FFF3DC;pointer-events:none;
   opacity:0;transition:opacity .3s ease}
@@ -465,7 +501,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #stage:has(#panel.st-drill) #zBoard{filter:blur(7px) grayscale(.6) brightness(.82);
   pointer-events:none;user-select:none}
 #zShut{position:absolute;inset:0;z-index:5;display:none;align-items:center;justify-content:center;
-  text-align:center;padding:22px;border-radius:12px;background:rgba(24,26,34,.42);
+  text-align:center;padding:22px;border-radius:12px;background:rgba(250,246,238,.72);
   font:600 13.5px/1.5 Segoe UI;color:#F2E4C6;letter-spacing:.2px}
 #stage:has(#panel.st-tell) #zShut,#stage:has(#panel.st-test) #zShut,
 #stage:has(#panel.st-drill) #zShut{display:flex}
@@ -525,8 +561,16 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #panel.st-pre .copt:disabled:hover{background:#F5F2E9;border-color:rgba(150,132,92,.32)}
 #panel.st-pre .copt.ok:disabled{background:#E8F5E4;border-style:solid;border-color:#7FB877;color:#25502A}
 .cbtn{align-self:flex-start;padding:10px 16px;border-radius:10px;border:1px solid #4E7A4E;
-  background:#2E4A38;color:#CFEFCF;font:700 14px/1 Segoe UI;cursor:pointer}
-.cbtn.sec{background:#EFEADD;border-color:rgba(150,132,92,.4);color:#5A5F6E;font-weight:600}
+  background-color:var(--зелёный-низ);
+  background-image:linear-gradient(180deg,#3C8F5E,var(--зелёный-низ));color:#FFFDF7;
+  font:700 14px/1 Segoe UI;cursor:pointer;
+  box-shadow:0 1px 0 rgba(255,255,255,.28) inset,0 5px 14px rgba(37,107,69,.24);
+  transition:background var(--миг) var(--вход),box-shadow var(--миг) var(--вход),transform var(--миг) var(--вход)}
+.cbtn:hover{background-color:#2A7A50;background-image:linear-gradient(180deg,#44A06A,#2A7A50)}
+.cbtn:active{transform:translateY(1px);box-shadow:0 2px 7px rgba(37,107,69,.22)}
+.cbtn.sec{background-color:#F1EBDD;background-image:linear-gradient(180deg,#FBF7EF,#EDE6D6);
+  border-color:rgba(150,132,92,.45);color:#4A4638;font-weight:600;
+  box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 2px 6px var(--тень-мягко)}
 .cbtn:hover{filter:brightness(1.1)}
 .crow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .cres{font:700 14px/1.4 Segoe UI;min-height:20px}
@@ -583,12 +627,12 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 
 /* закрытая страница */
 #veil{position:absolute;inset:0;z-index:6;border-radius:8px;
-  background:linear-gradient(180deg,#262936,#1C1F2A);backdrop-filter:blur(6px);
+  background:linear-gradient(180deg,rgba(247,243,235,.96),rgba(236,229,216,.96));backdrop-filter:blur(6px);
   display:flex;align-items:center;justify-content:center;text-align:center;
   color:#C9C3B4;font:14px/1.7 Segoe UI;opacity:0;transition:opacity .35s ease}
 #veil.off{display:none}
 #veil.on{opacity:1}
-#veil b{display:block;font-size:17px;color:#E8E4DC;margin-bottom:2px}
+#veil b{display:block;font-size:17px;color:#3A362E;margin-bottom:2px}
 /* На закрытых шагах окно — узкая полоса: там помещается ровно одна строка. Двухэтажная
    надпись в ней обрезалась по буквам и читалась как поломка (Кратов 27.08). */
 #read:has(#panel.st-tell) #veil,#read:has(#panel.st-test) #veil,
@@ -601,7 +645,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #read:has(#panel.st-drill) #veil br,#read:has(#panel.st-done) #veil br{display:none}
 /* и сама полоса — тёмная: бумага под ширмой просвечивала белым обрубком */
 #read:has(#panel.st-tell) #left,#read:has(#panel.st-test) #left,
-#read:has(#panel.st-drill) #left,#read:has(#panel.st-done) #left{background:#1A1D26}
+#read:has(#panel.st-drill) #left,#read:has(#panel.st-done) #left{background:#E4DDCE}
 #read:has(#panel.st-tell) #pgNum,#read:has(#panel.st-test) #pgNum,
 #read:has(#panel.st-drill) #pgNum,#read:has(#panel.st-done) #pgNum{opacity:0}
 #read:has(#panel.st-tell) #pgFade,#read:has(#panel.st-test) #pgFade,
@@ -616,7 +660,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    картинка — тот самый показ, что был на экране в эту секунду. */
 #zebra{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;
   border-radius:12px;overflow:hidden;color:#2A2B31;
-  background:linear-gradient(180deg,#FCFAF5,#F1ECE0);box-shadow:0 16px 34px rgba(0,0,0,.34)}
+  background:linear-gradient(180deg,#FCFAF5,#F1ECE0);box-shadow:0 12px 30px var(--тень)}
 #zHead{flex:none;display:flex;gap:12px;align-items:stretch;
   padding:11px 14px 10px;border-bottom:1px solid rgba(150,132,92,.22);
   background:linear-gradient(180deg,#FFFDF8,#F7F2E7)}
@@ -850,7 +894,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
    Апскейл открывается поверх всего. По умолчанию вписан в экран целиком;
    нажатие на саму картинку переводит её в натуральный размер с прокруткой. */
 #lens{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;
-  background:rgba(10,11,16,.92);backdrop-filter:blur(3px);
+  background:rgba(244,240,232,.94);backdrop-filter:blur(3px);
   opacity:0;transition:opacity .3s ease}
 #lens.off{display:none}
 #lens.on{opacity:1}
@@ -858,14 +902,14 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #lensCap{font-size:16px;font-weight:600;color:var(--ink)}
 #lensSub{font-size:12.5px;color:var(--dim)}
 #lensX{margin-left:auto;width:36px;height:36px;border-radius:10px;border:1px solid var(--line);
-  background:#242836;color:var(--ink);font-size:16px;cursor:pointer}
+  background:#FFFDF9;color:var(--ink);font-size:16px;cursor:pointer}
 #lensWrap{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;padding:0 18px 8px}
 /* закрывается ЛЮБЫМ следующим кликом, в том числе по самой картинке — поэтому и здесь «рука» */
 /* Картинка не возникает вместе с фоном, а «подъезжает»: чуть уменьшенная и
    прозрачная — и за треть секунды встаёт на место. Так открытие читается как
    движение, а не как подмена кадра. Закрытие — то же самое назад. */
 #lensImg{display:block;max-width:100%;max-height:100%;border-radius:10px;cursor:pointer;
-  box-shadow:0 24px 60px rgba(0,0,0,.55);background:#2A2D3A;
+  box-shadow:0 24px 60px rgba(92,76,48,.28);background:#E7E1D5;
   opacity:0;transform:scale(.955);
   transition:opacity .34s ease,transform .42s cubic-bezier(.22,.72,.3,1)}
 /* .ready вешается, когда файл догрузился: фон отзывается на нажатие СРАЗУ, а картинка
@@ -1135,44 +1179,65 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 /* ── выделение области для замечания ──
    Кадр экрана замирает, поверх него тянут рамку. Вырезанный кусок и уходит вместе с
    замечанием: «вот тут криво» показать быстрее, чем описать. */
-#crop{position:fixed;inset:0;z-index:210;display:none;cursor:crosshair;background:#0E1016}
+#crop{position:fixed;inset:0;z-index:210;display:none;cursor:crosshair;background:#EDE8DE}
 #crop.on{display:block}
 #crop canvas{position:absolute;inset:0;width:100%;height:100%}
-#crop .dim{position:absolute;inset:0;background:rgba(10,12,18,.55)}
+#crop .dim{position:absolute;inset:0;background:rgba(60,50,34,.42)}
 #crop .sel{position:absolute;border:2px solid #F2A33C;box-shadow:0 0 0 9999px rgba(10,12,18,.55);
   display:none}
 #crop .tip{position:absolute;left:50%;top:18px;transform:translateX(-50%);z-index:2;
-  background:rgba(18,20,28,.92);border:1px solid #2A2F3E;border-radius:10px;padding:9px 14px;
+  background:rgba(255,253,249,.96);border:1px solid var(--line);border-radius:10px;padding:9px 14px;color:#33302A;
   font:14px/1.3 Segoe UI;color:#E8EAF2}
 #crop .tip b{color:#F2A33C}
 /* ── экран загрузки ── */
-#boot{position:fixed;inset:0;z-index:200;background:#0E1016;display:flex;align-items:center;
+#boot{position:fixed;inset:0;z-index:200;
+  background:radial-gradient(900px 600px at 50% 30%,#FCFAF5,#EAE4D8);display:flex;align-items:center;
   justify-content:center;transition:opacity .38s ease}
 #boot.off{opacity:0;pointer-events:none}
 #boot .bk{width:min(420px,86vw);text-align:center}
-#boot .ttl{font:800 21px/1.3 Georgia,serif;color:#F2E9D8}
-#boot .sub{margin-top:6px;font:14px/1.5 Segoe UI;color:#8C93A6}
-#boot .bar{margin:20px 0 10px;height:4px;border-radius:4px;background:#1E2230;overflow:hidden}
+#boot .ttl{font:800 21px/1.3 Georgia,serif;color:#33302A}
+#boot .sub{margin-top:6px;font:14px/1.5 Segoe UI;color:#8A8274}
+#boot .bar{margin:20px 0 10px;height:4px;border-radius:4px;background:#DED6C6;overflow:hidden}
 #boot .bar i{display:block;height:100%;width:6%;border-radius:4px;background:#E0A43C;
   transition:width .35s ease}
 #boot .st{font:13px/1.4 Segoe UI;color:#6F7688}
 #fbBox{position:fixed;right:16px;bottom:74px;z-index:60;width:360px;max-width:calc(100vw - 32px);
-  background:#1A1D27;border:1px solid var(--line);border-radius:12px;padding:13px 14px;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 14px;
+  box-shadow:0 10px 28px var(--тень);
   box-shadow:0 18px 44px rgba(0,0,0,.5);display:none}
 #fbBox.on{display:block}
 #fbBox h4{margin:0 0 3px;font:800 14px/1.2 Segoe UI;color:var(--ink)}
 #fbBox .где{font:12px/1.4 Segoe UI;color:var(--accent);margin-bottom:8px}
-#fbBox textarea{width:100%;min-height:84px;resize:vertical;background:#242836;color:var(--ink);
+#fbBox textarea{width:100%;min-height:84px;resize:vertical;background:#FFFDF9;color:var(--ink);
   border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:14px/1.4 Segoe UI}
 #fbBox .rw{display:flex;gap:8px;align-items:center;margin-top:9px}
 #fbBox .ok{color:#7FD07A;font:12.5px/1.3 Segoe UI}
 
 /* ── НИЗ: панель ───────────────────────────────────────────────────────── */
-#bar{flex:none;display:flex;align-items:center;gap:10px;padding:10px 18px 14px;flex-wrap:wrap}
-.btn{padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:#242836;color:var(--ink);
-  font:600 14px/1 Segoe UI;cursor:pointer}
-.btn:hover{filter:brightness(1.15)}
-.btn.go{background:#2E4A38;border-color:#4E7A4E;color:#CFEFCF}
+#bar{flex:none;display:flex;align-items:center;gap:10px;padding:11px 18px 14px;flex-wrap:wrap;
+  border-top:1px solid rgba(160,144,110,.20);background:linear-gradient(180deg,rgba(255,253,249,.55),rgba(255,253,249,0))}
+.btn{padding:10px 15px;border-radius:11px;border:1px solid var(--line);
+  background-color:#F7F2E8;
+  background-image:linear-gradient(180deg,#FFFDF9,#F3EDE1);color:#3A362E;
+  font:600 14px/1 Segoe UI;cursor:pointer;
+  box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 2px 5px var(--тень-мягко);
+  transition:background var(--миг) var(--вход),box-shadow var(--миг) var(--вход),
+             transform var(--миг) var(--вход)}
+.btn:hover{background-color:#F3ECDE;background-image:linear-gradient(180deg,#FFF,#EFE8D9);
+  box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 4px 10px var(--тень)}
+.btn:active{transform:translateY(1px);box-shadow:0 1px 3px var(--тень-мягко)}
+/* «начать урок» — единственная кнопка, с которой урок начинается: она и должна быть
+   самой весомой на экране. Тот же зелёный, что у «Говорить»: два главных действия
+   говорят одним голосом. */
+.btn.go{padding:11px 20px;border-radius:12px;border-color:var(--зелёный-край);
+  background-color:var(--зелёный-низ);
+  background-image:linear-gradient(180deg,#3C8F5E,var(--зелёный-низ));color:#FFFDF7;font-weight:700;
+  box-shadow:0 1px 0 rgba(255,255,255,.30) inset,0 6px 16px rgba(37,107,69,.26),
+             0 1px 2px rgba(31,92,59,.28)}
+.btn.go:hover{background-color:#2A7A50;background-image:linear-gradient(180deg,#44A06A,#2A7A50);
+  box-shadow:0 1px 0 rgba(255,255,255,.34) inset,0 9px 22px rgba(37,107,69,.30)}
+.btn.go:active{transform:translateY(1px);
+  box-shadow:0 1px 0 rgba(255,255,255,.20) inset,0 3px 9px rgba(37,107,69,.24)}
 .btn.sm{padding:7px 11px;font-size:13px}
 #pgLabel{font-variant-numeric:tabular-nums;color:var(--dim);min-width:96px;text-align:center}
 /* ⚠️ Строка состояния длинная («проверка · стр. 120 · разберём вопросы») и раньше
@@ -1187,41 +1252,41 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
 #runSt.err{color:#FF7A6B;font-weight:700;white-space:normal;overflow:visible;text-overflow:clip}
 /* Плашка «урок застрял»: последняя дверь, когда ждать больше нечего. */
 #stuck{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;z-index:70;
-  width:min(520px,calc(100vw - 32px));background:#2A1A1B;border:1px solid #7A3A34;
+  width:min(520px,calc(100vw - 32px));background:#FFF6F2;border:1px solid #E0A99B;
   border-radius:12px;padding:14px 16px;box-shadow:0 18px 44px rgba(0,0,0,.55);display:none}
 #stuck.on{display:block}
-#stuck .skh{font:800 15px/1.2 Segoe UI;color:#FF9A8C;margin-bottom:4px}
+#stuck .skh{font:800 15px/1.2 Segoe UI;color:#B44A32;margin-bottom:4px}
 #stuck .skt{font-size:13px;color:var(--ink);opacity:.85;margin-bottom:10px}
 #stuck .skr{display:flex;gap:8px;flex-wrap:wrap}
 /* Предложение продолжить с того места, где закрыли вкладку. */
 #resume{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;z-index:70;
-  width:min(520px,calc(100vw - 32px));background:#1A1D27;border:1px solid var(--line);
+  width:min(520px,calc(100vw - 32px));background:var(--panel);border:1px solid var(--line);
   border-radius:12px;padding:14px 16px;box-shadow:0 18px 44px rgba(0,0,0,.55);display:none}
 #resume.on{display:block}
 #resume .rsh{font:800 15px/1.2 Segoe UI;color:var(--ink);margin-bottom:4px}
 #resume .rst{font-size:13px;color:var(--ink);opacity:.85;margin-bottom:10px}
 #resume .skr{display:flex;gap:8px;flex-wrap:wrap}
 #cost{font-size:12px;color:var(--dim)}
-#ver{font:700 12px/1 Segoe UI;color:#8A93AD;background:#242836;border:1px solid var(--line);
+#ver{font:700 12px/1 Segoe UI;color:#7E7768;background:#F5F0E5;border:1px solid var(--line);
   padding:5px 9px;border-radius:8px;letter-spacing:.5px}
 #steps{display:flex;gap:3px;margin-left:auto;min-width:0;flex-shrink:1}
 /* точка шага меняет только цвет — это «изменилось старое», геометрию не трогаем */
 #steps b{transition:background var(--шаг) var(--вход),box-shadow var(--шаг) var(--вход)}
-#steps b{flex:0 1 9px;min-width:4px;height:9px;border-radius:99px;background:#3A3F52;display:block}
+#steps b{flex:0 1 9px;min-width:4px;height:9px;border-radius:99px;background:#D6CDBA;display:block}
 #steps b.on{background:var(--accent)}
 #steps b.done{background:#5A6A55}
 
 /* ── настройки справа ──────────────────────────────────────────────────── */
-#hud{position:fixed;right:14px;top:14px;width:250px;background:rgba(26,29,39,.95);border:1px solid var(--line);
+#hud{position:fixed;right:14px;top:14px;width:250px;background:rgba(255,253,249,.96);border:1px solid var(--line);
   border-radius:12px;padding:12px;font-size:13px;z-index:40}
 #hud.off{display:none}
 #hud h3{margin:0 0 8px;font-size:13px;letter-spacing:.5px;color:var(--accent)}
 #hud label{display:flex;align-items:center;gap:7px;margin:6px 0;color:var(--dim)}
-#hud select,#hud input[type=range]{width:100%;background:#242836;color:var(--ink);border:1px solid var(--line);
+#hud select,#hud input[type=range]{width:100%;background:#F6F1E7;color:var(--ink);border:1px solid var(--line);
   border-radius:7px;padding:4px}
 .sl{display:flex;align-items:center;gap:8px;margin:6px 0}.sl span{color:var(--dim);flex:none;width:82px;font-size:12px}
 #hudBtn{position:fixed;right:14px;top:14px;z-index:41;width:34px;height:34px;border-radius:9px;
-  border:1px solid var(--line);background:rgba(26,29,39,.95);color:var(--accent);cursor:pointer;font-size:15px}
+  border:1px solid var(--line);background:rgba(255,253,249,.96);color:#9A6412;cursor:pointer;font-size:15px}
   .tpauto{display:block;margin-top:6px;font:12px/1.4 Segoe UI;color:#9A8F79}
 </style>
 <script type="importmap">{"imports":{
@@ -1254,10 +1319,10 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
            а окно оставалось пустым и НИЧЕГО не объясняло. Теперь состояние подключения
            написано прямо на окне учителя, а не мелким серым в шестерёнке. -->
       <div id=anamOv style="display:none;position:absolute;inset:0;z-index:5;
-        background:linear-gradient(180deg,#242836,#1B1E28);display:flex;flex-direction:column;
+        background:linear-gradient(180deg,#F7F3EB,#E9E2D4);display:flex;flex-direction:column;
         align-items:center;justify-content:center;gap:10px;text-align:center;padding:18px">
-        <div id=anamOvT style="font:700 15px/1.35 Segoe UI;color:#DCE6DC">ПОДКЛЮЧЕНИЕ…</div>
-        <div id=anamOvS style="font:400 12px/1.45 Segoe UI;color:#9AA3A8;max-width:250px"></div>
+        <div id=anamOvT style="font:700 15px/1.35 Segoe UI;color:#3A362E">ПОДКЛЮЧЕНИЕ…</div>
+        <div id=anamOvS style="font:400 12px/1.45 Segoe UI;color:#7E7768;max-width:250px"></div>
         <!-- Кнопка появляется только там, где у ребёнка есть что нажать: видео выключено
              по лимиту минут — «включить снова». В остальных заставках скрыта. -->
         <button id=anamOvB class="btn sm" style="display:none">включить снова</button>
@@ -1493,8 +1558,56 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 0%
     <button id=lensX title="закрыть (Esc)">✕</button>
   </div>
   <div id=lensWrap><img id=lensImg alt=""></div>
+  <!-- 🔴 04.09. РАЗВОРОТ вместо простого увеличения (замечание Владимира: «картинки дурацкие»,
+       «нужно больше интерактива»). Иллюстрации, у которых есть разворот, открываются не
+       сканом покрупнее, а плакатом с выносками — той же лупой и тем же движением, то есть
+       ребёнок нажимает картинку В УЧЕБНИКЕ, и она вырастает в разбор.
+       Данные — /plakat/razvoroty.json, ОДИН файл на урок и на витрину /plakat. -->
+  <div id=lensRz></div>
   <div id=lensHint>нажми ещё раз — закрыть (или Esc)</div>
 </div>
+<style>
+/* разворот внутри лупы; всё с приставкой rz-, чтобы не задеть стили урока */
+#lensRz{display:none;width:100%;max-width:1500px;margin:0 auto;overflow:auto;max-height:calc(100vh - 108px)}
+.rz-сетка{display:grid;grid-template-columns:1fr 320px;gap:14px;align-items:start}
+@media(max-width:1100px){.rz-сетка{grid-template-columns:1fr}}
+.rz-сцена{position:relative;line-height:0;border-radius:10px;overflow:hidden;background:#000}
+.rz-сцена img{width:100%;display:block}
+.rz-точка{position:absolute;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:50%;
+  background:rgba(255,255,255,.95);color:#1d3557;border:2.5px solid #a8452a;
+  font:800 15px/1 inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:0 2px 8px rgba(0,0,0,.5);transition:.15s;z-index:3}
+.rz-точка:hover,.rz-точка.горит{background:#a8452a;color:#fff;transform:translate(-50%,-50%) scale(1.2);
+  box-shadow:0 0 0 8px rgba(168,69,42,.3)}
+.rz-карточка{position:absolute;z-index:6;max-width:330px;background:#fffdf8;color:#2a2118;
+  border-radius:10px;padding:13px 15px;box-shadow:0 10px 40px rgba(0,0,0,.5);
+  border-top:4px solid #a8452a;line-height:1.5;display:none;text-align:left}
+.rz-карточка.видно{display:block}
+.rz-карточка h4{margin:0 0 6px;font-size:16px;color:#1d3557}
+.rz-карточка p{margin:0;font-size:13.5px}
+.rz-карточка .rz-цитата{margin-top:8px;padding-top:8px;border-top:1px dashed #dccfb8;
+  font-size:12px;color:#7a6f60;font-style:italic}
+.rz-колонка{display:flex;flex-direction:column;gap:12px}
+.rz-панель{background:#fffdf8;color:#2a2118;border-radius:10px;overflow:hidden;text-align:left}
+.rz-панель h3{margin:0;padding:8px 13px;font-size:12px;letter-spacing:.6px;text-transform:uppercase;
+  color:#fff;background:#3f7d54}
+.rz-панель.ц1 h3{background:#c8862b}
+.rz-панель.ц2 h3{background:#a8452a}
+.rz-панель .rz-тело{padding:11px 13px}
+.rz-легенда{list-style:none;margin:0;padding:5px}
+.rz-легенда li{display:flex;gap:9px;align-items:flex-start;padding:6px 7px;border-radius:7px;cursor:pointer}
+.rz-легенда li:hover,.rz-легенда li.горит{background:#f3e7d3}
+.rz-легенда .rz-н{flex:0 0 22px;height:22px;border-radius:50%;background:#1d3557;color:#fff;
+  font:800 12px/22px inherit;text-align:center}
+.rz-легенда .rz-т{font-size:13px}
+.rz-факт{display:flex;gap:8px;margin-bottom:9px;font-size:13px;line-height:1.45}
+.rz-факт:last-child{margin-bottom:0}
+.rz-факт .rz-знак{flex:0 0 24px;height:24px;border-radius:6px;background:#f3e7d3;text-align:center;
+  line-height:24px;font-size:14px}
+.rz-факт b{color:#1d3557}
+.rz-идея{margin-top:12px;background:linear-gradient(100deg,#a8452a,#c8622b);color:#fff;
+  padding:12px 18px;border-radius:10px;font-size:14.5px;font-weight:600;text-align:left}
+</style>
 
 <!-- окошко замечания: открывается кнопкой в нижней панели -->
 <div id=crop>
@@ -4758,9 +4871,94 @@ function openLensSrc(src,cap,sub){
 }
 function openLens(f,откуда){
   лупаОткуда(откуда||document.querySelector('.fig[data-fig="'+f.id+'"]'))
+  // 🔴 04.09. Если у этой иллюстрации есть РАЗВОРОТ — открываем его, а не скан покрупнее.
+  //  Лупа, движение и закрытие остаются теми же: для ребёнка это по-прежнему «нажал на
+  //  картинку в учебнике, и она выросла», просто внутри теперь разбор с выносками.
+  const р = разворотДля(f.id)
+  if(р){ openRazvorot(f,р); return }
   openLensSrc('/book/'+f.hi, f.title||'Иллюстрация учебника',
     `страница ${f.page} · в учебнике ${f.w}×${f.h} · увеличено до ${f.hiW||'?'}×${f.hiH||'?'}`)
 }
+
+// ── РАЗВОРОТЫ: плакат с выносками поверх иллюстрации учебника ──────────────
+// Данные лежат в /plakat/razvoroty.json — ОДИН файл на урок и на витрину /plakat,
+// чтобы подписи не разъехались между «показать руководителю» и «идёт урок».
+// 🔑 Закон формата: КАРТИНКУ генерим, БУКВЫ ставим сами из учебника. Каждая выноска
+// несёт свою цитату со страницей — по ней видно, что ничего не выдумано.
+let РАЗВ=[]
+fetch('/plakat/razvoroty.json').then(r=>r.json()).then(d=>{ РАЗВ=d })
+  .catch(e=>console.warn('нет razvoroty.json — картинки открываются по-старому:',e.message))
+const разворотДля=(id)=>РАЗВ.find(р=>(р.фигуры||[]).indexOf(id)>=0)
+
+function openRazvorot(f,р){
+  const L=$('#lens')
+  $('#lensCap').textContent=(р.заголовок+' '+р.акцент)
+  $('#lensSub').textContent='страница '+f.page+' · '+р.вопрос
+  $('#lensWrap').style.display='none'
+  const rz=$('#lensRz'); rz.style.display='block'
+  rz.innerHTML=
+    '<div class="rz-сетка"><div class="rz-сцена"><img src="'+р.арт+'" alt="'+р.акцент+'">'+
+      '<div class="rz-карточка"><h4></h4><p></p><div class="rz-цитата"></div></div></div>'+
+    '<div class="rz-колонка"><div class="rz-панель"><h3>Что здесь есть</h3>'+
+      '<ul class="rz-легенда"></ul></div>'+
+      р.панели.map(п=>'<div class="rz-панель '+п.цвет+'"><h3>'+п.имя+'</h3><div class="rz-тело">'+
+        п.факты.map(ф=>'<div class="rz-факт"><span class="rz-знак">'+ф[0]+'</span><div>'+ф[1]+'</div></div>').join('')+
+        '</div></div>').join('')+
+    '</div></div><div class="rz-идея">💡 '+р.идея+'</div>'
+
+  const сцена=rz.querySelector('.rz-сцена'), лег=rz.querySelector('.rz-легенда')
+  const карт=rz.querySelector('.rz-карточка')
+  const подсветить=(н,вкл)=>{
+    const т=сцена.querySelector('.rz-точка[data-н="'+н+'"]'), l=лег.querySelector('li[data-н="'+н+'"]')
+    if(т) т.classList.toggle('горит',вкл)
+    if(l) l.classList.toggle('горит',вкл)
+  }
+  const открыть=(т)=>{
+    карт.querySelector('h4').textContent=т.н+'. '+т.имя
+    карт.querySelector('p').textContent=т.текст
+    карт.querySelector('.rz-цитата').textContent=т.цитата
+    карт.classList.add('видно')
+    const ш=сцена.clientWidth, в=сцена.clientHeight
+    let л=т.x*ш+24, вер=т.y*в-20
+    if(л+340>ш) л=т.x*ш-354
+    if(л<8) л=8
+    if(вер+карт.offsetHeight>в-8) вер=в-карт.offsetHeight-8
+    if(вер<8) вер=8
+    карт.style.left=л+'px'; карт.style.top=вер+'px'
+  }
+  for(const т of р.точки){
+    const b=document.createElement('button')
+    b.className='rz-точка'; b.textContent=т.н; b.dataset.н=т.н
+    b.style.left=(т.x*100)+'%'; b.style.top=(т.y*100)+'%'
+    // ⚠️ stopPropagation обязателен: у лупы висит «клик по окну = закрыть», и без этого
+    //  первое же нажатие на выноску захлопывало бы разворот.
+    b.onclick=(e)=>{ e.stopPropagation(); открыть(т) }
+    b.onmouseenter=()=>подсветить(т.н,true); b.onmouseleave=()=>подсветить(т.н,false)
+    сцена.appendChild(b)
+    const li=document.createElement('li'); li.dataset.н=т.н
+    li.innerHTML='<span class="rz-н">'+т.н+'</span><span class="rz-т">'+т.имя+'</span>'
+    li.onclick=(e)=>{ e.stopPropagation(); открыть(т) }
+    li.onmouseenter=()=>подсветить(т.н,true); li.onmouseleave=()=>подсветить(т.н,false)
+    лег.appendChild(li)
+  }
+  // клик по самой картинке — закрыть карточку, но не всю лупу
+  сцена.onclick=(e)=>{ e.stopPropagation(); карт.classList.remove('видно') }
+  rz.querySelectorAll('.rz-панель, .rz-идея').forEach(el=>{ el.onclick=(e)=>e.stopPropagation() })
+
+  L.classList.remove('off')
+  requestAnimationFrame(()=>L.classList.add('on'))
+  лупаРаскрыть(L,false)
+  $('#lensX').focus()
+}
+
+// Лупа закрывается в нескольких местах (✕, Esc, клик мимо), и все они вешались на
+// closeLens ДО нас. Поэтому убираем разворот не в них, а по факту закрытия окна.
+new MutationObserver(()=>{
+  const L=$('#lens')
+  if(L.classList.contains('off') && $('#lensRz').style.display==='block'){
+    $('#lensRz').style.display='none'; $('#lensRz').innerHTML=''; $('#lensWrap').style.display=''
+  }
+}).observe($('#lens'),{attributes:true,attributeFilter:['class']})
 function closeLens(){
   const L=$('#lens'); if(L.classList.contains('off')) return
   L.classList.remove('on'); $('#lensImg').classList.remove('ready')   // уезжает вместе с фоном
@@ -4873,7 +5071,9 @@ const tScene=new THREE.Scene()
 // Фон-задник студии: мягкий градиент вместо плоской заливки — лицо от него отделяется.
 ;(()=>{ const c=document.createElement('canvas'); c.width=8; c.height=256
   const g=c.getContext('2d'), grd=g.createLinearGradient(0,0,0,256)
-  grd.addColorStop(0,'#454C60'); grd.addColorStop(.5,'#333A4A'); grd.addColorStop(1,'#232735')
+  // светлая студия: сверху почти лист, книзу теплее и глубже — так силуэт головы
+  // читается краем, без обводки
+  grd.addColorStop(0,'#F3EEE4'); grd.addColorStop(.5,'#E4DCCC'); grd.addColorStop(1,'#D2C8B4')
   g.fillStyle=grd; g.fillRect(0,0,8,256)
   const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; tScene.background=t })()
 // Портретный объектив: угол уже, камера дальше — меньше искажений лица, чем на 24°.
