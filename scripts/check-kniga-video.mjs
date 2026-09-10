@@ -58,7 +58,19 @@ await page.waitForTimeout(6000)
 say(pushes.length>0, 'звук уходит раннеру: пушей '+pushes.length)
 const stt=await page.evaluate(()=>window.__kniga.state())
 say(stt.идёт, 'урок идёт с видео-учителем: такт '+stt.такт)
-const rd=await page.evaluate(()=>window.__kniga.readState())
+// ⚠️ ПЕРЕПИСАНО 14.08. Проверка ждала «6 секунд» и смотрела строки. Урок за это время
+// успевает только до вступительной реплики Ани — она СВОЯ (kind='own'), текста на
+// странице у неё нет, и строк там не бывает по определению. Ждём не секунды, а первый
+// такт, который реально читает учебник. Та же грабля, что с адресацией тактов номером:
+// привязка к времени ломается от любой правки темпа.
+let rd={строк:0}
+for(let i=0;i<80;i++){
+  const s=await page.evaluate(()=>window.__kniga.state())
+  rd=await page.evaluate(()=>window.__kniga.readState())
+  if(rd.строк>0) break
+  if(!s.идёт) break
+  await page.waitForTimeout(500)
+}
 say(rd.строк>0, 'подсветка строки работает и на видео-пути (строк '+rd.строк+')')
 await page.screenshot({ path:'.tmp/shots-kniga/7-video-urok.png' })
 await page.evaluate(()=>window.__kniga.stop())

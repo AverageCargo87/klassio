@@ -115,8 +115,18 @@ say(!!MAP, 'карта собрана (scripts/make-map-greece.mjs)')
 const mapIds = new Set([...MAP.matchAll(/id="(?:mk|zone)-([\w-]+)"/g)].map((m) => m[1]))
 const zoneIds = new Set([...MAP.matchAll(/id="zone-([\w-]+)"/g)].map((m) => m[1]))
 const mapTargets = new Set([...mapIds].concat([...zoneIds].map((z) => 'zone-' + z)))
+// 13.08: карт стало две — подробная Греция и обзорная Европа («где это относительно
+// всей Европы», замечание Владимира). Цели проверяем по той карте, к которой относится
+// показ: 'map[:метка]' — Греция, 'map-europe[:метка]' — Европа.
+const EUR = fs.existsSync(ROOT + '/book/map-europe.svg') ? fs.readFileSync(ROOT + '/book/map-europe.svg', 'utf8') : ''
+say(!!EUR, 'обзорная карта Европы собрана (scripts/make-map-europe.mjs)')
+const eurTargets = new Set([...EUR.matchAll(/id="(?:mk|zone)-([\w-]+)"/g)].map((m) => m[1]))
 const usedMap = [...new Set(PANEL.flatMap((p) => p.demos.map((d) => d.art)).filter((a) => a.startsWith('map')))]
-const badMap = usedMap.filter((a) => a !== 'map' && !mapTargets.has(a.slice(4)))
+const badMap = usedMap.filter((a) => {
+  if (a === 'map' || a === 'map-europe') return false
+  if (a.startsWith('map-europe:')) return !eurTargets.has(a.slice('map-europe:'.length))
+  return !mapTargets.has(a.slice(4))
+})
 say(!badMap.length, 'все цели карты существуют (' + usedMap.length + ' видов показа)' + (badMap.length ? ' — НЕТ: ' + badMap.join(', ') : ''))
 
 // Слова-места из самой карты: если они звучат в такте, ребёнок должен видеть,

@@ -1,0 +1,1 @@
+{"version":3,"file":"DataChannelMessage.d.ts","sourceRoot":"","sources":["../../../../src/types/streaming/DataChannelMessage.ts"],"names":[],"mappings":"AAAA,oBAAY,kBAAkB;IAC5B,WAAW,eAAe;IAC1B,iBAAiB,oBAAoB;IACrC,uBAAuB,oBAAoB;IAC3C,yBAAyB,sBAAsB;IAC/C,sBAAsB,mBAAmB;IACzC,cAAc,kBAAkB;IAChC,mBAAmB,sBAAsB;IACzC,iBAAiB,oBAAoB;IACrC,yBAAyB,2BAA2B;IACpD,6BAA6B,+BAA+B;CAC7D"}

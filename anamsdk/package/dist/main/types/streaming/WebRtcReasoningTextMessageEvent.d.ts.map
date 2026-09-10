@@ -1,0 +1,1 @@
+{"version":3,"file":"WebRtcReasoningTextMessageEvent.d.ts","sourceRoot":"","sources":["../../../../src/types/streaming/WebRtcReasoningTextMessageEvent.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,+BAA+B;IAC9C,UAAU,EAAE,MAAM,CAAC;IACnB,aAAa,EAAE,MAAM,CAAC;IACtB,OAAO,EAAE,MAAM,CAAC;IAChB,IAAI,EAAE,MAAM,CAAC;IACb,cAAc,EAAE,OAAO,CAAC;CACzB"}

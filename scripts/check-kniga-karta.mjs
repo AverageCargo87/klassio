@@ -49,15 +49,17 @@ const say = (г, т) => (г ? ok : bad).push(т)
 const естьМесто = async (art) => pg.evaluate(async (a) => {
   const файл = a.startsWith('map-europe') ? 'map-europe.svg' : 'map-greece.svg'
   const t = await fetch('/book/' + файл).then((r) => r.text())
-  const id = a.includes(':') ? a.split(':')[1] : ''
-  if (!id) return true
-  return t.includes('id="' + (id.startsWith('zone-') ? id : 'mk-' + id) + '"')
+  // 21.08: цель может быть списком через запятую — «zone-north,zone-middle,zone-south»
+  const ids = (a.includes(':') ? a.split(':')[1] : '').split(',').map((x) => x.trim()).filter(Boolean)
+  if (!ids.length) return true
+  return ids.every((id) => t.includes('id="' + (id.startsWith('zone-') ? id : 'mk-' + id) + '"'))
 }, art)
 
 console.log('привязок карты в уроке: ' + показы.length + '\n')
 let прошлаяСтр = 0
 for (const d of показы) {
-  const id = d.art.includes(':') ? d.art.split(':')[1] : ''
+  const ids = (d.art.includes(':') ? d.art.split(':')[1] : '').split(',').map((x) => x.trim()).filter(Boolean)
+  const id = ids[0] || ''
   const имя = 'стр' + d.page + ' n' + d.n + ' «' + d.cap + '»'
   if (!(await естьМесто(d.art))) { say(false, имя + ': такого места на карте НЕТ — ' + d.art); continue }
   // Кадр страницы ставится один раз на страницу — повторяем это поведение урока.
@@ -67,15 +69,20 @@ for (const d of показы) {
   const m = await pg.evaluate(() => window.__kniga.map())
   const L = await pg.evaluate(() => window.__kniga.mapLabel())
 
-  if (!id) {                                          // «вся карта» — гореть не должно ничего
+  if (!ids.length) {                                  // «вся карта» — гореть не должно ничего
     say(!m.метка && !m.зона, имя + ': общий план карты, ничего не подсвечено'
       + (m.метка || m.зона ? ' — а горит ' + (m.метка || m.зона) : ''))
     continue
   }
-  const ждём = id.startsWith('zone-') ? id : 'mk-' + id
-  const горит = m.метка || m.зона
-  say(горит === ждём, имя + ': горит ' + (горит || 'НИЧЕГО') + (горит === ждём ? '' : ' — а должно ' + ждём))
-  if (!id.startsWith('zone-')) {
+  // 🔴 21.08. Правило подсветки изменилось: целей может быть несколько, а при зажжённой
+  //  ЗОНЕ горят ещё и метки внутри неё (Кратов: «не подсвечиваются надписи, когда она
+  //  говорит названия»). Значит проверяем не «горит ровно одно», а «горят все названные».
+  const ждём = ids.map((x) => (x.startsWith('zone-') ? x : 'mk-' + x))
+  const горят = m.горят || [m.метка, m.зона].filter(Boolean)
+  const нет = ждём.filter((x) => !горят.includes(x))
+  say(!нет.length, имя + ': горят ' + (горят.join(', ') || 'НИЧЕГО')
+    + (нет.length ? ' — а должны ещё ' + нет.join(', ') : ''))
+  if (!ids.some((x) => x.startsWith('zone-'))) {
     say(m.приглушено > 0, имя + ': остальные места приглушены (' + m.приглушено + ')')
     say(L && L.внутри, имя + ': подпись «' + ((L && L.подпись) || '?') + '» видна целиком'
       + (L && !L.внутри ? ' — вылезает ' + JSON.stringify(L.вылезло) : ''))

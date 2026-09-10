@@ -567,6 +567,33 @@ http.createServer(async (req, res) => {
       try { const html = fs.readFileSync('.tmp/sketches/tutor/kniga.html', 'utf8'); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(html) }
       catch (e) { res.writeHead(500); return res.end('kniga not found: ' + e.message) }
     }
+    // ПУЛЬТ ХАРАКТЕРА (04.09, идея Кратова: «точку перетаскивать, и она в зависимости от
+    // характера учителя становится треугольником, кругом, квадратом»). Перетащил — услышал,
+    // как меняются голос и ФОРМУЛИРОВКИ на одной и той же минуте урока.
+    if (req.method === 'GET' && (путь === '/harakter' || путь === '/pult')) {
+      try { const html = fs.readFileSync('.tmp/sketches/tutor/harakter.html', 'utf8'); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(html) }
+      catch (e) { res.writeHead(500); return res.end('harakter not found: ' + e.message) }
+    }
+    // ПРОБА НОВОГО РАЗВОРОТА (03.09, по замечанию Владимира: «картинки какие-то дурацкие»,
+    // «нужно что-то более эпичное в стиле зебры», «нужно больше интерактива»).
+    // Страница показывает СТАРУЮ иллюстрацию §20 и НОВЫЙ разворот рядом, переключателем.
+    // 🔑 Закон разворота: КАРТИНКУ генерим (Nano Banana Pro, без единой буквы), БУКВЫ ставим
+    //  сами из текста учебника. Иначе повторится проба 21.08, где генератор сам сочинил
+    //  «шахтовые гробницы». Побочный выигрыш: текст векторный (не мылится на зуме) и
+    //  кликабельный — то есть «эпичнее» и «интерактивнее» получаются одной работой.
+    if (req.method === 'GET' && (путь === '/plakat' || путь === '/razvorot')) {
+      try { const html = fs.readFileSync('.tmp/sketches/tutor/plakat.html', 'utf8'); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(html) }
+      catch (e) { res.writeHead(500); return res.end('plakat not found: ' + e.message) }
+    }
+    // razvoroty.json — ОДИН источник для витрины и для урока: и /plakat, и /kniga читают его,
+    // чтобы подписи выносок не разъехались между «показать руководителю» и «идёт урок».
+    const плм = req.method === 'GET' && путь.match(/^\/plakat\/([a-z0-9-]{2,30}\.(?:jpg|png|json))$/)
+    if (плм) {
+      const тип = плм[1].endsWith('.png') ? 'image/png'
+        : плм[1].endsWith('.json') ? 'application/json; charset=utf-8' : 'image/jpeg'
+      try { const buf = fs.readFileSync('.tmp/sketches/tutor/plakat/' + плм[1]); res.writeHead(200, { 'Content-Type': тип, 'Cache-Control': плм[1].endsWith('.json') ? 'no-store' : 'max-age=600' }); return res.end(buf) }
+      catch (e) { res.writeHead(404); return res.end('нет файла разворота: ' + плм[1]) }
+    }
     // ОБЗОР МАТЕРИАЛОВ (11.08): всё, что урок показывает по одному шагу за полчаса —
     // разом и молча. Тому, кто пришёл ПРОВЕРИТЬ материал, слушать урок целиком незачем.
     if (req.method === 'GET' && (путь === '/kniga/obzor' || путь === '/obzor')) {
@@ -579,6 +606,22 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && (путь === '/zakrep' || путь === '/zakreplenie')) {
       try { const html = fs.readFileSync('.tmp/sketches/tutor/zakrep.html', 'utf8'); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(html) }
       catch (e) { res.writeHead(500); return res.end('zakrep not found: ' + e.message) }
+    }
+    // ПРОБНЫЕ ФУНКЦИИ (21.08): песочница ДО урока. Кратов: «на стартовой странице пусть
+    // будет ещё кнопка с тест-функциями — посмотреть картинки и что-то понажимать,
+    // самостоятельно либо с голосовой поддержкой и разбором от учителя».
+    // Отдельная страница, как и /zakrep: боевой урок /kniga не тронут.
+    if (req.method === 'GET' && (путь === '/proba' || путь === '/probe')) {
+      try { const html = fs.readFileSync('.tmp/sketches/tutor/proba.html', 'utf8'); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(html) }
+      catch (e) { res.writeHead(500); return res.end('proba not found: ' + e.message) }
+    }
+    // Картинки пробных функций. Шаблон имени узкий намеренно — это отдача файлов с диска
+    // по адресу из браузера (то же правило, что у /lica и /book).
+    const prm = req.method === 'GET' && req.url.match(/^\/proba\/([a-z0-9-]{2,32}\.(?:jpg|png))$/)
+    if (prm) {
+      try { const buf = fs.readFileSync('.tmp/sketches/tutor/proba/' + prm[1])
+        res.writeHead(200, { 'Content-Type': prm[1].endsWith('.png') ? 'image/png' : 'image/jpeg', 'Cache-Control': 'max-age=600' }); return res.end(buf) }
+      catch (e) { res.writeHead(404); return res.end('нет картинки пробной функции: ' + prm[1]) }
     }
     // ═══ ВИТРИНА СБОРОК (10.08) ═══════════════════════════════════════════════
     //  Руководитель заходит сам, выбирает сборку, проходит урок и оставляет замечание —
@@ -616,6 +659,43 @@ http.createServer(async (req, res) => {
       } catch (e) { /* журнала нет — витрина просто скажет «записей нет» */ }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
       return res.end(JSON.stringify(out))
+    }
+    // ХРОНИКА РАБОТ ПО ДНЯМ (21.08). Лента показывала только даты ВЫКЛАДОК, и круг 13.08
+    // вместе с заменой аватара 19.08 выглядели как «всё появилось 20-го»: выложены они были
+    // одной кнопкой. Даты работы лежат в `.planning/KNIGA-HRONIKA.md`, время выкладки
+    // витрина подставляет из журнала релизов по номеру — так обе даты остаются настоящими
+    // и не могут разойтись.
+    if (req.method === 'GET' && req.url === '/api/hronika') {
+      const дни = []
+      try {
+        // ⚠️ 21.08, поймано на боевом. Резать только по «\n» нельзя: файл, переписанный
+        // с Windows, приезжает с CRLF, и в конце каждой строки остаётся «\r». Точка в
+        // JS-регулярке его НЕ ловит — это терминатор строки, — поэтому «### тема» и
+        // пункты молча переставали распознаваться, и витрина показывала даты без текста.
+        const md = fs.readFileSync('.planning/KNIGA-HRONIKA.md', 'utf8').split(/\r?\n/)
+        let cur = null, пункт = null
+        const закрыть = () => { if (пункт && cur) { cur.пункты.push(пункт); пункт = null } }
+        for (const line of md) {
+          // ## 17.08 · v2.9 · релиз 0017
+          const h = line.match(/^##\s+(\d{1,2}\.\d{2})\s*·\s*(\S+)\s*·\s*релиз\s+(\S+)\s*$/)
+          if (h) {
+            закрыть()
+            cur = { дата: h[1], версия: h[2] === '—' ? '' : h[2], релиз: h[3] === '—' ? '' : h[3], тема: '', пункты: [] }
+            дни.push(cur); continue
+          }
+          if (/^##\s/.test(line)) { закрыть(); cur = null; continue }
+          if (!cur) continue
+          const t = line.match(/^###\s+(.+)$/)
+          if (t) { закрыть(); cur.тема = t[1].trim(); continue }
+          const p = line.match(/^-\s+\*\*(.+?):\*\*\s*(.*)$/)
+          if (p) { закрыть(); пункт = { к: p[1].trim(), т: p[2].trim() }; continue }
+          // продолжение пункта — перенос строки внутри абзаца
+          if (пункт && line.trim()) { пункт.т += ' ' + line.trim() }
+        }
+        закрыть()
+      } catch (e) { /* файла нет — витрина покажет ленту по-старому */ }
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
+      return res.end(JSON.stringify(дни))
     }
     // КОГДА ЭТО ВЫШЛО. Руководителю в «что изменилось» нужен не только список правок, но и
     // дата с временем выкладки. Врать тут нечем: каждая выкладка кладёт рядом RELEASE.json,

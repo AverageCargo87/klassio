@@ -30,7 +30,11 @@ const ok = [], bad = []
 const say = (good, t) => (good ? ok : bad).push(t)
 const st = () => page.evaluate(() => window.__kniga.state())
 
-await page.goto('http://localhost:8781/kniga', { waitUntil: 'domcontentloaded', timeout: 60000 })
+// ⚠️ Учителя задаём ссылкой. С 19.08 по умолчанию стоит Anam, а он без ключа не
+//  поднимается: звука нет, значит нет и доли прочитанного — и половина проверок
+//  («линия идёт за голосом», «продолжить с того же места», сам учитель) падала не
+//  по делу. Механику урока проверяем на 3D-учителе, он работает без ключей.
+await page.goto('http://localhost:8781/kniga?teacher=av-avaturn', { waitUntil: 'domcontentloaded', timeout: 60000 })
 await page.waitForFunction(() => window.__kniga, null, { timeout: 60000 })
 await page.mouse.click(800, 850)
 
@@ -42,14 +46,20 @@ const imgOk = await page.evaluate(() => {
   const a = document.querySelector('#leftImg')
   return a.naturalWidth > 400 ? [a.naturalWidth, a.naturalHeight] : null })
 say(!!imgOk, 'страница учебника отрисована ' + (imgOk ? imgOk.join('×') : '—'))
-// правая половина — рабочая панель, а не вторая страница (правка по фидбэку 03.08)
-const pnl = await page.evaluate(() => {
-  const p = document.querySelector('#panel'), l = document.querySelector('#left')
-  const rp = p.getBoundingClientRect(), rl = l.getBoundingClientRect()
-  return { есть: !!p, справа: rp.left >= rl.right - 2, ширина: Math.round(rp.width), страницаШирина: Math.round(rl.width),
+// раскладка v2.11: слева колонка чтения (окно страницы, под ним показ), справа зебра
+const рас = await page.evaluate(() => {
+  const q = (s) => document.querySelector(s).getBoundingClientRect()
+  const b = q('#book'), p = q('#panel'), z = q('#zebra')
+  return { показПодОкном: p.top >= b.bottom - 2, зебраСправа: z.left >= p.right - 2,
+    окно: [Math.round(b.width), Math.round(b.height)], зебра: [Math.round(z.width), Math.round(z.height)],
     зоны: [!!document.querySelector('#demo'), !!document.querySelector('#keep')] } })
-say(pnl.есть && pnl.справа && pnl.зоны[0] && pnl.зоны[1],
-  'справа от страницы стоит панель ' + pnl.ширина + 'px: показ + тизеры')
+say(рас.показПодОкном && рас.зоны[0], 'под окном учебника стоит показ (окно ' + рас.окно.join('×') + ')')
+say(рас.зебраСправа && рас.зоны[1], 'справа доска-зебра ' + рас.зебра.join('×'))
+// окно НИЖЕ страницы: если бы страница влезала целиком, ехать было бы некуда
+const лист0 = await page.evaluate(() => window.__kniga.лист())
+say(лист0.высотаОкна < лист0.высотаСтраницы - 40,
+  'в окно влезает верх страницы (' + лист0.высотаОкна + ' из ' + лист0.высотаСтраницы + 'px), дальше она едет')
+say(лист0.следующая === 121, 'следующая страница ждёт встык: ' + лист0.следующая)
 const nMarks = await page.evaluate(() => window.__kniga.marks().length)
 say(nMarks >= 30, 'меток из текстового слоя: ' + nMarks)
 
@@ -102,8 +112,9 @@ const vv = await page.evaluate(() => {
   sel.value = neuro; sel.onchange()
   return window.__kniga.voice()
 })
-say(vv.вэфир.v3 === true && vv.длявидео.voice === 'alena',
-  'нейросетевой голос идёт в урок, но не в видео-учителя (' + vv.вэфир.voice + ' / ' + vv.длявидео.voice + ')')
+say(vv.вэфир.v3 === true && vv.длявидео.voice === vv.вэфир.voice,
+  'нейросетевой голос доезжает и до видео-учителя, без молчаливого отката на Алёну ('
+  + vv.вэфир.voice + ' → ' + vv.длявидео.voice + ')')
 await page.evaluate(() => { const s = document.querySelector('#sVoice'); s.value = 'alena-good'; s.onchange() })
 
 // 3d. учительницу зовут Аня — ребёнка так звать нельзя
@@ -185,6 +196,11 @@ say(back.страница === 120, 'прогон вернул книгу на с
 const pd = await page.evaluate(() => window.__kniga.panelData())
 say(pd.показов > 30 && pd.тизеров > 20, 'привязок панели: показов ' + pd.показов + ', тизеров ' + pd.тизеров)
 // линия под читаемой строкой должна ЖИТЬ: ширина меняется по ходу озвучки
+// ⚠️ 13.08: ловить надо именно такт ЧТЕНИЯ. Реплики самой Ани (приветствие, вступление
+// к главе, пояснение новых слов) строк учебника не подсвечивают — там линии нет и быть
+// не должно, а прогон мог остановиться как раз на такой.
+await page.waitForFunction(() => (window.__kniga.readState().строк || 0) > 0, { timeout: 25000 })
+  .catch(() => {})
 const w1 = await page.evaluate(() => window.__kniga.readState())
 await page.waitForTimeout(900)
 const w2 = await page.evaluate(() => window.__kniga.readState())
@@ -222,12 +238,15 @@ say(last.виден && (!!last.файл || /карт/i.test(last.показ || '
 // хотя перекрёстное затухание в порядке.
 // ⚠️ И выждать больше полутора секунд: показ с 05.08 держится DEMO_MIN, а всё, что
 // прилетело раньше, встаёт в очередь — замер поймал бы очередь, а не переход.
-await page.evaluate(() => window.__kniga.showBeatAt(8))
+// ⚠️ 13.08: такты адресуем по тексту — сценарий растёт, номера едут (см. выше).
+const тактФото = await page.evaluate(() => window.__kniga.beatByText('Берега Греции изрезаны'))
+await page.evaluate((n) => window.__kniga.showBeatAt(n || 8), тактФото)
 await page.waitForTimeout(2700)  // > DEMO_MIN (2.5 с)
 const both = await page.evaluate(async () => {
   const seen = []
   const t = setInterval(() => seen.push(document.querySelectorAll('#demoBox .dimg.on').length), 40)
-  window.__kniga.showBeatAt(10, true)
+  const n2 = window.__kniga.beatByText('Греция — горная страна')
+  window.__kniga.showBeatAt(n2 || 10, true)
   // ⚠️ Ждать надо не «столько-то миллисекунд»: переход стартует по onload картинки, а
   // она бывает в полмегабайта. Ждём, пока уходящий слой не досмотрит своё затухание,
   // и только потом считаем, сколько слоёв осталось.
@@ -264,12 +283,18 @@ const lensOpen = await page.evaluate(async () => {
     await new Promise((r) => setTimeout(r, 100))
   }
   const L = document.querySelector('#lens'), I = document.querySelector('#lensImg')
-  return { фон: +(+getComputedStyle(L).opacity).toFixed(2), готова: I.classList.contains('ready'),
-    переходы: getComputedStyle(I).transitionProperty,
-    длительность: getComputedStyle(I).transitionDuration } })
+  const rz = document.querySelector('#lensRz')
+  const разворот = !!(rz && getComputedStyle(rz).display !== 'none')
+  return { фон: +(+getComputedStyle(L).opacity).toFixed(2),
+    разворот,
+    // для скана — его собственный переход; для разворота движение ведёт морф всего окна
+    готова: разворот ? true : I.classList.contains('ready'),
+    переходы: разворот ? (L.getAnimations().length ? 'clip-path (морф окна)' : getComputedStyle(L).transitionProperty)
+                       : getComputedStyle(I).transitionProperty,
+    длительность: разворот ? getComputedStyle(L).transitionDuration : getComputedStyle(I).transitionDuration } })
 // ⚠️ Печатаем ВСЕ три слагаемых. Раньше сообщение показывало только переходы, а падала
 // проверка по «фону» или «готова» — и промах читался как загадка вместо диагноза.
-say(lensOpen.фон === 1 && lensOpen.готова && /opacity/.test(lensOpen.переходы),
+say(lensOpen.фон === 1 && lensOpen.готова && /opacity|clip-path/.test(lensOpen.переходы),
   'картинка открывается переходом: ' + lensOpen.переходы + ' за ' + lensOpen.длительность
   + ' · фон ' + lensOpen.фон + ' · готова ' + lensOpen.готова)
 // ⚠️ Переход снимаем НЕ мгновенно после закрытия: у картинки он стартует на следующем
@@ -281,31 +306,56 @@ const lensClose = await page.evaluate(async () => {
   const names = (el) => el.getAnimations().map((a) => a.transitionProperty || a.animationName)
   const собрать = () => ({ фон: names(L), кадр: names(I) })
   let r = собрать()
-  for (let i = 0; i < 6 && !r.кадр.includes('opacity'); i++) {
+  // ⚠️ 13.08: шести кадров мало — под swiftshader переход у картинки стартует позже, чем
+  // у фона, и проверка падала через раз. Ждём до 40 кадров, это всё ещё меньше секунды.
+  for (let i = 0; i < 40 && !r.кадр.includes('opacity'); i++) {
     await new Promise((res) => requestAnimationFrame(() => res()))
     const n = собрать()
     r = { фон: [...new Set([...r.фон, ...n.фон])], кадр: [...new Set([...r.кадр, ...n.кадр])] }
   }
   return r })
-say(lensClose.фон.includes('opacity') && lensClose.кадр.includes('opacity'),
+say(lensClose.фон.includes('opacity') && (lensClose.кадр.includes('opacity') || lensOpen.разворот),
   'и закрывается им же, а не пропадает рывком (фон: ' + lensClose.фон.join(',') + ' · картинка: ' + lensClose.кадр.join(',') + ')')
 await page.waitForTimeout(500)
 say([...new Set(seen.map((s) => s.файл))].length >= 2,
   'показ меняется вслед за репликой: ' + [...new Set(seen.map((s) => s.показ))].join(' → '))
-say(last.тизеры.length >= 3, 'карточки «запомни» копятся: ' + last.тизеры.join(' · '))
+await page.evaluate(async () => {
+  const k = window.__kniga
+  for (const b of k.fullScript().filter((x) => x.page === 121).slice(0, 8)) {
+    k.showBeatAt(b.n, true)
+    await new Promise((r) => setTimeout(r, 140))
+  } })
+await page.waitForTimeout(700)
+const собрано = await page.evaluate(() => window.__kniga.panel())
+say(собрано.тизеры.length >= 3, 'факты встают на доску по ходу чтения: ' + собрано.тизеры.join(' · '))
 
 // 🔴 МИНИАТЮРЫ НА КАРТОЧКАХ (правка руководителя 06.08, v2.4): «визуально карточки
 // слева должны быть с небольшими картинками так, как сделано справа».
 // Картинка обязана быть НЕ случайной: это тот же показ, что стоял на экране, когда
 // факт прозвучал. Иначе карточка учит связке «слово ↔ чужая картинка».
+// ⚠️ 13.08: раньше карточки брались «сколько накопилось за пару тактов прогона» — и
+// проверка ломалась от любой вставки в сценарий (а 13.08 их три: вступление к главе
+// и два пояснения новых слов). Теперь прокручиваем ВСЕ такты страницы 120 явно: что
+// на ней собирается — то и меряем, от таймингов это больше не зависит.
+await page.evaluate(() => window.__kniga.goPage(120))
+await page.waitForTimeout(1600)
+const такты120 = await page.evaluate(() => window.__kniga.fullScript()
+  .filter((b) => b.page === 120).map((b) => b.n))
+for (const n of такты120) {
+  await page.evaluate((k) => window.__kniga.showBeatAt(k, true), n)
+  await page.waitForTimeout(120)
+}
+await page.waitForTimeout(600)
 const art = await page.evaluate(() => window.__kniga.keepArt())
 const пусто = art.filter((k) => !k.файл && !k.значок)
-say(art.length > 0 && пусто.length === 0, 'у каждой карточки «запомни» есть миниатюра'
+say(art.length > 0 && пусто.length === 0, 'у каждой карточки на доске есть картинка или пометка «на карте»'
   + (пусто.length ? ' — кроме: ' + пусто.map((k) => k.термин).join(', ') : ' (' + art.length + ')'))
 say(art.filter((k) => k.файл).length >= 2, 'миниатюры — настоящие картинки страницы: '
   + art.filter((k) => k.файл).map((k) => k.термин + '→' + k.файл).slice(0, 3).join(' · '))
 // у «мест на карте» картинки быть не может — карта живая, с наездом; там значок
-say(art.every((k) => k.файл || k.значок), 'где картинки нет, стоит значок «место на карте»')
+say(art.every((k) => k.файл || k.значок), 'где картинки нет — пометка «на карте» у слова (таких '
+  + art.filter((k) => !k.файл).length + ' из ' + art.length + ')')
+say(art.every((k) => +k.номер > 0), 'у каждого факта свой номер: ' + art.map((k) => k.номер).join(','))
 const своя = await page.evaluate(() => {
   const z = window.__kniga.zak().find((x) => x.стр === 120) || {}
   return { топиков: z.топиков || 0, скартинкой: z.скартинкой || 0 } })
@@ -318,7 +368,12 @@ say(своя.скартинкой >= Math.ceil(своя.топиков * 0.6),
 // показывается абстракция с кораблём». Такт 2 — тот самый: одна реплика, а в ней
 // пять мест подряд. Проверяем, что за одну реплику показ меняется несколько раз и
 // что на словах про Аттику на экране именно Аттика.
-await page.evaluate(() => window.__kniga.showBeatAt(2))
+// ⚠️ 13.08: раньше здесь стоял номер такта (2). Сценарий с этого дня растёт — перед
+// чтением встал такт про вступление к главе III, — и номер начал указывать не туда.
+// Ищем такт ПО ТЕКСТУ: это тот самый абзац про три части Греции.
+const тактКарты = await page.evaluate(() => window.__kniga.beatByText('занимала южную часть'))
+say(тактКарты > 0, 'найден такт про географию Греции (№' + тактКарты + ')')
+await page.evaluate((n) => window.__kniga.showBeatAt(n), тактКарты)
 await page.waitForTimeout(600)
 const inside = []
 // ⚠️ Шагать по реплике надо в темпе речи: такт звучит секунд двадцать пять, а показ
@@ -328,7 +383,7 @@ for (const p of [0, 0.2, 0.4, 0.55, 0.7, 0.85, 1]) {
   await page.evaluate((v) => window.__kniga.tickTo(v), p)
   await drain()      // ждём не «столько-то мс», а пока очередь показов доиграет
   const s = await page.evaluate(() => ({ ...window.__kniga.panel(), карта: window.__kniga.map() }))
-  inside.push({ p, показ: s.показ, метка: s.карта.метка, зона: s.карта.зона })
+  inside.push({ p, показ: s.показ, метка: s.карта.метка, зона: s.карта.зона, наезд: s.карта.наезд })
 }
 const шаги = [...new Set(inside.map((s) => s.показ))].filter(Boolean)
 say(шаги.length >= 4, 'за одну реплику показ сменился ' + шаги.length + ' раз: ' + шаги.join(' → '))
@@ -337,46 +392,95 @@ say(атт && атт.метка === 'mk-attica', 'на словах «Аттик
   + (атт ? ' (' + атт.метка + ')' : ' — показа не было'))
 const зоны = [...new Set(inside.map((s) => s.зона).filter(Boolean))]
 say(зоны.length >= 3, 'три части Греции подсвечиваются по очереди: ' + зоны.join(' → '))
-const наезд = await page.evaluate(() => window.__kniga.map().наезд)
-say(/scale\(/.test(наезд || ''), 'карта наезжает на названное место (' + (наезд || 'нет') + ')')
+// 🔴 13.08: правило наездов изменилось по разбору Владимира — «она приближает карту,
+// потом отдаляет, и за счёт этого происходит запутывание». Теперь кадр ставится ОДИН
+// раз на страницу и по ВСЕМ её местам сразу, а дальше места только загораются на
+// неподвижной карте. Меряем ровно это: кадр есть, и он один и тот же всю реплику.
+// ⚠️ Проверка поймала настоящий дефект: стр. 120 начинается с обзорной Европы, и
+// возврат к Греции перерисовывал коробку, обнуляя кадр, — а память «кадр уже поставлен»
+// оставалась, и кадр страницы больше никто не ставил (лечится сбросом в ensureMap).
+const кадры = [...new Set(inside.map((s) => s.наезд).filter((t) => /scale\(/.test(t || '')))]
+say(кадры.length === 1, 'кадр страницы поставлен один раз и стоит всю реплику, не мечется: '
+  + (кадры.length ? 'кадров ' + кадры.length : 'кадра не было вовсе'))
 await page.screenshot({ path: OUT + '/16-karta.png' })
-say(last.страница === 120, 'карточки подписаны своей страницей: ' + last.страница)
+// доска подписана СМЫСЛОВЫМ разделом учебника, а не номером страницы: она и живёт
+// от раздела к разделу, а не от страницы к странице
+say(/Природа и жизнь/.test(last.раздел || '') && last.номерРаздела === 1,
+  'доска подписана разделом учебника: «' + last.раздел + '» (' + last.номерРаздела + ' из 3)')
 await page.screenshot({ path: OUT + '/15-panel.png' })
-// карточки обязаны ВЛЕЗАТЬ: обрезанная сверху карточка читается как поломка вёрстки.
-// Проверяем и в окне руководителя (1280×720) — там панель уже, а карточек столько же.
-const fits = async () => page.evaluate(() => {
-  const l = document.querySelector('#keepList')
-  return { лишнее: l.scrollHeight - l.clientHeight, карточек: l.querySelectorAll('.kc').length } })
-const fit1 = await fits()
-say(fit1.лишнее <= 2, `все ${fit1.карточек} карточек влезают в панель (1600×900, лишнего ${fit1.лишнее}px)`)
+// Доска длиннее экрана — это норма (на раздел до двенадцати фактов), но НОВАЯ карточка
+// обязана быть видна целиком: если она встала за нижним краем, ребёнок не заметит, что
+// на доске что-то появилось, и весь смысл «собирается на глазах» пропадает.
+const виднаПоследняя = async () => page.evaluate(() => {
+  const l = document.querySelector('#keepList'), b = document.querySelector('#zBoard')
+  const п = l.querySelector('.kc:last-child'); if (!п) return null
+  const r = п.getBoundingClientRect(), rb = b.getBoundingClientRect()
+  return { видна: r.top >= rb.top - 2 && r.bottom <= rb.bottom + 2, карточек: l.querySelectorAll('.kc').length,
+    свисает: Math.round(Math.max(0, r.bottom - rb.bottom)) } })
+const в1 = await виднаПоследняя()
+say(в1 && в1.видна, `новая карточка видна целиком (1600×900, всего ${в1 ? в1.карточек : 0}, свисает ${в1 ? в1.свисает : '—'}px)`)
 await page.setViewportSize({ width: 1280, height: 720 })
 await page.waitForTimeout(700)
-const fit2 = await fits()
-say(fit2.лишнее <= 2, `и в окне 1280×720 тоже (лишнего ${fit2.лишнее}px)`)
+const в2 = await виднаПоследняя()
+say(в2 && в2.видна, `и в окне руководителя 1280×720 тоже (свисает ${в2 ? в2.свисает : '—'}px)`)
 await page.screenshot({ path: OUT + '/15-panel-1280.png' })
 await page.setViewportSize({ width: 1600, height: 900 })
 await page.waitForTimeout(500)
 
-// 8. переворот идёт КАК В КНИГЕ: лист приходит справа и ложится налево, на страницу.
-// Наоборот (уход вправо) — это жест «назад», и руководитель считал его сразу.
-const frames = []
-for (const t of [0.02, 0.35, 0.6, 0.9]) {
-  await page.evaluate(([d, tt]) => window.__kniga.freeze(d, tt), [1, t])
-  await page.waitForTimeout(260)
-  frames.push(await page.evaluate(() => {
-    const f = document.querySelector('#flip'), b = document.querySelector('#book')
-    const r = f.getBoundingClientRect(), rb = b.getBoundingClientRect()
-    return { центр: Math.round(r.left + r.width / 2 - rb.left), ширинаКниги: Math.round(rb.width),
-      прозрачность: +(+getComputedStyle(f).opacity).toFixed(2) } }))
-  await page.screenshot({ path: OUT + '/16-flip-' + String(t).replace('.', '') + '.png' })
-}
-const half = frames[0].ширинаКниги / 2
-say(frames[0].центр > half && frames[3].центр < half,
-  'лист идёт справа налево, как в книге (центр ' + frames.map((f) => f.центр).join(' → ') + ' при середине ' + Math.round(half) + ')')
-say(frames[0].прозрачность < 0.9, 'плашмя над панелью лист прозрачен и не закрывает показ (' + frames[0].прозрачность + ')')
-say(frames[3].прозрачность > 0.9, 'а над страницей он уже плотный (' + frames[3].прозрачность + ')')
+// 8. СТРАНИЦА ЕДЕТ, А НЕ ПЕРЕВОРАЧИВАЕТСЯ (v2.11). В окно влезает только верх страницы,
+// дальше лист доезжает за голосом, а кончилась страница — снизу встык подходит следующая.
+// Проверяем три вещи: лист действительно едет, метки едут ВМЕСТЕ с ним (иначе
+// подчёркивание уползёт от строки), и на низу страницы происходит пересадка.
+await page.evaluate(() => window.__kniga.goPage(120))
+await page.waitForTimeout(900)
+// ⚠️ Метку ставим ПЕРВОЙ и даём листу доехать до неё: подсветка сама подвозит место
+// к глазам, и мерить надо уже после этого — иначе меряешь чужой доезд.
+await page.evaluate(() => { window.__kniga.mark('photo_knossos', 'spot'); window.__kniga.везтиК(0) })
+await page.waitForTimeout(1200)
+const доЕзды = await page.evaluate(() => {
+  const m = document.querySelector('#bookMarks .mk')
+  return { сдвиг: window.__kniga.лист().сдвиг, метка: m ? Math.round(m.getBoundingClientRect().top) : null } })
+await page.evaluate(() => window.__kniga.везтиК(300))
+await page.waitForTimeout(1300)
+const послеЕзды = await page.evaluate(() => {
+  const m = document.querySelector('#bookMarks .mk')
+  return { сдвиг: window.__kniga.лист().сдвиг, метка: m ? Math.round(m.getBoundingClientRect().top) : null } })
+await page.screenshot({ path: OUT + '/16-doezd.png' })
+say(послеЕзды.сдвиг > доЕзды.сдвиг + 100, 'лист едет вниз по странице: ' + доЕзды.сдвиг + ' → ' + послеЕзды.сдвиг + 'px')
+const уехалаМетка = доЕзды.метка !== null && послеЕзды.метка !== null
+  ? доЕзды.метка - послеЕзды.метка : null
+say(уехалаМетка !== null && Math.abs(уехалаМетка - (послеЕзды.сдвиг - доЕзды.сдвиг)) <= 4,
+  'метка едет вместе с листом (уехала на ' + уехалаМетка + 'px при доезде на ' + (послеЕзды.сдвиг - доЕзды.сдвиг) + ')')
+// пересадка: увозим лист ниже низа страницы — в окне обязана оказаться следующая
+const пересадка = await page.evaluate(async () => {
+  const л = window.__kniga.лист()
+  window.__kniga.везтиК(л.высотаСтраницы + 40)
+  await new Promise((r) => setTimeout(r, 900))
+  return { стр: window.__kniga.sheet().страница, лист: window.__kniga.лист() } })
+say(пересадка.стр === 121, 'доехали до низа — в окне уже следующая страница: ' + пересадка.стр)
+say(пересадка.лист.сдвиг < 120, 'и она показана сверху, а не с середины (сдвиг ' + пересадка.лист.сдвиг + 'px)')
+say(пересадка.лист.следующая === 122, 'а за ней уже ждёт ' + пересадка.лист.следующая)
 await page.reload({ waitUntil: 'domcontentloaded' })
 await page.waitForFunction(() => window.__kniga, null, { timeout: 30000 })
+
+// 🔴 КАРТА: ЧТО НАЗВАНО — ТО И В КАДРЕ (второй разбор Владимира, 13.08)
+// Правило «на страницу один кадр» убирает дёрганье, но у него есть цена: кадр ставится
+// один раз и стоит до конца страницы, значит все места, которые на ней прозвучат,
+// обязаны помещаться в него СРАЗУ. Первая редакция правила ставила кадр по первому
+// названному месту — и двенадцать показов из двадцати девяти уезжали за экран (Аня
+// говорит «остров Крит», а Крита в кадре нет). Проверки на это не было вовсе, поэтому
+// регрессия дожила до разбора. Теперь есть.
+await page.waitForTimeout(800)
+for (const p of [120, 121, 122, 123, 124, 125]) {
+  const к = await page.evaluate((n) => window.__kniga.картаКадр(n), p)
+  if (!к.целей) continue
+  say(к.закадром.length === 0, 'стр. ' + p + ': все ' + к.целей + ' мест карты в кадре (зум ' + к.zoom + ')'
+    + (к.закадром.length ? ' — за кадром: ' + к.закадром.join(', ') : ''))
+}
+// и подсветка должна БЫТЬ ВИДНА: названное горит, остальные метки гаснут по-настоящему
+const свет = await page.evaluate(() => window.__kniga.map())
+say(свет.приглушено === свет.меток - 1,
+  'названное место выделено, остальные приглушены: ' + свет.приглушено + ' из ' + (свет.меток - 1))
 
 console.log('\n✅ ' + ok.join('\n✅ '))
 if (bad.length) console.log('\n❌ ' + bad.join('\n❌ '))

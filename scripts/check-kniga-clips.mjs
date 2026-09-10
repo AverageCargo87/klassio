@@ -8,6 +8,7 @@
 //   node scripts/check-kniga-clips.mjs      (сервер :8781 должен быть поднят)
 
 import fs from 'node:fs'
+import { chromium } from 'playwright'   // ⚠️ 13.08: импорта не было вовсе — скрипт падал на старте
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const b = await chromium.launch({ executablePath: fs.existsSync(CHROME) ? CHROME : undefined,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] })

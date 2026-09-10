@@ -44,3 +44,9 @@ drizzle/meta/_journal.json.bak
 
 # GSD/restore-script working files
 .tmp/
+
+# Локальный серверный ключ Яндекса для тест-стенда (никогда не коммитить)
+scripts/.yandex-secret.json
+
+# аватары bitHuman (.imx по 300 МБ–4 ГБ) — в репозиторий не кладём
+bh-avatars/

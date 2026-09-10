@@ -45,9 +45,20 @@ const br = await chromium.launch({
 const pg = await br.newPage({ viewport: { width: 1600, height: 900 } })
 
 const ошибки = [], битые = []
+let шагПрогона = 'загрузка'
 pg.on('pageerror', (e) => ошибки.push('pageerror: ' + String(e).slice(0, 160)))
 pg.on('console', (m) => { if (m.type() === 'error' && !/favicon|getUserMedia|esm\.sh|anam/i.test(m.text())) ошибки.push(m.text().slice(0, 160)) })
-pg.on('requestfailed', (q) => { if (!/anam|esm\.sh/.test(q.url())) битые.push(q.url().replace(URL, '') + ' — ' + (q.failure() || {}).errorText) })
+// ⚠️ Отмена загрузки (ERR_ABORTED) — не поломка сервера, а брошенная картинка: с v2.11
+// страница живёт в окне и подгружает соседние листы, и закрытие вкладки в конце прогона
+// обрывает последнюю. Отмены собираем отдельно и урок из-за них не браним, но выводим —
+// если их вдруг станет много, это уже про перемотку, а не про закрытие.
+const отменённые = []
+pg.on('requestfailed', (q) => {
+  if (/anam|esm\.sh/.test(q.url())) return
+  const текст = (q.failure() || {}).errorText || ''
+  const строка = q.url().replace(URL, '') + ' — ' + текст + (шагПрогона ? ' (на шаге: ' + шагПрогона + ')' : '')
+  if (/ABORTED/i.test(текст)) отменённые.push(строка); else битые.push(строка)
+})
 pg.on('response', (r) => { if (r.status() >= 400 && !/anam/.test(r.url())) битые.push(r.status() + ' ' + r.url().replace(URL, '')) })
 
 // Синтез. Тишина — чтобы прогон шёл в реальном времени разметки, а не голоса.
@@ -59,14 +70,16 @@ await pg.route('**/api/tts', async (r) => {
   return r.fulfill({ status: 200, contentType: 'audio/wav', body: wav() })
 })
 
-await pg.goto(URL + '/kniga?teacher=off', { waitUntil: 'domcontentloaded', timeout: 90000 })
+// режим окна можно задать прогону: KNIGA_MODE=sravn node scripts/progon-uroka.mjs
+const РЕЖИМ = process.env.KNIGA_MODE ? '&mode=' + process.env.KNIGA_MODE : ''
+await pg.goto(URL + '/kniga?teacher=off' + РЕЖИМ, { waitUntil: 'domcontentloaded', timeout: 90000 })
 await pg.waitForFunction(() => window.__kniga && window.__kniga.beats() > 10, null, { timeout: 90000 })
 await pg.mouse.click(800, 860)
 // Паузы между тактами убираем и темп поднимаем: смотрим ЛОГИКУ, а не тайминги.
 await pg.evaluate(() => {
   document.querySelector('#sHold').value = '0'
   document.querySelector('#sSpeed').value = '2.5'
-  try { localStorage.removeItem('kn_progress') } catch (e) {}
+  try { localStorage.removeItem('kn_progress_p20') } catch (e) {}
 })
 
 const снимок = (имя) => pg.screenshot({ path: OUT + '/' + имя + '.png' }).catch(() => {})
@@ -105,10 +118,15 @@ for (let i = 0; i < МИНУТ * 60 * 4; i++) {
 
   if (s.итоги) { запись('ИТОГИ УРОКА показаны'); await снимок('9-itogi'); break }
   if (s.стр && s.стр !== стрБыла) { стрБыла = s.стр; виделСтр.add(s.стр); запись('страница ' + s.стр) }
+  шагПрогона = 'стр ' + s.стр + (s.этап ? ' · ' + s.этап : '')
   if (s.такт !== тактБыл) { тактБыл = s.такт }
   if (s.этап && s.этап !== этапБыл) {
     этапБыл = s.этап; виделЭтапы.add(s.этап)
     запись('этап «' + s.этап + '»', s.заголовок)
+    // ⚠️ Снимок в САМУ секунду смены этапа застаёт пустой экран: содержимое приходит
+    // после первой реплики (экран разбора так и вовсе выезжает по её концу). Даём
+    // этапу собраться — иначе в папке лежат кадры «ничего не происходит».
+    await pg.waitForTimeout(2600)
     await снимок('etap-' + виделЭтапы.size + '-' + s.этап)
   }
   if (!s.этап && этапБыл) { этапБыл = '' }
@@ -149,6 +167,11 @@ for (let i = 0; i < МИНУТ * 60 * 4; i++) {
   if (застыл > 4 * 90) {                       // полторы минуты без единого изменения
     встал = s
     запись('⛔ УРОК ВСТАЛ', 'такт ' + s.такт + ' · этап «' + s.этап + '» · ' + s.статус)
+    // ⚠️ Одного слепка мало: «встал» может значить и «ждём голос», и «лист уехал не туда».
+    // Забираем внутренности окна — по ним видно, кто именно не доехал.
+    встал.окно = await pg.evaluate(() => ({ лист: window.__kniga.лист(), режим: window.__kniga.режим(),
+      состояние: window.__kniga.state(), ведущий: window.__kniga.ведущий() })).catch(() => null)
+    console.log('   окно: ' + JSON.stringify(встал.окно))
     await снимок('vstal')
     break
   }
@@ -175,10 +198,12 @@ if (встал) console.log('\n⛔ ДОШЛИ НЕ ДО КОНЦА: ' + JSON.str
 const уник = (a) => [...new Set(a)]
 if (битые.length) console.log('\n⚠ битые запросы (' + уник(битые).length + '):\n  ' + уник(битые).slice(0, 12).join('\n  '))
 else console.log('\n✅ битых запросов нет')
+if (отменённые.length) console.log('ℹ отменённые загрузки (' + уник(отменённые).length
+  + ', это не поломка — брошенная картинка страницы):\n  ' + уник(отменённые).slice(0, 6).join('\n  '))
 if (ошибки.length) console.log('\n⚠ ошибки страницы (' + уник(ошибки).length + '):\n  ' + уник(ошибки).slice(0, 12).join('\n  '))
 else console.log('✅ ошибок в консоли нет')
 
-fs.writeFileSync(OUT + '/dnevnik.json', JSON.stringify({ дневник, итог, отчёт, stats, битые: уник(битые), ошибки: уник(ошибки) }, null, 1))
+fs.writeFileSync(OUT + '/dnevnik.json', JSON.stringify({ дневник, итог, отчёт, stats, битые: уник(битые), отменённые: уник(отменённые), ошибки: уник(ошибки) }, null, 1))
 console.log('\nдневник и снимки → ' + OUT)
 await br.close()
 process.exit(встал || ошибки.length || битые.length ? 1 : 0)

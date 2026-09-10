@@ -1,0 +1,1 @@
+{"version":3,"file":"WebRtcPersonaConfigUpdateAppliedEvent.d.ts","sourceRoot":"","sources":["../../../../src/types/streaming/WebRtcPersonaConfigUpdateAppliedEvent.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,qCAAqC;IACpD,UAAU,EAAE,MAAM,CAAC;IAEnB,cAAc,EAAE,MAAM,CAAC,MAAM,EAAE;QAAE,MAAM,CAAC,EAAE,OAAO,CAAC;QAAC,KAAK,CAAC,EAAE,OAAO,CAAA;KAAE,CAAC,CAAC;CACvE"}

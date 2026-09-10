@@ -1,0 +1,1 @@
+{"version":3,"file":"validateApiGatewayConfig.d.ts","sourceRoot":"","sources":["../../../src/lib/validateApiGatewayConfig.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,gBAAgB,EAAE,MAAM,2BAA2B,CAAC;AAE7D;;;;GAIG;AACH,wBAAgB,wBAAwB,CACtC,gBAAgB,EAAE,gBAAgB,GAAG,SAAS,GAC7C,MAAM,GAAG,SAAS,CA2BpB"}

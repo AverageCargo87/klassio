@@ -1,0 +1,1 @@
+{"version":3,"file":"TalkMessageStreamPayload.d.ts","sourceRoot":"","sources":["../../../../src/types/signalling/TalkMessageStreamPayload.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,wBAAwB;IACvC,OAAO,EAAE,MAAM,CAAC;IAChB,aAAa,EAAE,OAAO,CAAC;IACvB,WAAW,EAAE,OAAO,CAAC;IACrB,aAAa,EAAE,MAAM,CAAC;CACvB"}

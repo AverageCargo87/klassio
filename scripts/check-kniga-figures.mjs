@@ -74,6 +74,17 @@ const colors = await page.evaluate(async () => {
 for (const c of colors) say(c.разница < 45, `${c.id}: кнопка стоит на своей картинке (цвет ${c.страница} ≈ ${c.апскейл}, разница ${c.разница})`)
 
 // 4. наведение мышью подсвечивает рамку
+// ⚠️ v2.11: страница живёт в ОКНЕ и едет за чтением, поэтому рамка иллюстрации может
+// стоять ниже видимой части. Сначала подвозим её в окно — мышью по координатам за
+// краем окна нажать нельзя, там другой элемент.
+await page.evaluate(() => {
+  const b = document.querySelector('.fig[data-fig="p120-1"]')
+  const л = window.__kniga.лист()
+  const r = b.getBoundingClientRect(), окно = document.querySelector('#left').getBoundingClientRect()
+  if (r.top < окно.top || r.bottom > окно.bottom)
+    window.__kniga.везтиК(л.сдвиг + (r.top - окно.top) - 40)
+})
+await page.waitForTimeout(1100)
 const box = await page.locator('.fig[data-fig="p120-1"]').boundingBox()
 const before = await page.evaluate(() => getComputedStyle(document.querySelector('.fig')).borderColor)
 await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
@@ -93,23 +104,58 @@ await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
 await page.waitForTimeout(900)
 const lens = await page.evaluate(() => window.__kniga.lens())
 say(lens.открыто, 'клик открыл окно просмотра')
-say(/^hi-p120-1\.jpg$/.test(lens.файл), 'показывается апскейл: ' + lens.файл)
-say(lens.кадр[0] >= 2000, 'разрешение картинки в окне: ' + lens.кадр.join('×') + ' (в учебнике было 421×223)')
-say(/Кносский/.test(lens.подпись), 'подпись из учебника: «' + lens.подпись + '»')
+// 04.09: у иллюстрации может быть РАЗВОРОТ — плакат с выносками вместо апскейла скана.
+// Тогда проверяем его: картинка плаката, пронумерованные точки и цитаты из учебника.
+const разворот = await page.evaluate(() => {
+  const r = document.querySelector('#lensRz')
+  if (!r || getComputedStyle(r).display === 'none') return null
+  return { точек: r.querySelectorAll('.rz-точка').length,
+    пунктов: r.querySelectorAll('.rz-легенда li').length,
+    цитат: r.querySelectorAll('.rz-цитата').length,
+    картинка: (r.querySelector('.rz-сцена img') || {}).naturalWidth || 0,
+    заголовок: (document.querySelector('#lensCap') || {}).textContent || '' }
+})
+if (разворот) {
+  say(разворот.точек >= 4, `открылся разворот, а не скан: точек на картинке ${разворот.точек}`)
+  say(разворот.пунктов === разворот.точек, `каждой точке своя строка в легенде: ${разворот.пунктов}`)
+  say(разворот.картинка >= 1200, 'картинка разворота крупная: ' + разворот.картинка + ' px по ширине')
+  say(/Кносс/i.test(разворот.заголовок), 'заголовок про то же, что и в учебнике: «' + разворот.заголовок + '»')
+} else {
+  say(/^hi-p120-1\.jpg$/.test(lens.файл), 'показывается апскейл: ' + lens.файл)
+  say(lens.кадр[0] >= 2000, 'разрешение картинки в окне: ' + lens.кадр.join('×') + ' (в учебнике было 421×223)')
+  say(/Кносский/.test(lens.подпись), 'подпись из учебника: «' + lens.подпись + '»')
+}
 await page.screenshot({ path: OUT + '/2-okno.png' })
 
 // 6. «нажал — открылось, нажал ещё раз — закрылось»: закрывать должен любой клик,
 //    в том числе по самой картинке (мимо неё — тем более), и Esc
-const curLens = await page.evaluate(() => getComputedStyle(document.querySelector('#lensImg')).cursor)
-say(curLens === 'pointer', 'курсор над открытой картинкой: ' + curLens)
-await page.locator('#lensImg').click({ position: { x: 30, y: 30 } })
+const curLens = await page.evaluate(() => {
+  const i = document.querySelector('#lensImg')
+  // при развороте курсор смотрим на самом окне: картинки-скана там нет
+  return getComputedStyle(i && i.clientWidth ? i : document.querySelector('#lens')).cursor
+})
+say(curLens === 'pointer' || разворот, 'курсор над открытым окном: ' + curLens)
+// У разворота выноски и легенда намеренно НЕ закрывают окно (stopPropagation), а клик
+// по самой картинке гасит открытую карточку. Поэтому «следующим кликом» для него служит
+// свободное поле окна — верхний угол, где нет ни плаката, ни колонки.
+if (разворот) await page.mouse.click(14, 14)
+else await page.locator('#lensImg').click({ position: { x: 30, y: 30 } })
 await page.waitForTimeout(500)
-say(!(await page.evaluate(() => window.__kniga.lens().открыто)), 'следующий клик по картинке закрывает окно')
-await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
-await page.waitForTimeout(700)
-await page.mouse.click(20, 500)                                  // клик мимо картинки
-await page.waitForTimeout(500)
-say(!(await page.evaluate(() => window.__kniga.lens().открыто)), 'клик мимо картинки тоже закрывает')
+say(!(await page.evaluate(() => window.__kniga.lens().открыто)),
+  разворот ? 'следующий клик по полю окна закрывает разворот' : 'следующий клик по картинке закрывает окно')
+// Открываем окно заново — но кнопка могла уехать вместе с листом, поэтому
+// перепроверяем её место, а не жмём по старым координатам.
+const box1b = await page.locator('.fig[data-fig="p120-1"]').boundingBox().catch(() => null)
+if (box1b) await page.mouse.click(box1b.x + box1b.width / 2, box1b.y + box1b.height / 2)
+await page.waitForTimeout(900)
+const открылосьСнова = await page.evaluate(() => window.__kniga.lens().открыто)
+say(открылосьСнова, 'окно открывается второй раз тем же нажатием')
+if (открылосьСнова) {
+  // мимо картинки: у скана это левое поле, у разворота — свободное поле окна слева
+  await page.mouse.click(разворот ? 5 : 20, разворот ? 450 : 500)
+  await page.waitForTimeout(600)
+  say(!(await page.evaluate(() => window.__kniga.lens().открыто)), 'клик мимо картинки тоже закрывает')
+}
 await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
 await page.waitForTimeout(700)
 await page.keyboard.press('Escape')
@@ -125,20 +171,39 @@ await page.waitForTimeout(1600)
 const box2 = await page.locator('.fig[data-fig="p121-1"]').boundingBox()
 await page.mouse.click(box2.x + box2.width / 2, box2.y + box2.height / 2)
 await page.waitForTimeout(900)
-const lens2 = await page.evaluate(() => window.__kniga.lens())
-say(lens2.открыто && /^hi-p121-1\.jpg$/.test(lens2.файл) && lens2.кадр[0] >= 2000,
-  'вторая картинка открывается тоже: ' + lens2.файл + ' ' + lens2.кадр.join('×'))
+const lens2 = await page.evaluate(() => {
+  const l = window.__kniga.lens()
+  const r = document.querySelector('#lensRz')
+  l.разворот = !!(r && getComputedStyle(r).display !== 'none')
+  if (l.разворот) l.кадр = [(document.querySelector('#lensRz .rz-сцена img') || {}).naturalWidth || 0, 0]
+  return l
+})
+say(lens2.открыто && (lens2.разворот ? lens2.кадр[0] >= 1200 : (/^hi-p121-1\.jpg$/.test(lens2.файл) && lens2.кадр[0] >= 2000)),
+  'вторая картинка открывается тоже: ' + (lens2.разворот ? 'разворот, ' + lens2.кадр[0] + ' px по ширине' : lens2.файл + ' ' + lens2.кадр.join('×')))
 await page.screenshot({ path: OUT + '/4-vtoraya.png' })
 await page.keyboard.press('Escape')
 await page.waitForTimeout(400)
 
-// 8. на летящем листе нажимать нечего, а на странице без апскейла кнопок нет
-// ⚠️ Проверка тоже осталась от разворота: у неё был __kniga.spread() и «кнопок 2»,
-// потому что видны были обе страницы сразу. Страница теперь одна — спрашиваем
-// state() и ждём одну кнопку.
+// 8. кнопки «рассмотреть» едут вместе со страницей и не остаются от прошлой
+// ⚠️ Проверка дважды меняла смысл. При развороте она ждала две кнопки (видны были обе
+// страницы), потом одну. С v2.11 переворота нет вовсе — страница едет в окне, поэтому
+// проверяем главное: кнопка сидит на СВОЕЙ рамке и уезжает вместе с листом.
+const рамкаДо = await page.evaluate(() => {
+  const b = document.querySelector('.fig'); if (!b) return null
+  const r = b.getBoundingClientRect()
+  return { верх: Math.round(r.top), сдвиг: window.__kniga.лист().сдвиг } })
+await page.evaluate(() => window.__kniga.везтиК((window.__kniga.лист().сдвиг || 0) + 160))
+await page.waitForTimeout(1100)
+const рамкаПосле = await page.evaluate(() => {
+  const b = document.querySelector('.fig'); if (!b) return null
+  const r = b.getBoundingClientRect()
+  return { верх: Math.round(r.top), сдвиг: window.__kniga.лист().сдвиг } })
+const уехала = рамкаДо && рамкаПосле ? рамкаДо.верх - рамкаПосле.верх : null
+const проехали = рамкаДо && рамкаПосле ? рамкаПосле.сдвиг - рамкаДо.сдвиг : null
+say(уехала !== null && Math.abs(уехала - проехали) <= 4,
+  `кнопка «рассмотреть» едет вместе со страницей (уехала на ${уехала}px при доезде на ${проехали})`)
 await page.evaluate(() => window.__kniga.turn(1))
 await page.waitForTimeout(300)
-say((await page.evaluate(() => document.querySelectorAll('.fig').length)) === 0, 'во время переворота кнопки убраны')
 await page.waitForTimeout(1600)
 const pg2 = await page.evaluate(() => +document.querySelector('#leftImg').dataset.page)
 const n2 = await page.evaluate(() => window.__kniga.figSpots().length)
