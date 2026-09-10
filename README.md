@@ -4,35 +4,38 @@
 параграф вслух, сама листает страницы, показывает иллюстрации и ведёт устный
 тренажёр. Сейчас готов урок истории, 5 класс, §20 («Крит и Микены»).
 
-## 🟢 Актуальный проект — здесь
+Это ветка **`main`** — в ней только актуальный проект, без старой части (личный
+кабинет/математический тренажёр, с которого начинался Klassio в мае 2026). Полная
+история со всем этим кодом сохранена в ветке `edu-platform-test`, если понадобится.
+
+## Структура
 
 - **`lab/`** — сам урок (`kniga.html`) и данные учебника (страницы, привязки,
-  иллюстрации), из этой папки собираются выкладки на боевой сервер.
-- **`scripts/yandex-test-server.mjs`** — лёгкий сервер урока (без npm-зависимостей),
-  запуск: `node scripts/yandex-test-server.mjs` → `http://localhost:8781/kniga`.
+  иллюстрации). Отсюда собираются выкладки на боевой сервер.
+- **`scripts/`** — сервер урока (`yandex-test-server.mjs`), скрипты приёмки
+  (`check-kniga-*.mjs`), выкладка/откат витрины (`lab-deploy.mjs`,
+  `lab-rollback.mjs`).
 - **`anamsdk/`** — SDK видео-аватара (Anam), который рисует говорящее лицо Ани.
 - **`.planning/`** — дневник разработки по датам (`SESSION-*.md`), карта версий
   `.planning/KLASSIO-VERSION-MAP.md`, журнал версий урока `.planning/KNIGA-VERSIONS.md`.
   Читать в первую очередь при первом знакомстве с проектом.
-- Как выложить новую версию урока и где сейчас боевой адрес — раннбук
-  `.planning/LAB-DEPLOY-RUNBOOK.md`.
 
-## 🟡 Более старая часть — платформа/кабинет (не главный фокус сейчас)
-
-`app/`, `components/`, `drizzle/`, `lib/`, `e2e/`, `tests/` и корневой `npm run dev` —
-это личный кабинет с входом по почте и математический тренажёр, с которого проект
-начинался в мае 2026. Живой урок (см. выше) от неё не зависит и работает отдельно.
+## Быстрый старт
 
 ```bash
 npm install
-cp .env.example .env.local   # DATABASE_URL, DATABASE_URL_DIRECT, AUTH_SECRET, AUTH_RESEND_API_KEY
-npm run dev                  # http://localhost:3000
+node scripts/yandex-test-server.mjs   # → http://localhost:8781/kniga
 ```
+Сервер урока не зависит от npm-пакетов вообще — `npm install` нужен только для
+самих скриптов приёмки/утилит. Нужен Node.js 18+.
+
+Ключи (Yandex, Anam) в репозиторий не входят — как их разложить и что для чего,
+смотри в отдельном документе передачи проекта (не в git, есть у владельца).
+
+## Как выложить новую версию урока
 
 ```bash
-npm run test          # unit + integration (vitest)
-npm run test:e2e      # Playwright E2E
-npm run build          # проверка production сборки
+node scripts/lab-deploy.mjs -m "что и зачем меняем"   # выложить
+node scripts/lab-rollback.mjs --back                   # откатить назад
 ```
-
-Admin-операции (создание пользователей и уроков): [docs/admin-guide.md](docs/admin-guide.md).
+Подробный раннбук — `.planning/LAB-DEPLOY-RUNBOOK.md`.

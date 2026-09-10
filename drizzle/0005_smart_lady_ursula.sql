@@ -1,1 +1,0 @@
-ALTER TABLE "tutor_session" ADD COLUMN "voice_provider" text;
