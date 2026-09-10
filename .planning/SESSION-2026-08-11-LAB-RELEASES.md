@@ -9,7 +9,7 @@
 
 ## ✅ Что живое прямо сейчас
 
-**https://5.35.90.219.nip.io** — витрина для руководителя. Логин `klassio`, пароль `6hv98SBo4sQ`.
+**https://5.35.90.219.nip.io** — витрина для руководителя. Логин `klassio`, пароль — см. в отдельном документе передачи, не в репозитории.
 На боевом релиз **0016** (11.08, 14:28 МСК). Сервер: Beget СПб, вход по ключу
 `ssh -i .tmp/keys/klassio-lab root@5.35.90.219`, служба `klassio-lab`, часовой пояс МСК.
 
@@ -104,7 +104,7 @@ node scripts/check-kniga-control.mjs   # 81
 node scripts/check-kniga-drill.mjs     # 63
 node scripts/check-kniga-panel.mjs     # 208
 node scripts/check-kniga-figures.mjs   # 21
-LAB_URL=https://5.35.90.219.nip.io LAB_USER=klassio LAB_PASS=6hv98SBo4sQ node scripts/check-lab.mjs   # 53
+LAB_URL=https://5.35.90.219.nip.io LAB_USER=klassio LAB_PASS=пароль node scripts/check-lab.mjs   # 53
 ```
 
 Локальный стенд: `node scripts/yandex-test-server.mjs` → `http://localhost:8781/lab`.
