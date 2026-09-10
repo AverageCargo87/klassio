@@ -1,6 +1,6 @@
 <!doctype html><html lang=ru><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>v2.12 · УЧЕБНИК · §20 · урок с ИИ-учителем</title>
+<title>v2.13 · УЧЕБНИК · §20 · урок с ИИ-учителем</title>
 <!-- ВЕРСИЯ СБОРКИ. Стоит и в заголовке вкладки, и плашкой в нижней панели: по скриншоту
      должно быть видно, о какой версии речь. Журнал версий — .planning/KNIGA-VERSIONS.md,
      прошлые сборки открываются по /kniga/v1. Меняя версию — правь оба места и журнал. -->
@@ -1276,6 +1276,77 @@ html,body{height:100%;margin:0;
 #steps b.on{background:var(--accent)}
 #steps b.done{background:#5A6A55}
 
+/* ── КАРТА УРОКА В ТОЧКАХ (v2.13) ────────────────────────────────────────
+   🔴 Кратов 04.09: «чтобы можно было снизу, где точки страниц, для тестовых целей
+   во время урока переключаться между его кусками — например по подпунктам параграфа
+   или вообще с любого места начать; и чтобы Аня стала читать и вести урок оттуда».
+   Точки были картинкой прогресса — стали КАРТОЙ: пункты параграфа разделены пробелом,
+   каждая точка нажимается, урок уезжает туда и продолжается сам.
+   ⚠️ Геометрию точки не трогаем (правило строкой выше): точка 4×9 px, пальцем в неё
+   не попасть, поэтому зона нажатия набирается невидимым полем ВОКРУГ точки. Дать ей
+   настоящую высоту нельзя — панель подрастёт и утащит соседей на третий ряд. */
+#steps{gap:10px;position:relative}
+/* ⚠️ ВНЕ ПОТОКА, и это осознанно: в ряду точек кнопка выше их вдвое и подняла бы панель
+   с 83 до 97 px, а третий ряд (если ставить её к кнопкам) уводит плашку версии под них —
+   ровно то, о чём в этом файле три предупреждения. Место — вплотную слева от точек:
+   она управляет ими, значит и стоять должна при них. */
+#jmpBtn{position:absolute;right:100%;margin-right:10px;top:50%;transform:translateY(-50%);
+  padding:4px 10px;font-size:11.5px;border-radius:8px;line-height:1.25;white-space:nowrap}
+#steps .грп{display:flex;gap:3px;min-width:0;flex-shrink:1}
+#steps b{position:relative;cursor:pointer}
+#steps b:after{content:'';position:absolute;left:-1px;right:-1px;top:-8px;bottom:-8px}
+#steps b:hover{box-shadow:0 0 0 3px rgba(224,145,47,.30)}
+/* Подсказка над точкой: 74 точки на 500 пикселей — без неё нажатие вслепую. */
+#stepTip{position:fixed;z-index:75;max-width:360px;background:var(--panel);color:var(--ink);
+  border:1px solid var(--line);border-radius:9px;padding:7px 10px;font:12.5px/1.4 Segoe UI;
+  box-shadow:0 10px 26px var(--тень);pointer-events:none;display:none}
+#stepTip.on{display:block}
+#stepTip .к{color:var(--accent);font-weight:700}
+#stepTip .н{color:var(--dim)}
+/* На ноутбуке 1280 в панели остаётся ~840 px (левая колонка с видео забирает 400):
+   подпись кнопки уходит, значок остаётся — тем же приёмом, что у переключателя видов. */
+@media (max-width:1280px){ #jmpBtn .jl{display:none} }
+
+/* Окно перехода. Бумага, скругление и тень — те же, что у окошка замечания:
+   это соседи по нижней панели, и выглядеть они должны роднёй. */
+#jmp{position:fixed;left:16px;bottom:92px;z-index:62;width:min(600px,calc(100vw - 32px));
+  max-height:min(60vh,520px);flex-direction:column;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 18px 44px var(--тень);overflow:hidden;display:none}
+#jmp.on{display:flex;animation:переходВышел var(--приход) var(--вход) both}
+@keyframes переходВышел{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+#jmp .jh{display:flex;align-items:flex-start;gap:10px;padding:12px 14px 6px}
+#jmp h4{margin:0;font:800 14px/1.2 Segoe UI;color:var(--ink)}
+#jmp .jsub{margin-top:3px;font:12px/1.4 Segoe UI;color:var(--dim)}
+#jmpX{margin-left:auto;background:none;border:0;color:var(--dim);font-size:16px;
+  cursor:pointer;line-height:1}
+#jmp .jrow{display:flex;align-items:center;gap:10px;padding:0 14px 8px}
+#jmpF{flex:1;min-width:0;padding:7px 10px;border:1px solid var(--line);border-radius:9px;
+  background:#FFFDF9;color:var(--ink);font:13px/1.3 Segoe UI}
+#jmp .jchk{display:flex;align-items:center;gap:6px;font:12px/1.3 Segoe UI;color:var(--dim);
+  white-space:nowrap;cursor:pointer}
+#jmpList{overflow:auto;padding:0 8px 10px;flex:1}
+#jmpList .гз{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;cursor:pointer;
+  position:sticky;top:0;z-index:2;
+  margin:8px 0 3px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;
+  background:#F6F1E6;font:700 13px/1.25 Segoe UI;color:var(--ink);
+  transition:background var(--миг) var(--вход)}
+#jmpList .гз:hover{background:#F0E7D5}
+#jmpList .гз.идёт{border-color:var(--accent)}
+#jmpList .гз .где{margin-left:auto;font:600 11.5px/1 Segoe UI;color:var(--dim);white-space:nowrap}
+#jmpList .тк{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;cursor:pointer;
+  padding:5px 9px;border:0;border-radius:8px;background:none;color:var(--ink);font:13px/1.35 Segoe UI;
+  transition:background var(--миг) var(--вход)}
+#jmpList .тк:hover{background:#F6F1E6}
+#jmpList .тк.свой{color:var(--dim)}
+#jmpList .тк.сейчас{background:rgba(224,145,47,.16);box-shadow:inset 2px 0 0 var(--accent)}
+#jmpList .тк .н{flex:0 0 34px;color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums}
+#jmpList .тк .в{flex:0 0 15px;text-align:center;color:var(--dim)}
+#jmpList .тк .т{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#jmpList .пусто{padding:14px 10px;color:var(--dim);font:13px/1.4 Segoe UI}
+#jmp .jf{padding:8px 14px;border-top:1px solid var(--line);font:12px/1.4 Segoe UI;color:var(--dim)}
+#jmp .jf b{color:var(--ink)}
+
 /* ── настройки справа ──────────────────────────────────────────────────── */
 #hud{position:fixed;right:14px;top:14px;width:250px;background:rgba(255,253,249,.96);border:1px solid var(--line);
   border-radius:12px;padding:12px;font-size:13px;z-index:40}
@@ -1544,8 +1615,12 @@ html,body{height:100%;margin:0;
         <span class="hi t" id=drTaskWrap title="осталось на это задание">⏳ <b id=drTask>3:00</b></span>
       </span>
       <span id=cost></span>
-      <span id=ver title="версия сборки урока · журнал в .planning/KNIGA-VERSIONS.md">v2.12</span>
-      <div id=steps></div>
+      <span id=ver title="версия сборки урока · журнал в .planning/KNIGA-VERSIONS.md">v2.13</span>
+      <!-- 🔴 Кратов 04.09: «переключаться между кусками урока прямо во время урока —
+           по подпунктам параграфа или вообще с любого места, и чтобы Аня стала читать
+           и вести урок оттуда». Кнопка стоит ВПЛОТНУЮ К ТОЧКАМ (внутри их полосы, вне
+           потока) — панель от неё не растёт ни на пиксель. -->
+      <div id=steps><button class="btn sm" id=jmpBtn title="перейти к любому месту урока: пункт параграфа или отдельный такт">↦ <span class=jl>перейти</span></button></div>
     </div>
   </div>
 </div>
@@ -1644,6 +1719,24 @@ html,body{height:100%;margin:0;
     <button class=btn data-stuck=stop>остановить урок</button>
   </div>
 </div>
+
+<!-- ПЕРЕХОД ПО УРОКУ. Открывается кнопкой «↦ перейти» и нажатием на точку такта. -->
+<div id=jmp>
+  <div class=jh>
+    <div>
+      <h4>Перейти к месту урока</h4>
+      <div class=jsub>Аня начнёт читать и вести урок с выбранного места</div>
+    </div>
+    <button id=jmpX title="закрыть (Esc)">✕</button>
+  </div>
+  <div class=jrow>
+    <input id=jmpF placeholder="найти по словам, номеру такта или странице…">
+    <label class=jchk><input type=checkbox id=jmpPlay checked> сразу читать</label>
+  </div>
+  <div id=jmpList></div>
+  <div class=jf id=jmpNow></div>
+</div>
+<div id=stepTip></div>
 
 <div id=fbBox>
   <h4>Что здесь поправить?</h4>
@@ -6664,13 +6757,285 @@ const BEATS_OWN=[
 //  ПРОГОН
 // ═══════════════════════════════════════════════════════════════════════════
 let running=false, paused=false, beat=0, runGen=0
-function paintDots(){ const d=$('#steps'); d.innerHTML=''
-  BEATS.forEach((b,i)=>{ const el=document.createElement('b')
-    el.title=(i+1)+'. стр. '+b.page+' · '+b.say.slice(0,60); d.appendChild(el) }) }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ПЕРЕХОД ПО УРОКУ (v2.13)
+//
+//  🔴 Кратов 04.09: «надо, чтобы можно было снизу, где точки страниц, для тестовых
+//  целей во время урока переключаться между его кусками — например по подпунктам
+//  параграфа или вообще с любого места начать, и чтобы Аня стала читать и вести урок
+//  оттуда. Потому что сейчас урок всегда заново либо там, где закончили. Страницы
+//  листать можно, но это просто листать».
+//
+//  🔑 Разница между «полистать» и «перейти» ровно одна: после перехода урок обязан
+//  ПОЙТИ САМ с нового места. Поэтому переход — это не установка номера, а пересборка
+//  состояния: обесточить прошлый шаг, убрать его хвосты, догнать доску, собрать
+//  вопросы страницы, довезти лист — и только потом новый прогон.
+//
+//  КУСКИ НЕ ВЫДУМАНЫ. Заголовок пункта параграфа приходит из самого учебника одним
+//  блоком со своим текстом, и текстовый слой PDF отделяет его служебным знаком ETX
+//  (U+0003): «Природа и жизнь.<ETX>Греция — горная страна…». Два оставшихся заголовка
+//  набраны прописными («ПОДВЕДЁМ ИТОГИ», «Работаем с ИСТОЧНИКОМ»). Больше ничего не
+//  гадаем: так правило переживёт и другой параграф.
+// ═══════════════════════════════════════════════════════════════════════════
+let КУСКИ=[]
+function кускиУрока(){
+  const K=[], есть=(i)=>K.some(k=>k.от===i)
+  const добавить=(i,имя)=>{ if(i>0&&!есть(i)) K.push({от:i,имя:имя}) }
+  K.push({от:0,имя:'Начало урока'})
+  BEATS.forEach((b,i)=>{
+    if(b.kind==='own') return
+    const s=String(b.say||'')
+    const etx=s.indexOf('\u0003')
+    if(etx>0){ добавить(i,s.slice(0,etx).replace(/[.\s]+$/,'')); return }
+    // заголовок, набранный прописными: «ПОДВЕДЁМ ИТОГИ», «Работаем с ИСТОЧНИКОМ»
+    if(s.length<40&&/[А-ЯЁ]{4,}/.test(s)) добавить(i,s.replace(/\s+/g,' ').trim())
+  })
+  // Такт «Переворачиваем страницу» перед заголовком принадлежит НОВОМУ куску: иначе
+  // прошлый кусок кончается перелистыванием на чужую страницу.
+  for(const k of K){ const п=BEATS[k.от-1]
+    if(п&&п.kind==='own'&&/^Переворачиваем страницу/i.test(п.say||'')&&!есть(k.от-1)) k.от--
+  }
+  K.sort((a,b)=>a.от-b.от)
+  K.forEach((k,i)=>{ k.n=i+1; k.до=(K[i+1]?K[i+1].от:BEATS.length)-1
+    const стр=BEATS.slice(k.от,k.до+1).map(b=>b.page||0).filter(Boolean)
+    k.стрОт=Math.min.apply(null,стр); k.стрДо=Math.max.apply(null,стр) })
+  return K
+}
+const кусокТакта=(n)=>КУСКИ.find(k=>n>=k.от&&n<=k.до)||null
+const кусокГде=(k)=>'стр. '+(k.стрОт===k.стрДо?k.стрОт:k.стрОт+'–'+k.стрДо)
+const значокТакта=(b)=>b.kind==='ask'?'?':b.kind==='spot'?'◉':b.kind==='own'?'·':'¶'
+const коротко=(b,n)=>String(b.say||'').replace(/\u0003/g,' ').replace(/\s+/g,' ').trim().slice(0,n||96)
+
+// ⚠️ Точки перерисовываются при возврате прогресса и на загрузке (innerHTML=''), поэтому
+//  слушатели висят не на самих точках, а на #steps — иначе они молча умирали бы.
+function paintDots(){ const d=$('#steps')
+  const кн=$('#jmpBtn'); d.innerHTML=''; if(кн) d.appendChild(кн)   // кнопка живёт в полосе
+  КУСКИ=кускиУрока()
+  for(const k of КУСКИ){
+    const g=document.createElement('span'); g.className='грп'; g.dataset.k=k.n
+    g.title=k.n+'. '+k.имя+' · '+кусокГде(k)
+    for(let i=k.от;i<=k.до;i++){ const el=document.createElement('b')
+      el.dataset.n=i; g.appendChild(el) }
+    d.appendChild(g)
+  }
+}
 function paintSteps(){
   document.querySelectorAll('#steps b').forEach((el,i)=>{
-    el.className = i===beat?'on':(i<beat?'done':'') })
+    el.classList.toggle('on',i===beat); el.classList.toggle('done',i<beat) })
+  if($('#jmp').classList.contains('on')) отметитьМеню()
 }
+
+// Раздел доски по номеру такта: тем же правилом, что и zebraBeat, но проигранным от
+// начала — иначе переход в середину параграфа оставил бы доску первого раздела.
+// (По одной b.page считать нельзя: у третьего раздела from:124, а его заголовок стоит
+//  на 123-й — поэтому смотрим и на z.re тоже, ровно как zebraBeat.)
+function разделТакта(n){
+  let ц=0
+  for(let k=0;k<=n&&k<BEATS.length;k++){ const b=BEATS[k]
+    for(let i=ZEBRA.length-1;i>ц;i--){ const z=ZEBRA[i]
+      if((z.re&&z.re.test(b.say||''))||(b.page&&b.page>=z.from)){ ц=i; break } } }
+  return ц
+}
+// Мягкая остановка. stop() гасит ПОТОК АВАТАРА — а Anam биллит подключение заново, и
+// каждый переход стоил бы минут и нескольких секунд чёрного окна («подключаю видео
+// Ани…»). Переходу нужно другое: снять реплику, микрофон и ожидание нажатия — и
+// отпустить прогон.
+// ⚠️ Гонки с прежним прогоном нет: в его цикле после КАЖДОГО await стоит live(), а от
+// последней такой проверки до beat++ нет ни одного ожидания — вклиниться между ними наш
+// код физически не может, и старый прогон не сдвинет уже переставленный такт. Но это
+// верно ТОЛЬКО если поколение сменилось: голое присвоение beat промахивается на такт
+// вперёд (замерено разведкой: просили 50 — получили 58).
+function тихийСтоп(){
+  running=false; paused=false; runGen++; gen++
+  $('#btnPause').textContent='⏸ пауза'; $('#btnPause').style.display='none'
+  cutVoice()
+  // ⚠️ micAbort() отпускает ждущего (micGive) ТОЛЬКО когда микрофон уже не пишет.
+  //  На живом переходе он пишет — и hearOnce() внутри проверки страницы висел бы вечно,
+  //  а следующий ответ ребёнка уехал бы в этот мёртвый промис вместо учителя.
+  micAbort(); micGive(null)
+  // отпускаем ожидание нажатия в проверке и выбрасываем нажатие, чтобы оно не
+  // «ответило» уже за следующий экран
+  ctrlDone({act:'skip'}); ctrlQ.length=0
+  taskTimer(false)                     // иначе таймер задания выстрелит в новый экран
+  if(CTRL.on) ctrlOff()
+  скрытьЗастрял()
+}
+// Хвосты прошлого места. Каждый из них живёт по своему таймеру и без уборки доигрывает
+// уже на новом месте: чужая картинка на показе (до 7.5 с), чужая карточка из очереди
+// доски (до 9 с), уехавшая за край книга, подсветка «сейчас говорят про это».
+function убратьХвосты(){
+  mosaicOff(); topicsHide()             // книга обязана вернуться, даже если проверки не было
+  closeLens(); $('#resume').classList.remove('on')
+  if(DR.done){ DR.done=false; DR.endAt=0; clearTimeout(drT); drTick() }
+  hideReport()
+  сливДоски(); clearDemo()
+  подсветитьНаДоске(''); зебраПодсветить(null)
+  for(const e of document.querySelectorAll('#keepList .kc.ищем')) e.classList.remove('ищем')
+}
+// Конспект до нового места. Доска наполняется только по ходу речи, поэтому переход
+// вперёд оставил бы её дырявой, а перепрыгнутые факты не появились бы уже никогда.
+// Догоняем ТЕМ ЖЕ правилом, что panelBeat (привязка teaser'а к тексту такта), но без
+// addKeep: тот дёргает показ на каждую карточку и утаскивает взгляд на текущий раздел.
+function догнатьДоску(n){
+  for(let i=0;i<n&&i<BEATS.length;i++){ const b=BEATS[i]; if(!b) continue
+    zebraBeat(b)                        // раздел едет вперёд по своему закону
+    for(const t of TEASERS){
+      const k=t.page+'|'+t.term
+      if(keepFired.has(k)) continue
+      if(!t._re.test(b.say||'')) continue
+      keepFired.add(k)
+      if(t._такт===undefined) t._такт=i  // чтобы «покажи, где это в учебнике» работало
+      if(!KEEP.has(zPart)) KEEP.set(zPart,[])
+      KEEP.get(zPart).push(t)
+    }
+  }
+  // Вперёд — переводим раздел, как будто дошли. Назад — собранное НЕ стираем (закон у
+  // zebraBeat: «назад урок откатывается лишь на повторе, и стирать там собранное
+  // нельзя — оно и есть конспект пройденного»), только показываем ту доску, к которой
+  // вернулись.
+  const ц=разделТакта(n)
+  if(ц>zPart){ zPart=ц; zHeroFor=-1 }
+  zСмотрим=Math.min(ц,zPart)
+  доскаДля=-1                           // положили пачкой — доска пересобирается целиком
+  paintZebra()
+}
+// Вопросы учебника, мимо которых пронесло. Проверка страницы начинается именно с них,
+// и без этого переход через вопрос делал бы проверку короче настоящей.
+function собратьВопросы(n){
+  PAGEQ.clear()
+  for(let i=0;i<n&&i<BEATS.length;i++){ const b=BEATS[i]; if(!b.ask) continue
+    if(!PAGEQ.has(b.page)) PAGEQ.set(b.page,[])
+    const L=PAGEQ.get(b.page); if(!L.includes(b)) L.push(b) }
+}
+// Такт own (приветствие, «Переворачиваем страницу») строк не имеет, и showBeat выходит
+// из него ДО того, как повезёт лист: переход на такой такт визуально «ничего не делал».
+// Довозим страницу до ближайшего такта со строками на той же странице.
+function якорьТакта(n){
+  for(let i=n;i<BEATS.length;i++){ const b=BEATS[i]
+    if(b.page!==BEATS[n].page) break
+    if((b.lines||[]).length||b.box) return b }
+  return BEATS[n]
+}
+let прыжокGen=0
+async function перейтиКТакту(n,играть){
+  if(!BEATS.length) return -1
+  n=Math.max(0,Math.min(BEATS.length-1,n|0))
+  // ⚠️ Своё поколение. Между «поставили такт» и «пустили урок» есть ожидание доезда
+  //  листа, и за это время можно нажать ещё раз. Без поколения второй переход добегал
+  //  до run(), когда первый уже поднял running, — и run() как переключатель ГАСИЛ урок.
+  const мой=++прыжокGen
+  тихийСтоп()
+  убратьХвосты()
+  beat=n
+  ручнойДо=0                            // снять 15-секундный замок «сейчас листает ребёнок»
+  догнатьДоску(n)
+  собратьВопросы(n)
+  paintSteps(); живПрогон(); сохранитьПрогресс()
+  const k=кусокТакта(n)
+  скажиСтатус('перешли: шаг '+(n+1)+' из '+BEATS.length+' · стр. '+BEATS[n].page
+    +(k?' · '+k.имя:''))
+  await goPage(BEATS[n].page)
+  if(мой!==прыжокGen) return n          // нас обогнал следующий переход — не мешаем ему
+  showBeat(BEATS[n])
+  довезтиКСтроке(якорьТакта(n))
+  обновитьНизМеню()
+  // урок обязан пойти сам — иначе это листание. running сбрасываем сами: пока лист ехал,
+  // урок могли запустить кнопкой, и тогда run() опять сработал бы как «стоп».
+  if(играть!==false){ running=false; run() }
+  return n
+}
+
+// ── окно перехода ─────────────────────────────────────────────────────────
+function рисоватьМеню(фильтр){
+  const L=$('#jmpList'); L.innerHTML=''
+  const ф=String(фильтр||'').trim().toLowerCase()
+  const подходит=(b,i)=>{
+    if(!ф) return true
+    if(String(i+1)===ф||String(b.page)===ф) return true
+    return коротко(b,400).toLowerCase().includes(ф)
+  }
+  let строк=0
+  for(const k of КУСКИ){
+    const свои=[]
+    for(let i=k.от;i<=k.до;i++) if(подходит(BEATS[i],i)) свои.push(i)
+    if(!свои.length) continue
+    const h=document.createElement('button')
+    h.className='гз'+(beat>=k.от&&beat<=k.до?' идёт':''); h.dataset.n=k.от
+    h.innerHTML='<span>'+k.n+'. '+esc(k.имя)+'</span>'
+      +'<span class=где>'+кусокГде(k)+' · такты '+(k.от+1)+'–'+(k.до+1)+'</span>'
+    L.appendChild(h)
+    for(const i of свои){ const b=BEATS[i]
+      const r=document.createElement('button')
+      r.className='тк'+(b.kind==='own'?' свой':'')+(i===beat?' сейчас':''); r.dataset.n=i
+      r.innerHTML='<span class=н>'+(i+1)+'</span><span class=в>'+значокТакта(b)+'</span>'
+        +'<span class=т>'+esc(коротко(b))+'</span>'
+      L.appendChild(r); строк++
+    }
+  }
+  if(!строк) L.innerHTML='<div class=пусто>ничего не нашлось</div>'
+}
+function отметитьМеню(){
+  for(const e of document.querySelectorAll('#jmpList .тк'))
+    e.classList.toggle('сейчас',+e.dataset.n===beat)
+  for(const e of document.querySelectorAll('#jmpList .гз')){
+    const k=КУСКИ.find(x=>x.от===+e.dataset.n)
+    e.classList.toggle('идёт',!!k&&beat>=k.от&&beat<=k.до)
+  }
+  обновитьНизМеню()
+}
+function обновитьНизМеню(){
+  const b=BEATS[beat]; if(!b) return
+  const k=кусокТакта(beat)
+  $('#jmpNow').innerHTML='сейчас: <b>шаг '+(beat+1)+' из '+BEATS.length+'</b> · стр. '+b.page
+    +(k?' · '+esc(k.имя):'')+(running?' · урок идёт':'')
+}
+function открытьПрыжок(){
+  if(!BEATS.length) return
+  if(!КУСКИ.length) КУСКИ=кускиУрока()
+  // окно «продолжить с того же места» стоит ровно над панелью и спорит с этим окном
+  $('#resume').classList.remove('on'); $('#fbBox').classList.remove('on')
+  const j=$('#jmp'), r=$('#bar').getBoundingClientRect()
+  j.style.bottom=Math.round(innerHeight-r.top+8)+'px'
+  рисоватьМеню($('#jmpF').value)
+  j.classList.add('on'); обновитьНизМеню()
+  const тек=j.querySelector('.тк.сейчас'); if(тек) тек.scrollIntoView({block:'nearest'})
+}
+function закрытьПрыжок(){ $('#jmp').classList.remove('on') }
+$('#jmpBtn').onclick=()=>{
+  if($('#jmp').classList.contains('on')) закрытьПрыжок(); else открытьПрыжок() }
+$('#jmpX').onclick=закрытьПрыжок
+$('#jmpF').oninput=()=>рисоватьМеню($('#jmpF').value)
+$('#jmpList').addEventListener('click',(e)=>{
+  const b=e.target.closest('[data-n]'); if(!b) return
+  закрытьПрыжок(); перейтиКТакту(+b.dataset.n,$('#jmpPlay').checked)
+})
+// Esc закрывает окно перехода раньше, чем лупу: перехватываем на погружении.
+addEventListener('keydown',(e)=>{ if(e.key==='Escape'&&$('#jmp').classList.contains('on')){
+  e.stopPropagation(); закрытьПрыжок() } },true)
+document.addEventListener('click',(e)=>{
+  if(!$('#jmp').classList.contains('on')) return
+  if(e.target.closest('#jmp')||e.target.closest('#jmpBtn')||e.target.closest('#steps')) return
+  закрытьПрыжок()
+})
+
+// ── точки такта: карта урока прямо в панели ───────────────────────────────
+$('#steps').addEventListener('click',(e)=>{
+  const b=e.target.closest('b[data-n]'); if(!b) return
+  перейтиКТакту(+b.dataset.n,true)
+})
+$('#steps').addEventListener('mouseover',(e)=>{
+  const b=e.target.closest('b[data-n]'); if(!b) return
+  const i=+b.dataset.n, тк=BEATS[i]; if(!тк) return
+  const k=кусокТакта(i), tip=$('#stepTip')
+  tip.innerHTML='<span class=к>'+(k?esc(k.имя):'')+'</span> <span class=н>· шаг '+(i+1)
+    +' из '+BEATS.length+' · стр. '+тк.page+'</span><br>'+esc(коротко(тк,120))
+  tip.classList.add('on')
+  const r=b.getBoundingClientRect(), рт=tip.getBoundingClientRect()
+  tip.style.left=Math.max(8,Math.min(innerWidth-рт.width-8,r.left+r.width/2-рт.width/2))+'px'
+  tip.style.top=Math.max(8,r.top-рт.height-10)+'px'
+})
+$('#steps').addEventListener('mouseleave',()=>$('#stepTip').classList.remove('on'))
 async function run(){
   if(running){ stop('остановлено'); return }
   const my=++runGen
@@ -7517,6 +7882,33 @@ window.__kniga={
   mark:(id,kind)=>showMark(id,kind||'under'),
   shown:()=>[...document.querySelectorAll('.mk')].map(e=>({ вид:e.className, ширина:e.style.width, left:e.style.left })),
   beats:()=>BEATS.length,
+  // ── ПЕРЕХОД ПО УРОКУ (v2.13) ───────────────────────────────────────────
+  //  Куски урока и переход в любой такт. Приёмка обязана начинать урок с середины ТОЙ
+  //  ЖЕ функцией, что и человек: старый goBeat() ниже — голое присвоение beat, он
+  //  работает только до run() и на ходу промахивается на такт. Его не трогаем (на нём
+  //  стоят проверки страницы и тренажёра), но новое поведение проверяем этим.
+  куски:()=>КУСКИ.map(k=>({ n:k.n, имя:k.имя, от:k.от+1, до:k.до+1,
+    стрОт:k.стрОт, стрДо:k.стрДо, тактов:k.до-k.от+1 })),
+  где:()=>{ const k=кусокТакта(beat), b=BEATS[beat]||{}
+    return { такт:beat+1, всего:BEATS.length, стр:b.page||0, вид:b.kind||'',
+      кусок:k?k.имя:'', номерКуска:k?k.n:0, идёт:running,
+      раздел:zСмотрим+1, идётРаздел:zPart+1, разворот:PAGES[sheet],
+      наДоске:[...KEEP.values()].reduce((n,v)=>n+v.length,0),
+      вопросовСтраниц:[...PAGEQ.keys()].sort((a,b)=>a-b) } },
+  // n — номер такта как в fullScript (с единицы). играть=false: перейти и не читать.
+  прыжок:(n,играть)=>перейтиКТакту((+n||1)-1,играть!==false),
+  меню:()=>({ открыто:$('#jmp').classList.contains('on'),
+    групп:document.querySelectorAll('#jmpList .гз').length,
+    строк:document.querySelectorAll('#jmpList .тк').length,
+    низ:$('#jmpNow').textContent }),
+  менюОткрыть:()=>{ открытьПрыжок(); return $('#jmp').classList.contains('on') },
+  менюЗакрыть:()=>{ закрытьПрыжок(); return true },
+  менюИскать:(s)=>{ $('#jmpF').value=s; рисоватьМеню(s)
+    return document.querySelectorAll('#jmpList .тк').length },
+  точки:()=>({ всего:document.querySelectorAll('#steps b').length,
+    групп:document.querySelectorAll('#steps .грп').length,
+    адресуются:[...document.querySelectorAll('#steps b')].every(e=>e.dataset.n!==undefined),
+    горит:[...document.querySelectorAll('#steps b')].findIndex(e=>e.classList.contains('on'))+1 }),
   // из чего собран урок: страница · вид такта · первые слова (для приёмки)
   // полный сценарий с текстом — для предрендера роликов учителя
   fullScript:()=>BEATS.map((b,i)=>({ n:i+1, page:b.page, kind:b.kind, ask:!!b.ask, say:b.say,
